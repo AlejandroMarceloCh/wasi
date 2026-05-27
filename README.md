@@ -57,37 +57,33 @@ En total, 95 features alimentan el modelo. Cero APIs pagas.
 
 ```
 .
-├── README.md                · este archivo
-├── DIAGRAMAS.md             · 6 diagramas Mermaid de la arquitectura
-├── Makefile                 · make backend / make frontend
-├── app/
-│   ├── index.html           · entry del frontend
-│   ├── app.jsx              · router
-│   ├── screens.jsx          · pantallas (Login, Wizard, Result, Entorno, FAQ)
-│   ├── components.jsx       · UI compartida
-│   ├── api.js               · cliente fetch + JWT
-│   └── backend/
-│       ├── main.py          · entry FastAPI + lifespan (valida modelo)
-│       ├── model_service.py · aislamiento del .joblib
-│       ├── ml.py            · build_features + counterfactuals + interval
-│       ├── ml_v2.py         · 95 features del modelo v2
-│       ├── geo_index.py     · KD-tree esfera + IDW haversine
-│       ├── osm_lookup.py    · POIs por categoria
-│       ├── distrito_features.py · NSE manzana + denuncias distrito
-│       ├── routers/         · auth, dashboard, fairvalue, entorno, health
-│       ├── models/v2/       · .joblib del modelo XGBoost + quantile
-│       ├── data/external/   · POIs, denuncias, comisarias
-│       └── tests/           · 63 pytest tests
-├── docs/
-│   ├── defensa/             · canvas, pitch, demo guiada, slides, Q&A
-│   └── notebooks/           · 11_analisis_residuos.ipynb (error analysis)
-└── gates/                   · evidencia de 6 gates pre-ejecucion
+├── README.md
+├── Makefile                · make backend / make frontend / make test
+├── .env.example            · template de variables de entorno
+└── app/
+    ├── index.html          · entry del frontend
+    ├── app.jsx             · router
+    ├── screens.jsx         · pantallas (Login, Wizard, Result, Entorno, FAQ)
+    ├── components.jsx      · UI compartida
+    ├── api.js              · cliente fetch + JWT
+    └── backend/
+        ├── main.py         · entry FastAPI + lifespan (valida modelo)
+        ├── model_service.py · aislamiento del .joblib
+        ├── ml.py           · build_features + counterfactuals + interval
+        ├── ml_v2.py        · 95 features del modelo v2
+        ├── geo_index.py    · KD-tree esfera + IDW haversine
+        ├── osm_lookup.py   · POIs por categoria
+        ├── distrito_features.py · NSE manzana + denuncias distrito
+        ├── routers/        · auth, dashboard, fairvalue, entorno, health
+        ├── models/v2/      · .joblib del modelo XGBoost + quantile
+        ├── data/external/  · POIs, denuncias, comisarias
+        └── tests/          · 63 pytest tests
 ```
 
 ## Endpoints
 
-Documentacion interactiva (Swagger UI) disponible en
-http://localhost:8000/docs cuando el backend esta corriendo.
+Documentacion interactiva (Swagger UI) en http://localhost:8000/docs cuando
+el backend esta corriendo.
 
 | Metodo | Ruta | Para que |
 |---|---|---|
@@ -107,16 +103,6 @@ http://localhost:8000/docs cuando el backend esta corriendo.
 3. **Sin reentrenamiento automatico**. Manual trimestral. `/api/model/info`
    expone `days_since_training` para monitoreo.
 
-## Reproducir el modelo quantile
-
-```bash
-python pipeline/scripts/train_quantile_v2.py
-```
-
-Semillas fijas (`random_state=42`), split estratificado por
-`categoria_distrito × estrato_nse`. Genera `xgb_q25/q50/q75_v2.joblib` y
-`quantile_coverage.json` en `app/backend/models/v2/`.
-
 ## Tests
 
 ```bash
@@ -126,12 +112,6 @@ make test
 63 tests pytest: health, predict end-to-end, counterfactuals, quantile,
 schemas, geo, fail-fast del modelo.
 
-## Defensa oral
-
-Material completo en [docs/defensa/](docs/defensa/): Data Product Canvas,
-elevator pitch de 90 s, guion de demo, slides con narracion y banco de Q&A.
-
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE). Las fuentes de datos son publicas y se citan
-en la seccion Datos.
+MIT — ver [LICENSE](LICENSE).
