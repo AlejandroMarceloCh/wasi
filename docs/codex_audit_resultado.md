@@ -72,7 +72,7 @@ El plan está bien orientado en S1/S2/S4; el riesgo real está en sobrecargar in
 - ⚠️ **Ocultar `n_comparables` vs explicar rango:** S1.2 quiere ocultarlo al usuario, pero S3.1 depende de ese contexto para justificar rango ancho. Se puede resolver con copy ("cobertura baja") sin exponer número, pero el plan no lo formaliza.
 - ⚠️ **Riesgo de tests post-retrain no gestionado:** hay tests con umbrales de predicción (`>800`, `<700`) en `test_v2_features.py`; retrains de S3.2/S3.3 pueden romperlos.
 - ✅ Decisión "`dist_mar_km` se queda" sí es consistente con código actual (`ml_v2.py`, `geo_index.py`, `entorno.py`).
-- ⚠️ "Sin nuevas requests" en S1.3 **no es consistente** si querés `count_500m` OSM en UI de entorno: hoy `EntornoOut` no lo expone.
+- ⚠️ "Sin nuevas requests" en S1.3 **no es consistente** si quieres `count_500m` OSM en UI de entorno: hoy `EntornoOut` no lo expone.
 - ✅ Orden de prioridad macro sí cierra: S1/S2 corrigen huecos rubricables; S3/S4 agregan diferenciador y defensa.
 
 ---

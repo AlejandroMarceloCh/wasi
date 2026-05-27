@@ -367,7 +367,7 @@ Setup git + chore:              2 commits
 
 **Lo único pendiente:**
 - Vos ensayando la defensa con cronómetro (3× recomendado, `docs/defensa/README.md` tiene checklist).
-- Si querés push al repo remoto: `gh repo create` + `git push -u origin main`.
+- Si quieres push al repo remoto: `gh repo create` + `git push -u origin main`.
 
 ---
 

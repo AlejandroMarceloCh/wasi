@@ -1,8 +1,8 @@
 # Q&A defensivo — 5 preguntas core + 2 de reserva
 
 > **Objetivo:** memorizar las respuestas a las 5 preguntas más probables del jurado.
-> Las 2 de reserva son por si te preguntan algo extra raro.
-> **Regla de oro:** si no sabés, decí "no sé, pero te puedo mostrar dónde lo verificamos". NUNCA inventes.
+> Las 2 de reserva son por si preguntan algo extra raro.
+> **Regla de oro:** si no sabes, di "no sé, pero puedo mostrar dónde lo verificamos". NUNCA inventar.
 
 ---
 
@@ -22,7 +22,7 @@
 
 ---
 
-## CORE 2 · "¿Cómo manejas la incertidumbre del modelo?"
+## CORE 2 · "¿Cómo manejan la incertidumbre del modelo?"
 
 **Respuesta (50 s):**
 
@@ -32,14 +32,14 @@
 >
 > Segundo, **rango P25-P75** del modelo de cuantiles. XGBoost con `reg:quantileerror`, 3 modelos. Coverage real 42,7 % sobre test, esperado teórico 50 %. Defendible.
 >
-> Tercero, **banner UX** cuando confidence = Baja. El usuario ve 'cobertura baja, tomá esto como referencia, no como precio'. Honestidad sobre la incertidumbre es **bonus, no liability**."
+> Tercero, **banner UX** cuando confidence = Baja. El usuario ve 'cobertura baja, tómalo como referencia, no como precio'. Honestidad sobre la incertidumbre es **bonus, no liability**."
 
 **Si preguntan "¿por qué el coverage no es exactamente 50 %?":**
 > "Porque entrenamos XGBoost quantile sin conformal calibration. Es lo siguiente en la roadmap. Para 50 % exacto, conformal prediction sobre validation set garantiza coverage matemáticamente. Costo: ~2 horas. Lo dejé para después de la defensa porque 42,7 % ya es defendible."
 
 ---
 
-## CORE 3 · "¿Cómo monitorizás el modelo en producción?"
+## CORE 3 · "¿Cómo monitorizan el modelo en producción?"
 
 **Respuesta (40 s):**
 
@@ -55,7 +55,7 @@
 
 ---
 
-## CORE 4 · "¿Qué hacés con el sesgo a Miraflores?"
+## CORE 4 · "¿Qué hacen con el sesgo a Miraflores?"
 
 **Respuesta (45 s):**
 
@@ -89,7 +89,7 @@
 
 ---
 
-## RESERVA 1 · "¿Por qué no usaste DiCE para contrafactuales?"
+## RESERVA 1 · "¿Por qué no usaron DiCE para contrafactuales?"
 
 **Respuesta (40 s):**
 
@@ -99,7 +99,7 @@
 >
 > Lo que sí necesita el usuario es: '¿cuánto cambia el precio si modifico esto?'. Eso se logra con **perturbación numérica simple** — ±1 unidad en cada feature accionable, clamps al schema, dedupe por feature, top-5 por |%|.
 >
-> 50 líneas de código, sin dependencia externa, latencia menor a 100ms. DiCE habría sido sobre-ingeniería. Lo defiendo como **inspiración del concepto**, no como implementación literal."
+> 50 líneas de código, sin dependencia externa, latencia menor a 100 ms. DiCE habría sido sobre-ingeniería. Lo defiendo como **inspiración del concepto**, no como implementación literal."
 
 ---
 
@@ -121,25 +121,25 @@
 
 ## Reglas durante el Q&A
 
-1. **Pausá antes de responder.** 2 segundos de pausa = pareces que pensás. 0 segundos = pareces ensayado.
-2. **Repetí la pregunta** si te da tiempo de pensar: "¿Por qué XGBoost? Buena pregunta — comparé 5 modelos en el Gate 6...". Te da 3 segundos extra.
-3. **No te disculpés.** "Esa es una limitación que reconocemos, [solución]." NUNCA "perdón, eso no lo hicimos bien".
-4. **Si te preguntan algo del Sprint 4 (defensa)** — Canvas, Pitch, demo — apuntá a los archivos: "está en `docs/defensa/`, en el repo".
-5. **Si te preguntan algo que no sabés:** "No estoy seguro, pero te puedo mostrar dónde lo verificamos en el código." → abrir el archivo, leer juntos. Mucho mejor que inventar.
-6. **Si el jurado tiene razón en una crítica:** asentí, anotalo en una libreta visible. "Buena observación, lo agrego al backlog." No defendas lo indefendible.
-7. **Si te quedás en blanco:** "Déjenme retomar." Volver al pitch o a la demo. No improvisar tecnología.
+1. **Pausa antes de responder.** 2 segundos de pausa = pareces que piensas. 0 segundos = pareces ensayado.
+2. **Repite la pregunta** si te da tiempo para pensar: "¿Por qué XGBoost? Buena pregunta — comparé 5 modelos en el Gate 6...". Da 3 segundos extra.
+3. **No te disculpes.** "Esa es una limitación que reconocemos, [solución]." NUNCA "perdón, eso no lo hicimos bien".
+4. **Si preguntan algo del Sprint 4 (defensa)** — Canvas, Pitch, demo — apunta a los archivos: "está en `docs/defensa/`, en el repo".
+5. **Si preguntan algo que no sabes:** "No estoy seguro, pero puedo mostrar dónde lo verificamos en el código." → abrir el archivo, leer juntos. Mucho mejor que inventar.
+6. **Si el jurado tiene razón en una crítica:** asiente, anótalo en una libreta visible. "Buena observación, lo agrego al backlog." No defiendas lo indefendible.
+7. **Si te quedas en blanco:** "Déjenme retomar." Volver al pitch o a la demo. No improvisar tecnología.
 
 ---
 
-## Preguntas que NO querés (cómo desviarlas)
+## Preguntas que NO quieres (cómo desviarlas)
 
-**"¿Y por qué no implementaste dark mode?"**
+**"¿Y por qué no implementaron dark mode?"**
 > "Es opcional según la priorización post-auditoría Codex. La rúbrica pesa más Funcionalidad + Datos+Modelo que vanidad UX. Está en backlog para 1.1."
 
-**"¿Por qué no usaste data de Properati API en vez de scrapear?"**
+**"¿Por qué no usaron data de Properati API en vez de scrapear?"**
 > "Properati API requiere pago y aprobación comercial. Para un proyecto académico abierto, scraping respetando robots.txt es la única vía sostenible. La data scrapeada es reproducible por cualquiera con `pipeline/scrapers/`."
 
-**"¿Probaste con CatBoost o LightGBM?"**
+**"¿Probaron con CatBoost o LightGBM?"**
 > "CatBoost destaca cuando hay muchas variables categóricas y nosotros tenemos solo `distrito` (target-encoded). LightGBM es comparable a XGBoost en rendimiento, pero XGBoost tiene mejor soporte para `quantileerror` que necesité en el Sprint 3.1. Decisión basada en herramientas disponibles, no en rendimiento esperable diferente."
 
 **"¿Por qué solo Lima Metropolitana?"**
@@ -149,7 +149,7 @@
 
 ## La pregunta que NO te van a hacer pero te conviene preparar
 
-**"¿Qué aprendiste haciendo este proyecto?"**
+**"¿Qué aprendieron haciendo este proyecto?"**
 
 > "Tres cosas que no creía al inicio:
 >
@@ -159,4 +159,4 @@
 >
 > Tres, **el proceso pesa**. 6 gates pre-ejecución, 4 auditorías sabueso, 63 tests — no son académicos. Son lo que diferencia un MVP defendible de un demo de portafolio."
 
-Si te dan tiempo libre al final ("¿algo más que quieras decir?"), usar esto como cierre.
+Si dan tiempo libre al final ("¿algo más que quieran decir?"), usar esto como cierre.

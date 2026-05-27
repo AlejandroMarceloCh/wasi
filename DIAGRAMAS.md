@@ -427,7 +427,7 @@ mkdir -p diagramas
 mmdc -i diagramas/01_overview.mmd -o diagramas/01_overview.png -w 1920 -H 1080
 ```
 
-O **abrí este archivo en VSCode con Markdown Preview** (`Cmd+Shift+V`) y ya los ves renderizados.
+O **abre este archivo en VSCode con Markdown Preview** (`Cmd+Shift+V`) y ya los ves renderizados.
 
 ---
 

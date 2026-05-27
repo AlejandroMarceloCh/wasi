@@ -117,7 +117,7 @@ Si el tiempo se reduce a la mitad, priorización honesta:
 
 ### Reglas de auditoría
 
-- **NO** inventar archivos, líneas o funciones. Si dudás, abrí el archivo.
+- **NO** inventar archivos, líneas o funciones. Si dudas, abre el archivo.
 - **NO** floro motivacional. Solo data verificable.
 - **SÍ** ser concreto: `archivo.py:línea`, `función()`, `commit hash`.
 - **SÍ** marcar lo que está bien también (no solo gaps).

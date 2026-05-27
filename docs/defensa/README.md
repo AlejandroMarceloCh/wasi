@@ -65,19 +65,19 @@
 ## Si te tiembla la voz
 
 - Hablar **más despacio**, no más rápido. Lo opuesto a lo que el cerebro quiere.
-- Mirá al jurado más amigable (siempre hay uno que asiente).
-- Si te equivocás en una métrica, decila y seguí. Nadie va a verificar 15,7 vs 15,74 en vivo.
+- Mira al jurado más amigable (siempre hay uno que asiente).
+- Si te equivocas en una métrica, dila y sigue. Nadie va a verificar 15,7 vs 15,74 en vivo.
 - Tomar agua entre slide 6 y slide 7. Da pausa natural sin parecer dudoso.
 
 ---
 
-## Backlog si te dan feedback en la defensa
+## Backlog si dan feedback en la defensa
 
-Anotalo en una libreta visible. El jurado valora que tomes apuntes. Después del proyecto, agregalo a:
+Anótalo en una libreta visible. El jurado valora que tomes apuntes. Después del proyecto, agrégalo a:
 - `_archive/docs_obsoletos/PENDIENTES_rubrica.md` o
-- Nuevo issue en el repo GitHub si lo subís.
+- Nuevo issue en el repo GitHub si lo subes.
 
-NO interrumpas al jurado mientras habla. NO defiendas lo indefendible. Si tienen razón, asentí.
+NO interrumpas al jurado mientras habla. NO defiendas lo indefendible. Si tienen razón, asiente.
 
 ---
 
@@ -104,7 +104,7 @@ NO interrumpas al jurado mientras habla. NO defiendas lo indefendible. Si tienen
 | Innovación (3) | 3/3 | Quantile P25-P75 (no se hace en proyectos del curso típicos), contrafactual ligero, UX que comunica incertidumbre |
 | **TOTAL ESPERADO** | **19.5 — 20 / 20** | — |
 
-Si llegás a 20/20 → fiesta. Si llegás a 19.5 → ya superaste el objetivo declarado.
+Si llegas a 20/20 → fiesta. Si llegas a 19.5 → ya superaste el objetivo declarado.
 
 ---
 

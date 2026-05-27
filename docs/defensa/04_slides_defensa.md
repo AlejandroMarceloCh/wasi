@@ -1,7 +1,7 @@
 # Slides de defensa — guion + contenido por slide
 
 > **Formato:** 10-12 slides. ~30-45 s por slide = 5-9 min total (sin contar pitch ni demo).
-> **Herramienta:** Keynote / Google Slides / Canva. No Powerpoint si podés evitarlo.
+> **Herramienta:** Keynote / Google Slides / Canva. No Powerpoint si puedes evitarlo.
 > **Diseño:** texto mínimo, una métrica por slide, screenshots reales del producto.
 
 ---
@@ -18,7 +18,7 @@ DS3022 — Desarrollo de Productos de Datos · UTEC
 Alejandro Marcelo
 ```
 
-**Lo que decís:** nada o solo "Buenos días, soy Alejandro Marcelo y les voy a presentar ubIcA". Es portada.
+**Lo que dices:** nada o solo "Buenos días, soy Alejandro Marcelo y les voy a presentar ubIcA". Es portada.
 
 ---
 
@@ -35,7 +35,7 @@ se concentra en 2 distritos.
 En el resto, la información es opaca.
 ```
 
-**Lo que decís:** lectura del pitch — primeros 25 s del Acto 1 + 2 del pitch.
+**Lo que dices:** lectura del pitch — primeros 25 s del Acto 1 + 2 del pitch.
 
 ---
 
@@ -48,7 +48,7 @@ ubIcA
 Pin → form de 8 toques → veredicto + rango + contexto en <1 s
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Vamos a la demo en vivo en 1 minuto, pero primero un overview rápido de cómo está hecho."
 
 ---
@@ -64,7 +64,7 @@ Leaflet (CDN)     SQLite + JWT         + 3 modelos quantile
 Sin build         18 endpoints         MAPE 15,7 % · R² 0.86
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Frontend sin build — un solo `index.html` con React vía Babel standalone, Leaflet por CDN.
 > Backend FastAPI con SQLite por defecto, pero el código es agnóstico del motor: cambiar a Postgres es una variable de entorno.
 > Modelo XGBoost v2 con 95 features, 4 fuentes de datos públicas."
@@ -86,7 +86,7 @@ OpenStreetMap   → 11,100 POIs (7 categorías)
 → 95 features para el modelo
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Cero APIs pagas, cero data sintética. Todo es público y trazable.
 > En proyectos donde la data es propietaria, es difícil defender el método. Acá cualquiera podría reproducir el pipeline."
 
@@ -109,7 +109,7 @@ OpenStreetMap   → 11,100 POIs (7 categorías)
     └──► [3 XGBoost quantile] ──► [P25, P50, P75]
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Toda la lógica del modelo vive detrás de `model_service.py`. Swap del modelo es 3 pasos documentados sin tocar `build_features`.
 > El KD-tree con haversine real, no euclidiana — porque Lima tiene 70 km de extensión, la curvatura importa."
 
@@ -131,7 +131,7 @@ OpenStreetMap   → 11,100 POIs (7 categorías)
    "Cobertura baja, referencia no precio"
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Tres cosas que no son estándar en proyectos del curso:
 > primero, en lugar de un número falsamente preciso, mostramos un rango.
 > Segundo, contrafactuales ligeros — no DiCE, perturbación numérica simple, suficiente.
@@ -143,7 +143,7 @@ OpenStreetMap   → 11,100 POIs (7 categorías)
 
 > Slide vacía o con el logo de ubIcA. La demo es lo que vende.
 
-**Lo que decís:** ejecutar el script de `03_demo_guiada.md` (90 s cronometrados).
+**Lo que dices:** ejecutar el script de `03_demo_guiada.md` (90 s cronometrados).
 
 ---
 
@@ -166,7 +166,7 @@ Gate 5   · mapping DB (SQLite + geo_index)
 Gate 6   · selección final modelo (RF → XGB v2 ganador)
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Antes de codear, cerré 6 gates con evidencia. Antes de cada sprint, auditoría sabueso. 63 tests pytest, incluyendo end-to-end por zona.
 > El proceso es tan importante como el resultado."
 
@@ -190,7 +190,7 @@ Gate 6   · selección final modelo (RF → XGB v2 ganador)
    /api/model/info expone days_since_training para monitoreo.
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Tres cosas que no resolvimos y queremos decir explícitamente, porque ocultarlo es peor que reconocerlo.
 > Un sesgo de cobertura geográfica que el banner UX comunica.
 > Un leakage heredado del feature engineering original que el central y el quantile sufren coherentemente.
@@ -217,7 +217,7 @@ LARGO PLAZO
   • Modelo dinámico (re-entrenamiento mensual auto)
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "El producto está en su 1.0. Lo que viene es ampliar cobertura, no cambiar arquitectura.
 > Conformal calibration del quantile es lo siguiente — coverage 50 % exacto matemáticamente, no aproximado."
 
@@ -241,7 +241,7 @@ ubIcA
 Alejandro Marcelo · 2026
 ```
 
-**Lo que decís:**
+**Lo que dices:**
 > "Eso es ubIcA. Mentir cuesta más que callar. Gracias."
 
 ---

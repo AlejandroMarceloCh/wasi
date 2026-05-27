@@ -2,7 +2,7 @@
 
 > **Objetivo:** mostrar honestidad + precisión + entorno en 3 pins consecutivos.
 > **Setup requerido:** backend en `:8000`, frontend en `:5500`, login con `ana@ubica.pe` / `demo1234`, **dashboard limpio** (Ana sin análisis previos).
-> **Cronómetro:** practicar 3 veces antes. Si pasás 110 s, cortar el script.
+> **Cronómetro:** practicar 3 veces antes. Si pasas 110 s, cortar el script.
 
 ---
 
@@ -31,7 +31,7 @@ Abrir el browser en **http://localhost:5500/**, hacer login. Dashboard vacío.
 
 ---
 
-## Script (90 s — leer en silencio mientras hacés clicks)
+## Script (90 s — leer en silencio mientras haces clicks)
 
 ### Acto 1 — La Planicie (zona N≤5, mostrar honestidad) · 30 s
 
@@ -46,9 +46,9 @@ Abrir el browser en **http://localhost:5500/**, hacer login. Dashboard vacío.
 **[Click "Calcular"]**
 
 > "Miren qué pasa cuando la zona tiene poca data.
-> El modelo me da una predicción, pero notar **dos cosas**:
+> El modelo me da una predicción, pero hay que notar **dos cosas**:
 > el tag dice 'Confianza: Baja',
-> y aparece un banner amarillo que dice 'cobertura baja en esta zona — tomá esto como referencia, no como precio exacto'.
+> y aparece un banner amarillo que dice 'cobertura baja en esta zona — tómalo como referencia, no como precio exacto'.
 > No estoy fingiendo precisión donde no la tengo."
 
 ---
@@ -103,7 +103,7 @@ Abrir el browser en **http://localhost:5500/**, hacer login. Dashboard vacío.
 | Acto 3 (SMP + Entorno) | 30 s | 25-40 s |
 | **Total** | **90 s** | **85-110 s** |
 
-Si vas a las 100 s, está OK. Si pasás 120 s, ensayá de nuevo cortando descripciones.
+Si vas a las 100 s, está OK. Si pasas 120 s, ensaya de nuevo cortando descripciones.
 
 ---
 
@@ -136,7 +136,7 @@ Si el `MapPicker` acepta input numérico (no solo drag), usar estos valores. Si 
 > Demo solo con coordenadas en JSON vía Swagger. Decir explícitamente:
 > "Leaflet se carga por CDN; en demo offline se hace por endpoint directo."
 
-**Si te quedás en blanco a mitad:**
+**Si te quedas en blanco a mitad:**
 > Respirar. Decir literalmente "déjenme retomar". Volver al primer pin. No improvisar.
 
 ---
@@ -146,15 +146,15 @@ Si el `MapPicker` acepta input numérico (no solo drag), usar estos valores. Si 
 - **No** abrir las DevTools del browser (Console / Network). Distrae.
 - **No** explicar el código (eso es para Q&A si lo piden).
 - **No** mostrar el `git log`. Eso es para el `README`.
-- **No** disculparte por bugs visuales menores. Si los notan, "buena observación, lo registramos en backlog".
+- **No** disculparse por bugs visuales menores. Si los notan, "buena observación, lo registramos en backlog".
 - **No** mencionar lo que NO está hecho (S3.2, S3.3, dark mode). Solo mencionar si te preguntan directo.
 
 ---
 
 ## Ensayo
 
-3 ensayos minimum:
+3 ensayos como mínimo:
 
-1. **Ensayo 1 — solo:** cronometrar con el iPhone. Si pasás 100 s, identificar dónde sobraron palabras.
+1. **Ensayo 1 — solo:** cronometrar con el iPhone. Si pasas 100 s, identificar dónde sobraron palabras.
 2. **Ensayo 2 — grabado:** video con QuickTime. Mirar la grabación: ¿se ve fluido? ¿hay pausas raras?
-3. **Ensayo 3 — con audiencia:** alguien de confianza haciendo de jurado. Que te interrumpa con una pregunta a mitad. Practicar volver al script.
+3. **Ensayo 3 — con audiencia:** alguien de confianza haciendo de jurado. Que interrumpa con una pregunta a mitad. Practicar volver al script.
