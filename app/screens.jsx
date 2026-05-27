@@ -81,7 +81,7 @@ const SplashScreen = ({ onStart, onLogin }) => (
               <div className="icowrap"><Icon name="key" size={20}/></div>
               <div>
                 <div className="t">Fair Value</div>
-                <div className="d">Precio de referencia con Random Forest · MAPE 15,9%</div>
+                <div className="d">Precio de referencia con XGBoost v2 · MAPE 15,7%</div>
               </div>
             </div>
             <div className="feature-card">
@@ -180,7 +180,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
           </div>
         </div>
         <div className="row" style={{gap:24, opacity:.85, fontSize:12}}>
-          <span>● Random Forest</span>
+          <span>● XGBoost v2</span>
           <span>● 3.348 avisos Lima</span>
           <span>● MAPE 15,9%</span>
         </div>
@@ -635,7 +635,7 @@ const HomeScreen = ({ onGo }) => {
           </div>
           <h3>Fair Value</h3>
           <p className="desc">
-            Random Forest estima el precio de referencia comparando 74 atributos
+            XGBoost v2 estima el precio de referencia comparando 74 atributos
             contra 3,348 avisos reales de Lima.
           </p>
           <div className="home-module-mock">
@@ -693,10 +693,10 @@ const HomeScreen = ({ onGo }) => {
           <div className="home-step-big">
             <div className="num">2</div>
             <h4>El modelo compara</h4>
-            <p>Random Forest cruza los datos contra 3,348 avisos reales de alquiler en Lima.</p>
+            <p>XGBoost v2 cruza los datos contra 3,348 avisos reales de alquiler en Lima.</p>
             <div className="home-step-chip">
               <Icon name="chart" size={14} stroke="var(--primary)"/>
-              Random Forest · MAPE 15.9%
+              XGBoost v2 · MAPE 15.7%
             </div>
           </div>
           <div className="home-step-big">
@@ -852,7 +852,7 @@ const MODULE_INFO = {
     points: [
       'Marca la ubicación exacta del inmueble en el mapa',
       'Ingresa área, dormitorios, baños y amenities',
-      'El modelo Random Forest calcula el precio de referencia',
+      'El modelo XGBoost v2 calcula el precio de referencia',
       'Descubre si el precio anunciado está Inflado, Justo o es Ganga',
     ],
     cta: 'Iniciar estimación',
@@ -988,7 +988,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                   <div className="feat-ico"><Icon name="key" size={24}/></div>
                 </div>
                 <div className="t">Fair Value</div>
-                <div className="d">Estimación del precio de referencia con Random Forest. Identifica sobreprecios y oportunidades.</div>
+                <div className="d">Estimación del precio de referencia con XGBoost v2. Identifica sobreprecios y oportunidades.</div>
                 <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
               </div>
               <div className="action-card en" onClick={()=>setConfirm('entorno')}>
@@ -1675,7 +1675,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
           <Card>
             <div className="row" style={{justifyContent:'space-between'}}>
               <div className="section-h" style={{margin:0}}>Factores de influencia</div>
-              <Tag variant="outline">Random Forest</Tag>
+              <Tag variant="outline">XGBoost v2</Tag>
             </div>
             <div style={{marginTop:8}}>
               {factors.map((fac, i) => (
@@ -1688,7 +1688,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
       </div>
 
       <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
-        <span className="small muted">Modelo: Random Forest · R² {data.model_r2} · MAPE {data.mae_pct}%</span>
+        <span className="small muted">Modelo: XGBoost v2 · R² {data.model_r2} · MAPE {data.mae_pct}%</span>
         <Btn variant="primary" size="lg" onClick={onContext}>
           <Icon name="shield" size={16}/> Ver contexto del barrio
         </Btn>
@@ -1834,11 +1834,11 @@ const PROFILE_ROLES = ['Inquilino', 'Propietario', 'Agente inmobiliario'];
 
 const PROFILE_FAQS = [
   { q: '¿Cómo calcula ubIcA el precio de referencia?',
-    a: 'Un modelo Random Forest entrenado con 3.348 avisos reales de alquiler en Lima estima el precio de mercado según ubicación, área, dormitorios y entorno. El error medio (MAPE) de validación es 15,9 %.' },
+    a: 'Un modelo XGBoost v2 entrenado con 3.348 avisos reales de alquiler en Lima estima el precio de mercado según ubicación, área, dormitorios y entorno. El error medio (MAPE) de validación es 15,7 %.' },
   { q: '¿Qué significan "Inflado", "Justo" y "Ganga"?',
     a: 'Comparamos el precio anunciado contra el precio de referencia estimado. Muy por encima es "Inflado", cerca del estimado es "Justo", y por debajo es "Ganga".' },
   { q: '¿De dónde salen los datos de seguridad?',
-    a: 'El score de entorno usa denuncias reales de la PNP/INEI por hexágono geográfico y la densidad de puntos de interés (colegios, hospitales, bancos) en un radio de 1 km.' },
+    a: 'El score de entorno usa denuncias reales de la PNP/INEI agregadas por distrito y la densidad de puntos de interés (colegios, hospitales, bancos) en un radio de 1 km.' },
   { q: '¿Puedo confiar en zonas con cobertura "Baja"?',
     a: 'En distritos con pocos avisos el modelo tiene menos comparables y la confianza de la predicción baja. Revisa el indicador de confianza que aparece en cada análisis.' },
 ];
@@ -2191,7 +2191,7 @@ const Loading = ({ label = 'Calculando precio de referencia…' }) => (
     </div>
     <div className="text-center">
       <div style={{fontWeight:600, color:'var(--ink-2)', fontSize:15}}>{label}</div>
-      <div className="small muted" style={{marginTop:6}}>Random Forest · MAPE 15,9 % · 3.348 avisos</div>
+      <div className="small muted" style={{marginTop:6}}>XGBoost v2 · MAPE 15,7 % · 3.348 avisos</div>
     </div>
   </div>
 );
