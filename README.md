@@ -60,24 +60,31 @@ En total, 95 features alimentan el modelo. Cero APIs pagas.
 ├── README.md
 ├── Makefile                · make backend / make frontend / make test
 ├── .env.example            · template de variables de entorno
-└── app/
-    ├── index.html          · entry del frontend
-    ├── app.jsx             · router
-    ├── screens.jsx         · pantallas (Login, Wizard, Result, Entorno, FAQ)
-    ├── components.jsx      · UI compartida
-    ├── api.js              · cliente fetch + JWT
-    └── backend/
-        ├── main.py         · entry FastAPI + lifespan (valida modelo)
-        ├── model_service.py · aislamiento del .joblib
-        ├── ml.py           · build_features + counterfactuals + interval
-        ├── ml_v2.py        · 95 features del modelo v2
-        ├── geo_index.py    · KD-tree esfera + IDW haversine
-        ├── osm_lookup.py   · POIs por categoria
-        ├── distrito_features.py · NSE manzana + denuncias distrito
-        ├── routers/        · auth, dashboard, fairvalue, entorno, health
-        ├── models/v2/      · .joblib del modelo XGBoost + quantile
-        ├── data/external/  · POIs, denuncias, comisarias
-        └── tests/          · 63 pytest tests
+├── app/                    · webapp end-to-end
+│   ├── index.html          · entry del frontend
+│   ├── app.jsx             · router
+│   ├── screens.jsx         · pantallas (Login, Wizard, Result, Entorno, FAQ)
+│   ├── components.jsx      · UI compartida
+│   ├── api.js              · cliente fetch + JWT
+│   └── backend/
+│       ├── main.py         · entry FastAPI + lifespan (valida modelo)
+│       ├── model_service.py · aislamiento del .joblib
+│       ├── ml.py           · build_features + counterfactuals + interval
+│       ├── ml_v2.py        · 95 features del modelo v2
+│       ├── geo_index.py    · KD-tree esfera + IDW haversine
+│       ├── osm_lookup.py   · POIs por categoria
+│       ├── distrito_features.py · NSE manzana + denuncias distrito
+│       ├── routers/        · auth, dashboard, fairvalue, entorno, health
+│       ├── models/v2/      · .joblib del modelo XGBoost + quantile
+│       ├── data/external/  · POIs, denuncias, comisarias
+│       └── tests/          · 63 pytest tests
+└── notebooks/              · proceso de ML reproducible
+    ├── 01_limpieza.ipynb
+    ├── 02_eda.ipynb
+    ├── 03_feature_engineering.ipynb
+    ├── 04_entrenamiento_modelos.ipynb
+    ├── 05_evaluacion_seleccion.ipynb
+    └── 11_analisis_residuos.ipynb
 ```
 
 ## Endpoints
