@@ -1,8 +1,8 @@
-/* Justa — cliente API (frontend) */
+/* Wasi — cliente API (frontend) */
 (function(){
-  const BASE = (window.JUSTA_API_BASE || 'http://localhost:8000') + '/api';
-  const TOKEN_KEY = 'ubica.token';
-  const USER_KEY = 'ubica.user';
+  const BASE = (window.WASI_API_BASE || 'http://localhost:8000') + '/api';
+  const TOKEN_KEY = 'wasi.token';
+  const USER_KEY = 'wasi.user';
 
   const getToken = () => localStorage.getItem(TOKEN_KEY);
   const setSession = (token, user) => {

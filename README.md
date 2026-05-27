@@ -1,4 +1,4 @@
-# ubIcA
+# Wasi
 
 Webapp que estima el precio de alquiler de un departamento en Lima Metropolitana
 y devuelve un veredicto (Ganga / Justo / Inflado) con rango de incertidumbre y
@@ -12,8 +12,8 @@ Ubuntu 22.04.
 
 ```bash
 # Clonar
-git clone https://github.com/AlejandroMarceloCh/ubica.git
-cd ubica
+git clone https://github.com/AlejandroMarceloCh/wasi.git
+cd wasi
 
 # Setup (una sola vez · crea venv e instala dependencias)
 make setup
@@ -23,7 +23,7 @@ make backend     # FastAPI en http://localhost:8000
 make frontend    # Estatico en http://localhost:5500
 ```
 
-Demo: http://localhost:5500 · usuario `ana@justa.pe` / `demo1234`.
+Demo: http://localhost:5500 · usuario `ana@wasi.pe` / `demo1234`.
 
 El primer arranque tarda ~10 s mientras se valida el modelo y se calienta
 el indice geografico (cKDTree con 11 K POIs).

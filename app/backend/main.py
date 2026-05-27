@@ -1,4 +1,4 @@
-"""Entry point FastAPI para ubIcA."""
+"""Entry point FastAPI para Wasi."""
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -26,15 +26,15 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_schema()                      # migración ligera (columnas nuevas)
     seed_if_empty()                      # distritos + usuario demo (idempotente)
-    print("[ubIcA] Base de datos lista.")
+    print("[Wasi] Base de datos lista.")
 
     model_service.load()                 # 3 validaciones de startup; falla dura
     get_index()                          # calienta el KD-tree geográfico
-    print("[ubIcA] Índice geográfico cargado. Backend listo.")
+    print("[Wasi] Índice geográfico cargado. Backend listo.")
     yield
 
 
-app = FastAPI(title="ubIcA API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Wasi API", version="2.0.0", lifespan=lifespan)
 
 # CORS abierto para dev (frontend desde index.html / file:// o vite)
 app.add_middleware(
@@ -56,7 +56,7 @@ app.include_router(health_router.router)
 @app.get("/")
 def root():
     return {
-        "service": "ubIcA API",
+        "service": "Wasi API",
         "status": "ok",
         "model_version": model_service.version,
     }

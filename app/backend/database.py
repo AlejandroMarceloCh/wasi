@@ -11,7 +11,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-SQLITE_DEFAULT = f"sqlite:///{os.path.join(BACKEND_DIR, 'justa.db')}"
+SQLITE_DEFAULT = f"sqlite:///{os.path.join(BACKEND_DIR, 'wasi.db')}"
 
 
 class Settings(BaseSettings):

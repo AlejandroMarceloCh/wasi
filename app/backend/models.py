@@ -1,4 +1,4 @@
-"""Modelos SQLAlchemy 2.x para Justa.
+"""Modelos SQLAlchemy 2.x para Wasi.
 
 6 tablas transaccionales. Los datos geográficos (POIs, crimen) NO viven en la
 BD — los sirve geo_index.py por pin. Por eso no hay tablas `pois`/`crime`.

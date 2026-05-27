@@ -1,6 +1,6 @@
 """Fixtures de pytest — Fase 3.
 
-Usa una BD SQLite temporal (no toca justa.db). El DATABASE_URL se setea
+Usa una BD SQLite temporal (no toca wasi.db). El DATABASE_URL se setea
 ANTES de importar la app para que el engine apunte a la BD de prueba.
 """
 import os
@@ -32,7 +32,7 @@ def client():
 def auth_headers(client):
     """Registra un usuario de prueba y devuelve el header Authorization."""
     client.post("/api/auth/register", json={
-        "email": "pytest@ubica.pe", "name": "Pytest", "password": "pytest123"})
+        "email": "pytest@wasi.pe", "name": "Pytest", "password": "pytest123"})
     r = client.post("/api/auth/login", json={
-        "email": "pytest@ubica.pe", "password": "pytest123"})
+        "email": "pytest@wasi.pe", "password": "pytest123"})
     return {"Authorization": f"Bearer {r.json()['token']}"}

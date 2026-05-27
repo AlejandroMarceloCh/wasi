@@ -38,7 +38,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
-app/backend/justa.db
+app/backend/wasi.db
 
 # --- Logs y sesión ---
 *.log

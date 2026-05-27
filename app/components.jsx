@@ -1,4 +1,4 @@
-/* Justa — reusable components */
+/* Wasi — reusable components */
 const { useState, useEffect, useRef, useMemo } = React;
 
 /* ============ Icons ============ */
@@ -82,7 +82,7 @@ const Logo = ({ size = "md" }) => (
         <path d="M15 16.2v2.8" stroke="white" strokeWidth="1.4"/>
       </svg>
     </div>
-    <span style={{ fontSize: size==='lg' ? 30 : 20, color: 'var(--ink)'}}>ubIcA</span>
+    <span style={{ fontSize: size==='lg' ? 30 : 20, color: 'var(--ink)'}}>Wasi</span>
   </div>
 );
 
@@ -414,7 +414,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
                 <path d="M15 16.2v2.8" stroke="white" strokeWidth="1.4"/>
               </svg>
             </div>
-            <span className="logo-text">ubIcA</span>
+            <span className="logo-text">Wasi</span>
           </a>
 
           {!isPublic && (
@@ -457,7 +457,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
         onClose={() => setNotifOpen(false)}
         icon={<Icon name="bell" size={20}/>}
         title="Notificaciones"
-        subtitle="Centro de avisos de ubIcA"
+        subtitle="Centro de avisos de Wasi"
         footer={<Btn variant="outline" onClick={() => setNotifOpen(false)}>Cerrar</Btn>}
       >
         <div className="text-center" style={{padding:'14px 0 6px'}}>

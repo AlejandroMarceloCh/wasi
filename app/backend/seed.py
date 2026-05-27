@@ -16,7 +16,7 @@ from models import District, User
 DATASET = (Path(__file__).resolve().parent.parent.parent
            / "pipeline" / "data" / "processed" / "inmuebles_clean_v1.csv")
 
-DEMO_EMAIL = "ana@ubica.pe"
+DEMO_EMAIL = "ana@wasi.pe"
 DEMO_PASSWORD = "demo1234"
 
 

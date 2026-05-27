@@ -1,4 +1,4 @@
-/* Justa — App router (web app) */
+/* Wasi — App router (web app) */
 const { useState: uS } = React;
 
 const TAB_TO_SCREEN = {
@@ -77,7 +77,7 @@ function App() {
   const activeTab = SCREEN_TO_TAB(screen);
 
   return (
-    <div className="app-shell" data-screen-label={`ubIcA · ${screen}`}>
+    <div className="app-shell" data-screen-label={`Wasi · ${screen}`}>
       <ErrorBanner msg={errorMsg} onClose={() => setErrorMsg('')}/>
       <TopNav
         active={activeTab}

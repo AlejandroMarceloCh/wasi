@@ -1,4 +1,4 @@
-/* Justa — screens (web app) */
+/* Wasi — screens (web app) */
 const { useState: useS, useEffect: useE, useRef: useR } = React;
 
 /* bbox de Lima Metropolitana (igual que el backend) */
@@ -68,7 +68,7 @@ const SplashScreen = ({ onStart, onLogin }) => (
           </Tag>
           <h1>Decide tu alquiler con un <em>precio de referencia</em> y datos reales.</h1>
           <p className="lede">
-            ubIcA estima el valor de mercado de cualquier departamento en Lima usando modelos de IA, y lo cruza con el contexto de seguridad y servicios del barrio. Para inquilinos, propietarios, agentes e inversionistas.
+            Wasi estima el valor de mercado de cualquier departamento en Lima usando modelos de IA, y lo cruza con el contexto de seguridad y servicios del barrio. Para inquilinos, propietarios, agentes e inversionistas.
           </p>
           <div className="cta-row">
             <Btn variant="primary" size="lg" onClick={onStart}>
@@ -142,7 +142,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
   const [mode, setMode] = useS(initialMode);
   useE(() => setMode(initialMode), [initialMode]);
   // Pre-rellena credenciales demo en login
-  const [form, setForm] = useS({ email:'ana@ubica.pe', password:'demo1234', name:'', role:'Inquilino' });
+  const [form, setForm] = useS({ email:'ana@wasi.pe', password:'demo1234', name:'', role:'Inquilino' });
   const [submitting, setSubmitting] = useS(false);
   const [err, setErr] = useS('');
 
@@ -169,7 +169,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
         <div>
           <h2>Datos en lugar de corazonadas para tu próximo alquiler.</h2>
           <p className="quote">
-            ubIcA cruza miles de listings, índices de criminalidad y POIs para darte una sola lectura: el precio de referencia de la zona y si vale la pena el barrio.
+            Wasi cruza miles de listings, índices de criminalidad y POIs para darte una sola lectura: el precio de referencia de la zona y si vale la pena el barrio.
           </p>
           <div className="quote-cite">
             <div className="avatar">M</div>
@@ -221,7 +221,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
               {submitting ? 'Procesando…' : (mode==='login' ? 'Iniciar Sesión' : 'Crear cuenta')}
             </Btn>
             <div style={{textAlign:'center', fontSize: 13, color:'var(--ink-3)', padding:'4px'}}>
-              {mode==='login' ? '¿Nuevo en ubIcA? ' : '¿Ya tienes cuenta? '}
+              {mode==='login' ? '¿Nuevo en Wasi? ' : '¿Ya tienes cuenta? '}
               <a style={{color:'var(--primary)', fontWeight:600, cursor:'pointer'}} onClick={()=>setMode(mode==='login' ? 'register' : 'login')}>
                 {mode==='login' ? 'Regístrate' : 'Inicia sesión'}
               </a>
@@ -524,7 +524,7 @@ const HomeScreen = ({ onGo }) => {
           <span className="home-grad">sin adivinar.</span>
         </h1>
         <p className="home-hero-lead">
-          ubIcA entrena modelos de IA con miles de avisos reales para decirte si un
+          Wasi entrena modelos de IA con miles de avisos reales para decirte si un
           alquiler en Lima está <b>inflado, justo</b> o es una <b>oportunidad</b>{' '}
           — y cómo es el barrio alrededor.
         </p>
@@ -720,7 +720,7 @@ const HomeScreen = ({ onGo }) => {
           <div className="home-eyebrow">Cómo nacimos</div>
           <h2 className="home-h2" style={{ fontSize: 38 }}>De un proyecto universitario a una herramienta real.</h2>
           <p className="home-lead">
-            ubIcA nació en el curso de <b>Diseño y Proyectos de Datos (DPD)</b> de UTEC.
+            Wasi nació en el curso de <b>Diseño y Proyectos de Datos (DPD)</b> de UTEC.
             Fusiona dos trabajos: una aplicación de estimación de precios y un pipeline
             de machine learning entrenado sobre el mercado de alquiler limeño.
           </p>
@@ -1948,7 +1948,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
 const PROFILE_ROLES = ['Inquilino', 'Propietario', 'Agente inmobiliario'];
 
 const PROFILE_FAQS = [
-  { q: '¿Cómo calcula ubIcA el precio de referencia?',
+  { q: '¿Cómo calcula Wasi el precio de referencia?',
     a: 'Un modelo XGBoost v2 entrenado con 3.348 avisos reales de alquiler en Lima estima el precio de mercado según ubicación, área, dormitorios y entorno. El error medio (MAPE) de validación es 15,7 %.' },
   { q: '¿Qué significan "Inflado", "Justo" y "Ganga"?',
     a: 'Comparamos el precio anunciado contra el precio de referencia estimado. Muy por encima es "Inflado", cerca del estimado es "Justo", y por debajo es "Ganga".' },
@@ -1972,13 +1972,13 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
 
   // preferencias locales (persisten en este navegador)
   const [prefs, setPrefs] = useS(() => ({
-    notif:   localStorage.getItem('ubica.pref.notif')   !== '0',
-    gangas:  localStorage.getItem('ubica.pref.gangas')  !== '0',
-    resumen: localStorage.getItem('ubica.pref.resumen') === '1',
+    notif:   localStorage.getItem('wasi.pref.notif')   !== '0',
+    gangas:  localStorage.getItem('wasi.pref.gangas')  !== '0',
+    resumen: localStorage.getItem('wasi.pref.resumen') === '1',
   }));
   const setPref = (k, v) => {
     setPrefs(p => ({ ...p, [k]: v }));
-    localStorage.setItem('ubica.pref.' + k, v ? '1' : '0');
+    localStorage.setItem('wasi.pref.' + k, v ? '1' : '0');
   };
 
   const [faqOpen, setFaqOpen] = useS(-1);
@@ -2215,11 +2215,11 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
         <div className="row" style={{gap:10, marginTop:16, padding:14, background:'var(--bg-tint)', borderRadius:12}}>
           <Icon name="mail" size={18} stroke="var(--primary)"/>
           <div>
-            <div style={{fontSize:13, fontWeight:600}}>soporte@ubica.pe</div>
+            <div style={{fontSize:13, fontWeight:600}}>soporte@wasi.pe</div>
             <div className="tiny muted">Te respondemos en 24-48 h</div>
           </div>
         </div>
-        <div className="tiny muted text-center" style={{marginTop:14}}>ubIcA · versión 2.0.0</div>
+        <div className="tiny muted text-center" style={{marginTop:14}}>Wasi · versión 2.0.0</div>
       </Modal>
 
       {/* ---- Modal: idioma ---- */}
@@ -2254,7 +2254,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
         open={modal === 'plans'}
         onClose={()=>setModal(null)}
         icon={<Icon name="sparkle" size={20}/>}
-        title="Planes ubIcA"
+        title="Planes Wasi"
         subtitle="Compara y elige tu plan"
         maxWidth={540}
         footer={<Btn variant="outline" onClick={()=>setModal(null)}>Cerrar</Btn>}
@@ -2289,7 +2289,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
         {isPro && (
           <div className="banner info" style={{marginTop:14}}>
             <Icon name="check" size={14}/>
-            <span>Ya tienes el plan Pro activo. ¡Gracias por apoyar a ubIcA!</span>
+            <span>Ya tienes el plan Pro activo. ¡Gracias por apoyar a Wasi!</span>
           </div>
         )}
       </Modal>

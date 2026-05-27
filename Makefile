@@ -1,9 +1,9 @@
-# ubIcA — comandos de desarrollo
+# Wasi — comandos de desarrollo
 # Uso: make <target>
 .PHONY: help setup backend frontend test clean
 
 help:
-	@echo "ubIcA — comandos disponibles:"
+	@echo "Wasi — comandos disponibles:"
 	@echo "  make setup     — crea venv e instala dependencias (1 sola vez)"
 	@echo "  make backend   — arranca FastAPI en :8000"
 	@echo "  make frontend  — sirve frontend estatico en :5500"

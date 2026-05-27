@@ -40,7 +40,7 @@ def test_flujo_completo(client, auth_headers):
 def test_login_demo(client):
     """El usuario demo sembrado funciona."""
     r = client.post("/api/auth/login",
-                    json={"email": "ana@ubica.pe", "password": "demo1234"})
+                    json={"email": "ana@wasi.pe", "password": "demo1234"})
     assert r.status_code == 200
     assert r.json()["token"]
 
