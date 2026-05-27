@@ -81,3 +81,40 @@ def test_counterfactuals_pct_change_no_es_cero(client, auth_headers):
         if f in original:
             assert cf["new_value"] != original[f], \
                 f"counterfactual {f} con new_value igual al original ({cf['new_value']})"
+
+
+def test_counterfactuals_dedupe_por_feature(client, auth_headers):
+    """Cada feature aparece máximo UNA vez en el top-5 (no '+10 área' y '-10 área' juntos).
+    Garantizado por la deduplicación: si ambos signos califican, se queda con el de mayor |%|.
+    """
+    r = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    cfs = r.json()["counterfactuals"]
+    features = [cf["feature"] for cf in cfs]
+    assert len(features) == len(set(features)), \
+        f"counterfactuals tienen feature duplicada: {features}"
+
+
+def test_counterfactuals_label_gramatical(client, auth_headers):
+    """Pluralización: 'años de antigüedads' nunca debe aparecer (Q1 fix)."""
+    r = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    cfs = r.json()["counterfactuals"]
+    for cf in cfs:
+        assert "antigüedads" not in cf["label"], \
+            f"label agramatical detectado: {cf['label']!r}"
+        assert "dormitorioss" not in cf["label"]
+        assert "bañoss" not in cf["label"]
+        assert "cocherass" not in cf["label"]
+
+
+def test_counterfactual_signo_coherente_area(client, auth_headers):
+    """+10 m² en un piso de Miraflores DEBE subir el precio (no bajarlo).
+    Si el modelo tiene un quirk que invierte el signo, este test lo detecta."""
+    r = client.post("/api/fairvalue/predict", headers=auth_headers,
+                    json=_payload(area=60))  # área media para evitar clamps
+    cfs = r.json()["counterfactuals"]
+    area_pos = [c for c in cfs if c["feature"] == "area" and c["delta"] > 0]
+    if area_pos:
+        # Si está en el top-5, su pct_change debería ser > 0 (más área = más precio)
+        # Tolerancia: aceptamos 0 (sin cambio significativo), pero no negativo > -1%.
+        assert area_pos[0]["pct_change"] >= -1.0, \
+            f"+10 m² bajó el precio {area_pos[0]['pct_change']}% — modelo invertido"

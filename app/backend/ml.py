@@ -185,12 +185,14 @@ def _confianza(geo: dict) -> str:
 #   banos:             [1, 20]      delta ±1  (0 solo si es_estudio=True)
 #   cocheras:          [0, 20]      delta ±1
 #   antiguedad_anios:  [0, 100]     delta ±5  (sensibilidad realista)
+# Labels singular/plural explícitos para evitar agramaticalidad ("años de antigüedads").
+# El label se elige según qty: 1 = singular, >1 = plural. Unit (m²) se agrega aparte.
 COUNTERFACTUAL_SPECS = [
-    {"feature": "area",             "delta": 10,  "label": "área",          "unit": "m²",   "min": 10, "max": 1000},
-    {"feature": "dormitorios",      "delta": 1,   "label": "dormitorio",    "unit": "",     "min": 0,  "max": 20},
-    {"feature": "banos",            "delta": 1,   "label": "baño",          "unit": "",     "min": 1,  "max": 20},
-    {"feature": "cocheras",         "delta": 1,   "label": "cochera",       "unit": "",     "min": 0,  "max": 20},
-    {"feature": "antiguedad_anios", "delta": 5,   "label": "años de antigüedad", "unit": "", "min": 0,  "max": 100},
+    {"feature": "area",             "delta": 10,  "singular": "m²",                "plural": "m²",                 "min": 10, "max": 1000},
+    {"feature": "dormitorios",      "delta": 1,   "singular": "dormitorio",        "plural": "dormitorios",         "min": 0,  "max": 20},
+    {"feature": "banos",            "delta": 1,   "singular": "baño",              "plural": "baños",               "min": 1,  "max": 20},
+    {"feature": "cocheras",         "delta": 1,   "singular": "cochera",           "plural": "cocheras",            "min": 0,  "max": 20},
+    {"feature": "antiguedad_anios", "delta": 5,   "singular": "año de antigüedad", "plural": "años de antigüedad",  "min": 0,  "max": 100},
 ]
 
 
@@ -213,6 +215,10 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
 
     base_prediction = predicción del form original (sin perturbar). En Sprint 3.1
     cuando entre quantile, esto será P50. Antes, es el fair_value central.
+
+    Deduplicación: si +delta y −delta de la misma feature ambos califican,
+    se devuelve solo el de mayor |pct_change| para no mostrar dos veces la
+    misma palanca al usuario.
     """
     if base_prediction <= 0:
         return []
@@ -244,18 +250,28 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
 
             sign_label = "+" if sign > 0 else "−"
             qty = abs(sign * delta)
+            # Singular si qty=1, plural si qty>1
+            name = spec["singular"] if qty == 1 else spec["plural"]
             results.append({
                 "feature": feat,
-                "label": f"{sign_label}{qty} {spec['label']}{'s' if qty != 1 and not spec['unit'] else ''}{(' ' + spec['unit']) if spec['unit'] else ''}".strip(),
+                "label": f"{sign_label}{qty} {name}".strip(),
                 "delta": sign * delta,
                 "new_value": new_val,
                 "new_price": new_price,
                 "pct_change": pct_change,
             })
 
+    # Deduplicar por feature: si ambos signos están, quedarse con el de mayor |%|
+    best_per_feature: dict[str, dict] = {}
+    for r in results:
+        f = r["feature"]
+        if f not in best_per_feature or abs(r["pct_change"]) > abs(best_per_feature[f]["pct_change"]):
+            best_per_feature[f] = r
+    deduped = list(best_per_feature.values())
+
     # Ordenar por |pct_change| desc, devolver top 5
-    results.sort(key=lambda r: abs(r["pct_change"]), reverse=True)
-    return results[:5]
+    deduped.sort(key=lambda r: abs(r["pct_change"]), reverse=True)
+    return deduped[:5]
 
 
 def predict_fair_value(form: dict) -> dict:

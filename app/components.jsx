@@ -343,7 +343,7 @@ const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix =
    tooltip y sin underline punteado (degrada limpio). */
 const FACTOR_TOOLTIPS = {
   'Área': 'Tamaño habitable en m². Tiene peso fuerte: el precio crece casi lineal con el área hasta ~120 m². En estudios y monoambientes el peso por m² es mayor.',
-  'Ubicación': 'Distrito del pin (vecino más cercano del dataset). Pesa por target encoding con suavizado bayesiano (k=30) — distritos con pocos avisos tiran al promedio Lima.',
+  'Ubicación': 'Distrito del pin (vecino más cercano del dataset). El modelo aprende un promedio por distrito; cuando el distrito tiene pocos avisos, el valor se suaviza hacia el promedio de Lima para no sobreajustar.',
   'Antigüedad': 'Años desde construcción del edificio. Penalización fuerte después de 20 años; muy bajo impacto entre 0-10 años.',
   'Baños': 'Número de baños completos. Marca de gama: pasar de 1 a 2 baños eleva el precio más que pasar de 2 a 3.',
   'Cocheras': 'Estacionamientos privados. En zonas premium (Miraflores, San Isidro) suma más que en zonas populares.',
