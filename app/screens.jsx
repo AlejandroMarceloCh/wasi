@@ -1738,6 +1738,13 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
             {data && <Tag variant="outline">{data.distrito}</Tag>}
           </div>
 
+          {err && (
+            <div className="banner warning" style={{marginBottom:0}}>
+              <Icon name="alert" size={14}/>
+              <span>{err}</span>
+            </div>
+          )}
+
           {data && (
             <Card>
               <div className="row" style={{justifyContent:'space-between', marginBottom:10}}>

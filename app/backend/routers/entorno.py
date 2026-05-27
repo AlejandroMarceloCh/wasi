@@ -46,8 +46,11 @@ def entorno(
 ):
     try:
         geo = geo_lookup(lat, lng)
-    except OutOfBoundsError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except OutOfBoundsError:
+        raise HTTPException(
+            status_code=400,
+            detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
+        )
 
     # POIs por tipo
     total_poi = 0
@@ -75,7 +78,7 @@ def entorno(
 
     summary = (
         f"Entorno {level.lower()} en {geo['distrito']}: {total_poi} POIs en 1 km, "
-        f"{denuncias} denuncias registradas, a {geo['dist_mar_km']:.1f} km del mar."
+        f"{denuncias} denuncias registradas."
     )
 
     return EntornoOut(

@@ -60,8 +60,11 @@ def predict(
     # Inferencia. El pin fuera del bbox de Lima → 400.
     try:
         res = predict_fair_value(payload.model_dump())
-    except OutOfBoundsError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except OutOfBoundsError:
+        raise HTTPException(
+            status_code=400,
+            detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
+        )
 
     # Persistir el inmueble analizado.
     prop = Property(
