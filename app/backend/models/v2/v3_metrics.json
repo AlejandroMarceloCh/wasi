@@ -1,0 +1,32 @@
+{
+  "central": {
+    "mape_pct": 15.629,
+    "mae_usd": 159.5,
+    "rmse_usd": 297.6,
+    "r2": 0.8467
+  },
+  "quantile": {
+    "coverage_p25_p75": 0.4175,
+    "expected_coverage": 0.5,
+    "width_avg_usd": 202.65,
+    "mape_p50_pct": 15.632
+  },
+  "baseline_v2": {
+    "mape_pct": 15.74,
+    "mae_usd": 158,
+    "r2": 0.861,
+    "coverage_p25_p75": 0.4274
+  },
+  "n_train": 2845,
+  "n_test": 503,
+  "n_features": 101,
+  "new_features": [
+    "count_1km_osm_supermercados_premium",
+    "count_1km_osm_supermercados_mass",
+    "count_1km_osm_bancos_premium",
+    "count_1km_osm_bancos_mass",
+    "count_1km_osm_farmacias_cadena",
+    "count_1km_osm_farmacias_indep"
+  ],
+  "note": "Sprint 3.2 \u2014 POIs con tier de calidad (premium/mass/cadena/indep)."
+}

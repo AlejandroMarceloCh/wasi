@@ -1,5 +1,5 @@
 """
-ml_v2.py — build_features para el modelo v2 (95 features XGBoost).
+ml_v2.py — build_features para el modelo v2 (101 features XGBoost).
 
 Reusa `geo_lookup()` (POIs/denuncias originales + distrito) y agrega:
   - 21 features OSM (osm_lookup): 7 cats × (count_500m, count_1km, dist_nearest_m)

@@ -81,7 +81,7 @@ const SplashScreen = ({ onStart, onLogin }) => (
               <div className="icowrap"><Icon name="key" size={20}/></div>
               <div>
                 <div className="t">Fair Value</div>
-                <div className="d">Precio de referencia con XGBoost v2 · MAPE 15,7%</div>
+                <div className="d">Precio de referencia con XGBoost v2 · MAPE 15,6%</div>
               </div>
             </div>
             <div className="feature-card">
@@ -182,7 +182,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
         <div className="row" style={{gap:24, opacity:.85, fontSize:12}}>
           <span>● XGBoost v2</span>
           <span>● 3.348 avisos Lima</span>
-          <span>● MAPE 15,7%</span>
+          <span>● MAPE 15,6%</span>
         </div>
       </div>
       <div className="auth-form">
@@ -648,7 +648,7 @@ const HomeScreen = ({ onGo }) => {
                 <div style={{ fontFamily: 'Space Grotesk', fontSize: 28, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1, marginTop: 4 }}>
                   $700 <span className="small muted" style={{ fontWeight: 500 }}>/mes</span>
                 </div>
-                <div className="tiny muted" style={{ marginTop: 4 }}>Confianza alta · MAPE 15.7%</div>
+                <div className="tiny muted" style={{ marginTop: 4 }}>Confianza alta · MAPE 15.6%</div>
                 <Tag variant="danger" style={{ marginTop: 8 }}>+28% inflado</Tag>
               </div>
             </div>

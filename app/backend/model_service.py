@@ -76,7 +76,7 @@ class ModelService:
             print(f"[model_service] modelo v1 cargado y validado · version {self.version}")
 
     def _load_v2(self) -> None:
-        """Carga modelo_final_v2.joblib + artefactos v2 (95 features XGBoost)."""
+        """Carga modelo_final_v2.joblib + artefactos v2 (101 features XGBoost)."""
         bundle = joblib.load(MODELS_V2 / MODELO_PRINCIPAL_V2)
         self._model = bundle["modelo"]
         self._model_name = bundle["nombre"]

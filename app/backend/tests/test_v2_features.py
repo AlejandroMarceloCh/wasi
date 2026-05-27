@@ -63,15 +63,20 @@ def test_osm_lookup_zona_residencial_remota():
     assert out['dist_nearest_m_osm_estaciones'] > 5000
 
 
-def test_osm_lookup_devuelve_21_features():
-    """7 categorías × 3 métricas = 21 features OSM."""
+def test_osm_lookup_devuelve_27_features():
+    """7 categorías × 3 métricas (21) + 6 tier features (Sprint 3.2) = 27 features OSM."""
     from osm_lookup import get_osm, OSM_CATEGORIES
     out = get_osm().lookup(-12.1185, -77.0290)
     for cat in OSM_CATEGORIES:
         assert f'count_500m_osm_{cat}' in out
         assert f'count_1km_osm_{cat}' in out
         assert f'dist_nearest_m_osm_{cat}' in out
-    assert len(out) == len(OSM_CATEGORIES) * 3
+    # 6 tier features de Sprint 3.2
+    for tname in ('supermercados_premium', 'supermercados_mass',
+                  'bancos_premium', 'bancos_mass',
+                  'farmacias_cadena', 'farmacias_indep'):
+        assert f'count_1km_osm_{tname}' in out
+    assert len(out) == len(OSM_CATEGORIES) * 3 + 6
 
 
 # ─── distrito_features ──────────────────────────────────────────────────────

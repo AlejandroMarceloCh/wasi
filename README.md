@@ -46,17 +46,17 @@ el indice geografico (cKDTree con 11 K POIs).
 | CENACOM | Punto | 50 comisarias |
 | OpenStreetMap | Punto | 11,100 POIs en 7 categorias |
 
-En total, 95 features alimentan el modelo. Cero APIs pagas.
+En total, 101 features alimentan el modelo (incluye breakdown por tier de POIs: Wong/Vivanda vs Plaza Vea, BCP/BBVA vs banco chico, Inkafarma/MiFarma vs farmacia barrial). Cero APIs pagas.
 
 ## Metricas
 
 | Metrica | Valor | Conjunto |
 |---|---|---|
-| MAPE | 15.74 % | Test (n=503) |
-| R² | 0.861 | Test |
-| MAE | $158 | Test |
-| RMSE | $284 | Test |
-| Coverage P25-P75 | 42.74 % | Test (target teorico 50 %) |
+| MAPE | 15.63 % | Test (n=503) |
+| R² | 0.847 | Test |
+| MAE | $159 | Test |
+| RMSE | $298 | Test |
+| Coverage P25-P75 | 41.75 % | Test (target teorico 50 %) |
 
 ## Estructura
 
@@ -75,7 +75,7 @@ En total, 95 features alimentan el modelo. Cero APIs pagas.
 │       ├── main.py         · entry FastAPI + lifespan (valida modelo)
 │       ├── model_service.py · aislamiento del .joblib
 │       ├── ml.py           · build_features + counterfactuals + interval
-│       ├── ml_v2.py        · 95 features del modelo v2
+│       ├── ml_v2.py        · 101 features del modelo v2
 │       ├── geo_index.py    · KD-tree esfera + IDW haversine
 │       ├── osm_lookup.py   · POIs por categoria
 │       ├── distrito_features.py · NSE manzana + denuncias distrito

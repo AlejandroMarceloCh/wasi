@@ -53,7 +53,7 @@ ZONE_BAND_PCT = 8.0
 # pero ml.py se importa ANTES que `model_service.load()` corra en lifespan, por
 # lo que `model_service.mode` siempre era "v1" (default) y devolvía métricas
 # erróneas en /api/model/info y en PredictOut.mae_pct (15.9 en vez de 15.74).
-_METRICS_V2 = {"r2": 0.861, "mae_usd": 158.0, "mae_pct": 15.74}
+_METRICS_V2 = {"r2": 0.847, "mae_usd": 159.0, "mae_pct": 15.63}
 _METRICS_V1 = {"r2": 0.785, "mae_usd": 173.0, "mae_pct": 15.9}
 
 
