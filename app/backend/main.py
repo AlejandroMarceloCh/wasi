@@ -13,6 +13,7 @@ from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import entorno as entorno_router
 from routers import fairvalue as fairvalue_router
+from routers import health as health_router
 
 
 @asynccontextmanager
@@ -49,6 +50,7 @@ app.include_router(auth_router.me_router)
 app.include_router(dashboard_router.router)
 app.include_router(fairvalue_router.router)
 app.include_router(entorno_router.router)
+app.include_router(health_router.router)
 
 
 @app.get("/")
