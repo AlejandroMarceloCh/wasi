@@ -1606,17 +1606,14 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
         </div>
       )}
 
-      {/* Banner honesto de baja cobertura. Cuando hay < 20 comparables en 1 km,
-          el modelo cae a promedios del distrito o globales — comunicamos
-          que la precisión es más amplia para que el usuario tome la
-          predicción como referencia gruesa, no como cifra exacta. */}
+      {/* Banner honesto de baja cobertura. Se activa cuando la zona tiene
+          poca data alrededor del pin (<20 listings en 1 km internamente).
+          Comunicamos en lenguaje del usuario, sin exponer números técnicos. */}
       {typeof data.n_comparables === 'number' && data.n_comparables < 20 && (
         <div className="banner banner-coverage" style={{marginBottom:14}}>
           <Icon name="info" size={14}/>
           <div>
-            <strong>Cobertura baja en esta zona.</strong> Solo {data.n_comparables} {data.n_comparables === 1 ? 'aviso comparable' : 'avisos comparables'} en 1 km.
-            La precisión esperada para este punto es <strong>±{Math.round((data.mae_pct || 15.74) * 1.8)}%</strong> (más amplia que el ±{data.mae_pct || 15.74}% promedio del modelo).
-            Tómalo como referencia gruesa, no como precio exacto.
+            <strong>Cobertura baja en esta zona.</strong> Tenemos pocos avisos cercanos para comparar, por eso el rango de precio puede ser más ancho de lo habitual. Tómalo como referencia, no como precio exacto.
           </div>
         </div>
       )}
@@ -1631,10 +1628,8 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
             <GaugeChart fairValue={fair} diffPct={pct} zone={zona}/>
           </div>
           <div style={{display:'flex', justifyContent:'center', gap:8, marginTop:14, flexWrap:'wrap'}}>
-            <Tag variant="outline">{data.n_comparables} comparables</Tag>
-            <Tag variant="outline">radio {data.coverage_radius_km} km</Tag>
             {data.predicted_in_seconds > 0 && (
-              <Tag variant="accent">{data.predicted_in_seconds}s</Tag>
+              <Tag variant="accent">Predicción en {data.predicted_in_seconds}s</Tag>
             )}
           </div>
           <div style={{marginTop:14, padding:'10px 12px', background:'var(--bg-tint)', borderRadius:10, fontSize:12, color:'var(--ink-2)', lineHeight:1.55}}>
@@ -1804,10 +1799,6 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
                 <div className="row" style={{justifyContent:'space-between'}}>
                   <span className="small muted">Distancia al mar</span>
                   <b className="numeric">{data.dist_mar_km} km</b>
-                </div>
-                <div className="row" style={{justifyContent:'space-between'}}>
-                  <span className="small muted">Comparables en 1 km</span>
-                  <b className="numeric">{data.n_comparables}</b>
                 </div>
               </div>
             </Card>
