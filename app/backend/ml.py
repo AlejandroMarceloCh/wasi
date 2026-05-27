@@ -326,6 +326,11 @@ def predict_fair_value(form: dict) -> dict:
         X = build_features(form, geo)
     fair_value = round(model_service.predict(X), 2)
 
+    # Sprint 3.1: intervalo de predicción P25/P50/P75 (solo v2 con quantile
+    # models cargados). El centro sigue siendo el modelo principal (no P50),
+    # para no romper el contrato de fair_value.
+    prediction_interval = model_service.predict_interval(X) if model_service.has_quantile else None
+
     precio = float(form["precio"])
     diff = round(precio - fair_value, 2)
     diff_pct = round((diff / fair_value * 100) if fair_value else 0.0, 2)
@@ -341,9 +346,10 @@ def predict_fair_value(form: dict) -> dict:
     mae_pct = _mae_pct()
     delta = fair_value * (mae_pct / 100)
 
-    # Sprint 2.2: contrafactuales ligeros. Cuando S3.1 entre, base_prediction
-    # pasará a ser el P50 del modelo de cuantiles.
-    counterfactuals = compute_counterfactuals(form, geo, base_prediction=fair_value)
+    # Sprint 2.2: contrafactuales sobre el centro del modelo. Si entró
+    # quantile (S3.1), base_prediction = P50 para coherencia; sino, fair_value.
+    base_for_cf = (prediction_interval or {}).get("p50") or fair_value
+    counterfactuals = compute_counterfactuals(form, geo, base_prediction=base_for_cf)
 
     return {
         "fair_value": fair_value,
@@ -361,6 +367,7 @@ def predict_fair_value(form: dict) -> dict:
         "max": round(fair_value + delta, 2),
         "factors": _factores(form, geo),
         "counterfactuals": counterfactuals,
+        "prediction_interval": prediction_interval,
         "predicted_in_seconds": round(time.perf_counter() - t0, 3),
         "warnings": list(geo["warnings"]),
         "fallback_reason": geo["fallback_reason"],

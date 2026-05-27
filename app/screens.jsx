@@ -1640,6 +1640,23 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
           <div style={{marginTop:18}}>
             <GaugeChart fairValue={fair} diffPct={pct} zone={zona}/>
           </div>
+
+          {/* Rango P25-P75 del modelo de cuantiles (Sprint 3.1). Solo cuando
+              el modelo tiene quantile cargado (v2 + xgb_q*_v2.joblib). */}
+          {data.prediction_interval && (
+            <div style={{marginTop:14, padding:'12px 14px', background:'linear-gradient(90deg, rgba(59,130,246,.06), rgba(59,130,246,.12), rgba(59,130,246,.06))', borderRadius:12, border:'1px solid rgba(59,130,246,.18)'}}>
+              <div className="tiny muted" style={{textTransform:'uppercase', letterSpacing:'.06em', fontWeight:600, marginBottom:4}}>Rango probable (P25 – P75)</div>
+              <div style={{display:'flex', alignItems:'baseline', justifyContent:'center', gap:6}}>
+                <span className="numeric" style={{fontSize:22, fontWeight:700, color:'var(--primary)'}}>${Math.round(data.prediction_interval.p25)}</span>
+                <span className="tiny muted" style={{fontSize:13}}>—</span>
+                <span className="numeric" style={{fontSize:22, fontWeight:700, color:'var(--primary)'}}>${Math.round(data.prediction_interval.p75)}</span>
+              </div>
+              <div className="tiny muted" style={{textAlign:'center', marginTop:4}}>
+                centro probable ${Math.round(data.prediction_interval.p50)} · 50 % de listings similares cae acá
+              </div>
+            </div>
+          )}
+
           <div style={{display:'flex', justifyContent:'center', gap:8, marginTop:14, flexWrap:'wrap'}}>
             {data.predicted_in_seconds > 0 && (
               <Tag variant="accent">Predicción en {data.predicted_in_seconds}s</Tag>

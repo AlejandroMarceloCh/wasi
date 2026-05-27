@@ -1,0 +1,10 @@
+{
+  "coverage_p25_p75": 0.4274,
+  "expected_coverage": 0.5,
+  "width_avg_log": 0.1969,
+  "width_avg_usd": 207.72,
+  "mape_p50_pct": 15.5,
+  "n_test": 503,
+  "n_train": 2845,
+  "hyperparams": "mismos que modelo central v2"
+}

@@ -13,7 +13,7 @@ import ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr_
 from ml import predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
-from schemas import Counterfactual, Factor, PredictIn, PredictOut, RecentItem, SaveOut
+from schemas import Counterfactual, Factor, PredictIn, PredictOut, PredictionInterval, RecentItem, SaveOut
 
 router = APIRouter(prefix="/api", tags=["fairvalue"])
 
@@ -112,6 +112,10 @@ def predict(
     # Contrafactuales (Sprint 2.2): no se persisten en BD — son derivables del
     # form + modelo, no histórico. Se calculan en cada predict.
     out.counterfactuals = [Counterfactual(**cf) for cf in res.get("counterfactuals", [])]
+    # Intervalo P25/P50/P75 (Sprint 3.1, solo v2). Si no hay quantile cargado,
+    # queda None y el frontend cae al precio único.
+    pi = res.get("prediction_interval")
+    out.prediction_interval = PredictionInterval(**pi) if pi else None
     return out
 
 

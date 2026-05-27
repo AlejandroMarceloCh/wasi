@@ -134,6 +134,13 @@ class Counterfactual(BaseModel):
     pct_change: float    # vs base_prediction (fair_value actual, P50 cuando entre quantile)
 
 
+class PredictionInterval(BaseModel):
+    """Intervalo de predicción P25/P50/P75 (XGBoost quantile, Sprint 3.1)."""
+    p25: float
+    p50: float
+    p75: float
+
+
 class PredictOut(BaseModel):
     # model_r2 / model_mae chocan con el namespace reservado "model_" de Pydantic;
     # los nombres son del contrato congelado, así que se libera el namespace.
@@ -155,6 +162,7 @@ class PredictOut(BaseModel):
     max: float
     factors: List[Factor]
     counterfactuals: List[Counterfactual] = Field(default_factory=list)
+    prediction_interval: Optional[PredictionInterval] = None
     predicted_in_seconds: float
     warnings: List[str] = Field(default_factory=list)
     fallback_reason: Optional[str] = None

@@ -94,6 +94,19 @@ class ModelService:
         print(f"[model_service] modelo v2 cargado · {self._model_name} · "
               f"R²={metrics.get('r2', '?')} MAPE={metrics.get('mape', '?')}%")
 
+        # Sprint 3.1: modelos quantile (P25/P50/P75). Carga opcional — si no
+        # están, predict_interval queda en None y el frontend cae al precio único.
+        self._quantile_models: dict[str, object] = {}
+        for q in ("q25", "q50", "q75"):
+            p = MODELS_V2 / f"xgb_{q}_v2.joblib"
+            if p.exists():
+                self._quantile_models[q] = joblib.load(p)
+        if self._quantile_models:
+            cov_path = MODELS_V2 / "quantile_coverage.json"
+            cov = json.loads(cov_path.read_text()) if cov_path.exists() else {}
+            print(f"[model_service] quantile cargado · coverage P25-P75={cov.get('coverage_p25_p75', '?')} · "
+                  f"MAPE P50={cov.get('mape_p50_pct', '?')}%")
+
     def _check_manifest(self) -> None:
         path = MODELS / "manifest.json"
         if not path.exists():
@@ -161,6 +174,31 @@ class ModelService:
             X = pd.DataFrame([list(X)], columns=self._feature_order)
         pred_log = float(self._model.predict(X)[0])
         return float(np.expm1(pred_log))
+
+    def predict_interval(self, X) -> dict | None:
+        """Predicción con intervalo P25/P50/P75 (Sprint 3.1, solo v2).
+
+        Devuelve None si los modelos quantile no están cargados (v1 o v2 sin
+        quantile_*.joblib). Cuando hay, devuelve dict {p25, p50, p75} en USD.
+        El p50 puede usarse como alternativa al `predict()` central para
+        coherencia entre el centro y el rango.
+        """
+        if not getattr(self, "_quantile_models", None):
+            return None
+        if isinstance(X, pd.DataFrame):
+            X = X[self._feature_order]
+        else:
+            X = pd.DataFrame([list(X)], columns=self._feature_order)
+        out = {}
+        for q, model in self._quantile_models.items():
+            pred_log = float(model.predict(X)[0])
+            out[q[1:] if q.startswith("q") else q] = round(float(np.expm1(pred_log)), 2)
+        # Llaves consistentes: p25/p50/p75
+        return {"p25": out.get("25"), "p50": out.get("50"), "p75": out.get("75")}
+
+    @property
+    def has_quantile(self) -> bool:
+        return bool(getattr(self, "_quantile_models", None))
 
     # ─── accesores ──────────────────────────────────────────────────────
     @property
