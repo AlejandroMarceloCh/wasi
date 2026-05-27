@@ -111,6 +111,35 @@ const Tag = ({ variant = 'default', children, className = '', ...rest }) => (
   <span className={`tag tag-${variant} ${className}`} {...rest}>{children}</span>
 );
 
+/* ============ Glossary ============
+   Tooltip educativo para términos técnicos. Usa <abbr> nativo: lo lee el
+   screen reader, lo muestra el browser en hover (desktop) y al hacer tap
+   largo (mobile en iOS / Android moderno).
+*/
+const GLOSSARY = {
+  'MAPE': 'Error porcentual absoluto medio: en promedio, qué tan lejos está la predicción del precio real, expresado en %.',
+  'R²':   'Coeficiente de determinación. Indica qué tanto explica el modelo la variabilidad de los precios. 1.0 = perfecto, 0 = no explica nada.',
+  'XGBoost': 'Modelo de gradient boosting que combina muchos árboles de decisión para predecir el precio de alquiler.',
+  'XGBoost v2': 'Segunda versión del modelo, entrenada con 95 features y 3,348 listings reales de Lima. MAPE 15.7 %, R² 0.86.',
+  'Confianza Alta': 'Muchos avisos comparables cerca del pin: la predicción es más estable.',
+  'Confianza Media': 'Algunos avisos comparables: la predicción es razonable pero con más margen.',
+  'Confianza Baja': 'Pocos avisos comparables cerca: el rango puede ser amplio, tómalo como referencia general.',
+  'Veredicto': 'Comparación entre el precio anunciado y el precio de referencia del modelo: Inflado, Justo o Ganga.',
+};
+
+const Glossary = ({ term, children, custom }) => {
+  const explicacion = custom || GLOSSARY[term] || term;
+  return (
+    <abbr
+      title={explicacion}
+      aria-label={`${term}: ${explicacion}`}
+      style={{textDecoration:'underline dotted', textUnderlineOffset:'2px', cursor:'help'}}
+    >
+      {children || term}
+    </abbr>
+  );
+};
+
 /* ============ Input ============ */
 const Input = ({ label, suffix, error, ...rest }) => (
   <div className="field">
@@ -476,5 +505,6 @@ Object.assign(window, {
   Input, Select, Switch, ToggleRow,
   GaugeChart, ScoreCircle, AnimBar,
   TopNav, PageHeader, Modal,
+  Glossary, GLOSSARY,
   useAnimatedNumber,
 });

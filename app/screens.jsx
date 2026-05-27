@@ -546,8 +546,8 @@ const HomeScreen = ({ onGo }) => {
             <div className="k">Distritos</div>
           </div>
           <div>
-            <div className="v">15.9%</div>
-            <div className="k">MAPE</div>
+            <div className="v">15.7%</div>
+            <div className="k"><Glossary term="MAPE"/></div>
           </div>
         </div>
       </div>
@@ -1628,7 +1628,11 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
         <Card>
           <div className="row" style={{justifyContent:'space-between'}}>
             <div className="section-h" style={{margin:0}}>Precio de referencia de mercado</div>
-            <Tag variant={confTag}>Confianza: {data.confidence}</Tag>
+            <Tag variant={confTag}>
+              <Glossary term={`Confianza ${data.confidence}`} custom={GLOSSARY[`Confianza ${data.confidence}`] || 'Indica qué tan estable es la predicción según cuántos avisos comparables hay cerca del pin.'}>
+                Confianza: {data.confidence}
+              </Glossary>
+            </Tag>
           </div>
           <div style={{marginTop:18}}>
             <GaugeChart fairValue={fair} diffPct={pct} zone={zona}/>
@@ -1689,7 +1693,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
       </div>
 
       <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
-        <span className="small muted">Modelo: XGBoost v2 · R² {data.model_r2} · MAPE {data.mae_pct}%</span>
+        <span className="small muted">Modelo: <Glossary term="XGBoost v2"/> · <Glossary term="R²"/> {data.model_r2} · <Glossary term="MAPE"/> {data.mae_pct}%</span>
         <Btn variant="primary" size="lg" onClick={onContext}>
           <Icon name="shield" size={16}/> Ver contexto del barrio
         </Btn>
