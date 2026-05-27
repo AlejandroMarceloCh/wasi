@@ -134,8 +134,8 @@ const Select = ({ label, options, value, onChange, placeholder }) => (
 );
 
 /* ============ Switch ============ */
-const Switch = ({ checked, onChange }) => (
-  <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)} role="switch" aria-checked={checked}/>
+const Switch = ({ checked, onChange, label }) => (
+  <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)} role="switch" aria-checked={checked} aria-label={label}/>
 );
 
 const ToggleRow = ({ label, icon, checked, onChange }) => (
@@ -144,7 +144,7 @@ const ToggleRow = ({ label, icon, checked, onChange }) => (
       {icon && <span style={{display:'inline-flex'}}>{icon}</span>}
       {label}
     </div>
-    <Switch checked={checked} onChange={onChange}/>
+    <Switch checked={checked} onChange={onChange} label={label}/>
   </div>
 );
 
@@ -198,7 +198,7 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo' }) => {
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <svg viewBox="0 0 260 182" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }}>
+      <svg viewBox="0 0 260 182" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }} role="img" aria-label={`Indicador de precio: ${zone}. Precio de referencia $${fairValue}. Diferencia ${diffPct > 0 ? '+' : ''}${diffPct}%.`}>
         <defs>
           {/* Degradado continuo verde → naranja → rojo a lo largo del arco.
              Los stops están a 1/3 y 2/3 para coincidir con los cortes
@@ -257,7 +257,7 @@ const ScoreCircle = ({ value = 72, max = 100, size = 140, stroke = 12, label, su
 
   return (
     <div style={{position:'relative', width: size, height: size}}>
-      <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
+      <svg width={size} height={size} style={{transform:'rotate(-90deg)'}} role="img" aria-label={`${label || 'Score'}: ${Math.round(value)} de ${max}${sub ? '. ' + sub : ''}`}>
         <circle cx={size/2} cy={size/2} r={R} stroke="var(--line-2)" strokeWidth={stroke} fill="none"/>
         <circle cx={size/2} cy={size/2} r={R} stroke={c} strokeWidth={stroke} fill="none"
                 strokeDasharray={C} strokeDashoffset={off}
@@ -343,7 +343,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
                 <button className="icon-btn" aria-label="Configuración" onClick={() => onNavigate('profile')}>
                   <Icon name="settings" size={16}/>
                 </button>
-                <div className="user-pill" onClick={() => onNavigate('profile')}>
+                <div className="user-pill" role="button" tabIndex={0} aria-label={`Ver perfil de ${user?.name || 'Ana'}`} onClick={() => onNavigate('profile')}>
                   <div className="avatar" style={{width:32, height:32, fontSize:13, border:'2px solid #fff'}}>{(user?.name || 'A').charAt(0)}</div>
                   <span className="name">{user?.name || 'Ana'}</span>
                 </div>

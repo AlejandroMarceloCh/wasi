@@ -30,7 +30,7 @@ const MapPicker = ({ lat, lng, onMove, className }) => {
     setTimeout(() => map.invalidateSize(), 120);  // Leaflet necesita esto
     return () => { map.remove(); mapRef.current = null; };
   }, []);
-  return <div ref={elRef} className={className || 'map-box'}/>;
+  return <div ref={elRef} className={className || 'map-box'} role="application" aria-label="Mapa interactivo. Haz clic o arrastra el pin para seleccionar la ubicación del inmueble."/>;
 };
 
 /* Stepper — control numérico +/− */
@@ -38,9 +38,9 @@ const Stepper = ({ label, value, set, min = 0, max = 20, suffix }) => (
   <div className="stepper-field">
     <div className="sl">{label}</div>
     <div className="stepper">
-      <button type="button" onClick={()=>set(Math.max(min, value-1))} disabled={value<=min}>−</button>
+      <button type="button" onClick={()=>set(Math.max(min, value-1))} disabled={value<=min} aria-label={`Disminuir ${label}`}>−</button>
       <span className="val">{value}{suffix ? ` ${suffix}` : ''}</span>
-      <button type="button" onClick={()=>set(Math.min(max, value+1))} disabled={value>=max}>+</button>
+      <button type="button" onClick={()=>set(Math.min(max, value+1))} disabled={value>=max} aria-label={`Aumentar ${label}`}>+</button>
     </div>
   </div>
 );
@@ -627,7 +627,7 @@ const HomeScreen = ({ onGo }) => {
         Estimación de precio + análisis de entorno, conectados sobre los mismos datos.
       </p>
       <div className="home-modules">
-        <div className="home-module" onClick={() => onGo('fairvalue-form')}>
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Fair Value: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')}>
           <div className="top">
             <div className="feat-ico ico-fv">
               <Icon name="key" size={26}/>
@@ -656,7 +656,7 @@ const HomeScreen = ({ onGo }) => {
           <span className="cta">Probar estimación <Icon name="fwd" size={14}/></span>
         </div>
 
-        <div className="home-module" onClick={() => onGo('entorno-map')}>
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Entorno y Seguridad: explorador de contexto del barrio" onClick={() => onGo('entorno-map')}>
           <div className="top">
             <div className="feat-ico ico-en">
               <Icon name="shield" size={26}/>
@@ -983,7 +983,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
               <span className="small muted">Selecciona un módulo para comenzar</span>
             </div>
             <div className="grid-2">
-              <div className="action-card fv" onClick={()=>setConfirm('fairvalue')}>
+              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Fair Value" onClick={()=>setConfirm('fairvalue')}>
                 <div className="top-row">
                   <div className="feat-ico"><Icon name="key" size={24}/></div>
                 </div>
@@ -991,7 +991,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                 <div className="d">Estimación del precio de referencia con XGBoost v2. Identifica sobreprecios y oportunidades.</div>
                 <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
               </div>
-              <div className="action-card en" onClick={()=>setConfirm('entorno')}>
+              <div className="action-card en" role="button" tabIndex={0} aria-label="Explorar mapa de Entorno y Seguridad" onClick={()=>setConfirm('entorno')}>
                 <div className="top-row">
                   <div className="feat-ico"><Icon name="shield" size={24}/></div>
                 </div>
@@ -1003,7 +1003,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
           </div>
 
           {/* Entrada al modal de análisis recientes — reemplaza la tabla grande */}
-          <div className="ana-entry" onClick={openAnalysesModal}>
+          <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal}>
             <div className="ana-entry-ico"><Icon name="chart" size={22}/></div>
             <div className="ana-entry-body">
               <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Análisis recientes</div>
@@ -1160,6 +1160,8 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                   <button
                     key={f.key}
                     className={`pick-chip ${active ? 'on' : ''}`}
+                    aria-pressed={active}
+                    aria-label={`Filtrar por ${f.label}`}
                     onClick={() => { setAnaFilter(f.key); setAnaPage(0); }}
                   >
                     {f.label} <span className="numeric" style={{opacity:.7, marginLeft:4}}>{count}</span>
@@ -1178,7 +1180,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                 const sign = r.diff_pct > 0 ? '+' : '';
                 const iconName = neg ? 'flag' : ganga ? 'sparkle' : 'check';
                 return (
-                  <div className="ana-row" key={r.id} onClick={() => openAnalysisRow(r)}>
+                  <div className="ana-row" key={r.id} role="button" tabIndex={0} aria-label={`Ver análisis: ${r.address}`} onClick={() => openAnalysisRow(r)}>
                     <div className="ico" style={{background: bg, color}}>
                       <Icon name={iconName} size={14}/>
                     </div>
@@ -1387,6 +1389,9 @@ const FairValueForm = ({ onBack, onSubmit, onError, onAuthExpired }) => {
             {AMENIDADES.map(a=>(
               <div key={a.key}
                 className={`pick-chip ${f.amenities.includes(a.key)?'on':''}`}
+                role="button"
+                aria-pressed={f.amenities.includes(a.key)}
+                aria-label={a.label}
                 onClick={()=>toggleAmenity(a.key)}>{a.label}</div>
             ))}
           </div>
@@ -1423,6 +1428,7 @@ const FairValueForm = ({ onBack, onSubmit, onError, onAuthExpired }) => {
                 value={f.precio}
                 inputMode="numeric"
                 placeholder="900"
+                aria-label="Precio anunciado en USD por mes"
                 onChange={(e)=>set('precio', e.target.value.replace(/[^0-9]/g,''))}
               />
               <span className="big-price-suffix">
@@ -1656,7 +1662,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
             <div className={`verdict verdict-${isInflado?'inflado':isGanga?'ganga':'justo'}`}>
               <span className="dot"/>
               <div className="grow">
-                <div className="lbl">Veredicto: {zona}</div>
+                <div className="lbl">Veredicto: {isInflado ? '↑ ' : isGanga ? '↓ ' : '= '}{zona}</div>
                 <div className="numeric val">
                   {diff >= 0 ? '+' : ''}${diff} <span className="pct">({pct}%)</span>
                 </div>
@@ -1944,15 +1950,15 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
           <div>
             <div className="section-h">Opciones</div>
             <div className="stack-12">
-              <div className="menu-row" onClick={()=>setModal('config')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Configuración" onClick={()=>setModal('config')}>
                 <Icon name="settings" size={18} stroke="var(--ink-2)"/> Configuración
                 <Icon name="fwd" size={14} stroke="var(--ink-3)" className="arr"/>
               </div>
-              <div className="menu-row" onClick={()=>setModal('help')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Ayuda y soporte" onClick={()=>setModal('help')}>
                 <Icon name="help" size={18} stroke="var(--ink-2)"/> Ayuda y soporte
                 <Icon name="fwd" size={14} stroke="var(--ink-3)" className="arr"/>
               </div>
-              <div className="menu-row" onClick={()=>setModal('lang')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Cambiar idioma" onClick={()=>setModal('lang')}>
                 <Icon name="globe" size={18} stroke="var(--ink-2)"/> Idioma
                 <span className="muted small" style={{marginLeft:'auto'}}>Español</span>
                 <Icon name="fwd" size={14} stroke="var(--ink-3)"/>
@@ -1973,7 +1979,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
             </div>
             <div className="stack-12">
               {reports.map((r,i)=>(
-                <div className="report-row" key={r.id || i} onClick={()=>openReport(r)}>
+                <div className="report-row" key={r.id || i} role="button" tabIndex={0} aria-label={`Abrir reporte: ${r.address}`} onClick={()=>openReport(r)}>
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{fontSize:14, fontWeight:600}}>{r.address}</div>
                     <div className="small muted" style={{marginTop:2}}>Reporte · {r.date}</div>
@@ -2087,7 +2093,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
         <div>
           {PROFILE_FAQS.map((f,i)=>(
             <div className="faq-item" key={i}>
-              <div className="faq-q" onClick={()=>setFaqOpen(o=>o===i?-1:i)}>
+              <div className="faq-q" role="button" tabIndex={0} aria-expanded={faqOpen===i} aria-label={f.q} onClick={()=>setFaqOpen(o=>o===i?-1:i)}>
                 {f.q}
                 <Icon name={faqOpen===i ? 'back' : 'fwd'} size={14} stroke="var(--ink-3)"/>
               </div>
