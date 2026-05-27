@@ -1686,9 +1686,14 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
               <Tag variant="outline">XGBoost v2</Tag>
             </div>
             <div style={{marginTop:8}}>
-              {factors.map((fac, i) => (
-                <AnimBar key={i} label={fac.label} value={fac.score} delay={120 + i*100} positive={!!fac.positive}/>
-              ))}
+              {factors.map((fac, i) => {
+                // Tooltip por prefijo del label ("Área: 80 m²" -> key "Área")
+                const key = (fac.label || '').split(':')[0].trim();
+                const tooltip = FACTOR_TOOLTIPS[key] || '';
+                return (
+                  <AnimBar key={i} label={fac.label} value={fac.score} delay={120 + i*100} positive={!!fac.positive} tooltip={tooltip}/>
+                );
+              })}
               {factors.length === 0 && <div className="small muted">Sin factores disponibles.</div>}
             </div>
           </Card>

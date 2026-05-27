@@ -311,25 +311,42 @@ const ScoreCircle = ({ value = 72, max = 100, size = 140, stroke = 12, label, su
   );
 };
 
-/* ============ AnimBar ============ */
-const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix = '' }) => {
+/* ============ AnimBar ============
+   Si recibe prop `tooltip`, el label se envuelve en <abbr> (hover desktop,
+   tap mobile, lectura screen reader) para explicar qué significa el factor.
+*/
+const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix = '', tooltip = '' }) => {
   const [w, setW] = useState(0);
   useEffect(() => {
     const t = setTimeout(()=> setW(Math.max(2, (value/max)*100)), delay);
     return () => clearTimeout(t);
   }, [value, max, delay]);
+  const labelEl = tooltip
+    ? <abbr title={tooltip} aria-label={`${label}: ${tooltip}`} style={{textDecoration:'underline dotted', textUnderlineOffset:'2px', cursor:'help'}}>{label}</abbr>
+    : label;
   return (
     <div className={`xai-row ${positive ? 'pos' : 'neg'}`}>
       <div className="label">
         {positive
           ? <span style={{color:'var(--success)', fontWeight:700}}>+</span>
           : <span style={{color:'var(--danger)', fontWeight:700}}>−</span>}
-        {label}
+        {labelEl}
       </div>
       <div className="value">{value}{suffix}/100</div>
       <div className="bar-wrap"><div className="bar" style={{width: `${w}%`}}/></div>
     </div>
   );
+};
+
+/* Diccionario de tooltips para los factores del modelo. La key es el prefijo
+   del label (antes del ":"). Si no hay match, el AnimBar se renderiza sin
+   tooltip y sin underline punteado (degrada limpio). */
+const FACTOR_TOOLTIPS = {
+  'Área': 'Tamaño habitable en m². Tiene peso fuerte: el precio crece casi lineal con el área hasta ~120 m². En estudios y monoambientes el peso por m² es mayor.',
+  'Ubicación': 'Distrito del pin (vecino más cercano del dataset). Pesa por target encoding con suavizado bayesiano (k=30) — distritos con pocos avisos tiran al promedio Lima.',
+  'Antigüedad': 'Años desde construcción del edificio. Penalización fuerte después de 20 años; muy bajo impacto entre 0-10 años.',
+  'Baños': 'Número de baños completos. Marca de gama: pasar de 1 a 2 baños eleva el precio más que pasar de 2 a 3.',
+  'Cocheras': 'Estacionamientos privados. En zonas premium (Miraflores, San Isidro) suma más que en zonas populares.',
 };
 
 /* ============ TopNav ============ */
@@ -514,6 +531,6 @@ Object.assign(window, {
   Input, Select, Switch, ToggleRow,
   GaugeChart, ScoreCircle, AnimBar,
   TopNav, PageHeader, Modal,
-  Glossary, GLOSSARY, onKeyActivate,
+  Glossary, GLOSSARY, onKeyActivate, FACTOR_TOOLTIPS,
   useAnimatedNumber,
 });
