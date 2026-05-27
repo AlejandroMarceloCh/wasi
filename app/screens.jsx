@@ -182,7 +182,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
         <div className="row" style={{gap:24, opacity:.85, fontSize:12}}>
           <span>● XGBoost v2</span>
           <span>● 3.348 avisos Lima</span>
-          <span>● MAPE 15,9%</span>
+          <span>● MAPE 15,7%</span>
         </div>
       </div>
       <div className="auth-form">
@@ -648,7 +648,7 @@ const HomeScreen = ({ onGo }) => {
                 <div style={{ fontFamily: 'Space Grotesk', fontSize: 28, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1, marginTop: 4 }}>
                   $700 <span className="small muted" style={{ fontWeight: 500 }}>/mes</span>
                 </div>
-                <div className="tiny muted" style={{ marginTop: 4 }}>Confianza alta · MAPE 15.9%</div>
+                <div className="tiny muted" style={{ marginTop: 4 }}>Confianza alta · MAPE 15.7%</div>
                 <Tag variant="danger" style={{ marginTop: 8 }}>+28% inflado</Tag>
               </div>
             </div>
@@ -763,7 +763,7 @@ const HomeScreen = ({ onGo }) => {
           ['Precio de referencia confiable',    'Por ubicación exacta, no por distrito promedio'],
           ['Reducir la asimetría de información', 'El inquilino sabe tanto como el agente'],
           ['Contexto del barrio integrado',     'Seguridad y servicios, no solo precio'],
-          ['Honestos sobre el margen de error', 'MAPE 15.9%, comunicado en cada predicción'],
+          ['Honestos sobre el margen de error', 'MAPE 15.7%, comunicado en cada predicción'],
         ].map(([t, d]) => (
           <div key={t} className="home-obj">
             <span className="check"><Icon name="check" size={16}/></span>
