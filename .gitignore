@@ -1,0 +1,55 @@
+# ============================================================
+# Proyecto_DPD .gitignore
+# ============================================================
+
+# --- Python ---
+**/venv/
+**/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / Frontend build ---
+node_modules/
+dist/
+build/
+.cache/
+
+# --- OS / Editor ---
+.DS_Store
+**/._*
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Secretos y env ---
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# --- Databases autogenerables ---
+*.db
+*.sqlite
+*.sqlite3
+app/backend/justa.db
+
+# --- Logs y sesión ---
+*.log
+session.log
+
+# --- Subrepos independientes (mantienen su propio .git) ---
+pipeline/
+eda/
+
+# --- Legacy / archivos pesados ---
+_archive/
+
+# --- Modelos pesados temporales (los .joblib de producción SÍ se trackean en app/backend/models/) ---
+*.tmp.joblib
+*.tmp.pkl

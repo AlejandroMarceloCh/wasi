@@ -1,0 +1,25 @@
+{
+  "metodo": "backtest leave-one-out estricto sobre X_test (503 listings); excluye sí mismo, coordenadas idénticas y vecinos < 10 m.",
+  "metrica": "error relativo |pred-real|/real con geo reconstruido por IDW",
+  "hallazgo": "el error depende débilmente de la densidad; el corte fuerte es la zona muy escasa. Alta/Media separa por densidad mediana.",
+  "alta_min_comparables": 119,
+  "media_min_comparables": 27,
+  "error_global_mediana": 0.1178,
+  "verificacion_por_tier": {
+    "baja": {
+      "mediana_err": 0.171,
+      "p75_err": 0.304,
+      "n": 100
+    },
+    "media": {
+      "mediana_err": 0.112,
+      "p75_err": 0.19,
+      "n": 149
+    },
+    "alta": {
+      "mediana_err": 0.108,
+      "p75_err": 0.187,
+      "n": 254
+    }
+  }
+}

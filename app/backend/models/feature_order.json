@@ -1,0 +1,301 @@
+{
+  "n_features": 74,
+  "features": [
+    {
+      "name": "area_final_m2",
+      "dtype": "float64"
+    },
+    {
+      "name": "dormitorios",
+      "dtype": "float64"
+    },
+    {
+      "name": "banos",
+      "dtype": "float64"
+    },
+    {
+      "name": "cocheras",
+      "dtype": "float64"
+    },
+    {
+      "name": "antiguedad_anios",
+      "dtype": "float64"
+    },
+    {
+      "name": "amenities_count",
+      "dtype": "float64"
+    },
+    {
+      "name": "latitud",
+      "dtype": "float64"
+    },
+    {
+      "name": "longitud",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_mar_km",
+      "dtype": "float64"
+    },
+    {
+      "name": "area_por_dormitorio",
+      "dtype": "float64"
+    },
+    {
+      "name": "cantidad_denuncias",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_supermercados",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_supermercados",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_farmacias",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_farmacias",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_colegios",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_colegios",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_hospitales",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_hospitales",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_bancos",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_bancos",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_universidades",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_universidades",
+      "dtype": "float64"
+    },
+    {
+      "name": "count_1km_parqueos",
+      "dtype": "float64"
+    },
+    {
+      "name": "dist_nearest_m_parqueos",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_numero_de_pisos",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_ascensores",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_cocina",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_centros_comerciales_cercanos",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_piso_en_el_que_se_encuentra",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_seguridad",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_exteriores",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_reposteros_en_cocina",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_closet",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_recepcion",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_intercomunicador",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_cerca_a_colegios",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_amueblado_a",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_mascotas",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_cerca_a_parque_a_menos_de_2_cdras",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_tipo_de_cochera",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_terraza",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_piscina",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_av_acceso_asfaltada",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_vista_a_la_ciudad",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_walk_in_closet",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_bano_de_servicio",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_cuartos_de_servicio",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_numero_de_departamentos",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_sistema_contra_incendios",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_acabados_de_lujo",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_jardines",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_en_condominio",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_vista_al_mar",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_vista_parque",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_caseta_de_guardia",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_frente_a_parque",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_portero_electrico",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_av_acceso_afirmada",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_duplex",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_frente_al_mar_primera_fila",
+      "dtype": "float64"
+    },
+    {
+      "name": "tiene_jacuzzi",
+      "dtype": "float64"
+    },
+    {
+      "name": "cocheras_informadas",
+      "dtype": "int64"
+    },
+    {
+      "name": "es_estudio",
+      "dtype": "int64"
+    },
+    {
+      "name": "distrito_enc",
+      "dtype": "float64"
+    },
+    {
+      "name": "fuente_properati",
+      "dtype": "int64"
+    },
+    {
+      "name": "fuente_urbania",
+      "dtype": "int64"
+    },
+    {
+      "name": "tipo_propiedad_Departamento",
+      "dtype": "int64"
+    },
+    {
+      "name": "mismatch_type_frontera",
+      "dtype": "int64"
+    },
+    {
+      "name": "mismatch_type_ninguno",
+      "dtype": "int64"
+    },
+    {
+      "name": "ratio_area_banos",
+      "dtype": "float64"
+    },
+    {
+      "name": "area_x_amenities",
+      "dtype": "float64"
+    },
+    {
+      "name": "antiguedad_sq",
+      "dtype": "float64"
+    },
+    {
+      "name": "total_poi_1km",
+      "dtype": "float64"
+    }
+  ]
+}

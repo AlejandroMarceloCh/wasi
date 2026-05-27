@@ -1,0 +1,25 @@
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+sqlalchemy==2.0.27
+psycopg2-binary==2.9.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+pydantic-settings==2.2.1
+pydantic==2.6.1
+email-validator==2.1.1
+python-multipart==0.0.9
+
+# --- ML / modelo de Leo (Fase 0 del PLAN) ---
+# venv corre Python 3.9 → numpy/scipy fijados al máximo compatible con py3.9.
+# scikit-learn DEBE coincidir con la versión de entrenamiento (joblib embebe 1.6.1).
+scikit-learn==1.6.1
+xgboost==2.1.4
+joblib==1.4.2
+numpy==2.0.2
+pandas==2.2.3
+scipy==1.13.1
+
+# --- Tests (Fase 3) ---
+pytest==8.3.4
+httpx==0.27.2

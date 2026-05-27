@@ -1,0 +1,12 @@
+{
+  "version": "edf4fe15ab74afd6",
+  "sklearn_version": "1.6.1",
+  "artefactos": {
+    "04_random_forest.joblib": "bb518429fc1a1b59b5645a0d508495bc2039ba43b26b67d605c2d2328e5e3dca",
+    "05_xgboost.joblib": "2c0962b56e74089f3539ebf624fe39cdbec39a839b2bf8b8cf882b5e14da2a05",
+    "feature_names.joblib": "568d040b0fcbf6f5fab5def7690857c19288fcf25019b9d8b80c385dcf07f9d5",
+    "target_enc_distrito.joblib": "5371209c47a66bdbf6bae6df19a78663a6e851922ac03e73aad31e6e6a028186",
+    "features_log_transformed.joblib": "43d0061abd511020aff031d7c5024541befbff98fc89a713092d48c49c7d24d1",
+    "outlier_caps.joblib": "89ea9367dcc4f8eaced96b2cd3efcec61c1d6aa2737b0e365131d4c4ad850982"
+  }
+}

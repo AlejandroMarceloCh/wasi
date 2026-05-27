@@ -1,0 +1,90 @@
+"""Endpoint de Entorno — contexto del barrio para un pin (lat, lng).
+
+Los datos (POIs, crimen) los sirve geo_index.py: para cualquier punto del
+mapa devuelve el contexto interpolado. No hay tablas de POIs en la BD.
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from auth import get_current_user
+from geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, scoring_entorno
+from models import User
+from schemas import EntornoOut, PoiContext
+
+router = APIRouter(prefix="/api/entorno", tags=["entorno"])
+
+# Presentación de cada tipo de POI.
+POI_META = {
+    "supermercados": ("Supermercados", "🛒"),
+    "farmacias":     ("Farmacias", "💊"),
+    "colegios":      ("Colegios", "🏫"),
+    "hospitales":    ("Hospitales", "🏥"),
+    "bancos":        ("Bancos", "🏦"),
+    "universidades": ("Universidades", "🎓"),
+    "parqueos":      ("Parqueos", "🅿️"),
+}
+
+
+def _level_for(score: int) -> str:
+    if score >= 80:
+        return "Excelente"
+    if score >= 65:
+        return "Bueno"
+    if score >= 50:
+        return "Regular"
+    return "Riesgo"
+
+
+def _clamp(v: float, lo: int, hi: int) -> int:
+    return int(max(lo, min(hi, v)))
+
+
+@router.get("", response_model=EntornoOut)
+def entorno(
+    lat: float = Query(..., description="Latitud del pin"),
+    lng: float = Query(..., description="Longitud del pin"),
+    current: User = Depends(get_current_user),
+):
+    try:
+        geo = geo_lookup(lat, lng)
+    except OutOfBoundsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # POIs por tipo
+    total_poi = 0
+    pois = []
+    for kind in POI_TYPES:
+        count = int(round(geo[f"count_1km_{kind}"]))
+        total_poi += count
+        label, emoji = POI_META[kind]
+        pois.append(PoiContext(
+            kind=kind, label=label, emoji=emoji,
+            count_1km=count,
+            dist_nearest_m=round(geo[f"dist_nearest_m_{kind}"], 1),
+        ))
+
+    denuncias = int(round(geo["cantidad_denuncias"]))
+    security, services = scoring_entorno(geo["cantidad_denuncias"], float(total_poi))
+    score = _clamp(round(0.5 * security + 0.5 * services), 0, 100)
+    level = _level_for(score)
+
+    warnings = list(geo["warnings"])
+    if security < 55:
+        warnings.append("Zona con número de denuncias por encima del promedio.")
+    if services < 50:
+        warnings.append("Pocos servicios (POIs) a 1 km de este punto.")
+
+    summary = (
+        f"Entorno {level.lower()} en {geo['distrito']}: {total_poi} POIs en 1 km, "
+        f"{denuncias} denuncias registradas, a {geo['dist_mar_km']:.1f} km del mar."
+    )
+
+    return EntornoOut(
+        distrito=geo["distrito"],
+        score=score, level=level, security=security, services=services,
+        pois=pois,
+        cantidad_denuncias=denuncias,
+        dist_mar_km=round(geo["dist_mar_km"], 2),
+        n_comparables=geo["n_comparables"],
+        summary=summary,
+        warnings=warnings,
+    )
