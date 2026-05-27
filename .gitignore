@@ -54,3 +54,6 @@ _archive/
 # --- Modelos pesados temporales (los .joblib de producción SÍ se trackean en app/backend/models/) ---
 *.tmp.joblib
 *.tmp.pkl
+_defensa/
+_backup_pre_sprint32/
+

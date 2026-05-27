@@ -199,3 +199,6 @@ class EntornoOut(BaseModel):
     n_comisarias_distrito: int = 0
     denuncias_distrito_total: int = 0
     denuncias_vs_lima_pct: float = 0.0   # 1.0 = igual al promedio Lima; 2.0 = doble; 0.5 = mitad
+    # Factor visual de serenazgo (Sprint 3.4) — NO entra al modelo ML.
+    # {serenos_total, serenos_por_km2, label} o None si el distrito no tiene datos.
+    serenazgo: Optional[dict] = None

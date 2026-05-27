@@ -36,6 +36,8 @@ const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fil
     flag: <><path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/></>,
     close: <><path d="M6 6l12 12"/><path d="M18 6L6 18"/></>,
     mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></>,
+    sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></>,
+    moon: <><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
@@ -402,6 +404,19 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
     { key: 'profile', label: 'Perfil', icon: 'user' },
   ];
   const [notifOpen, setNotifOpen] = useState(false);
+
+  const getStoredTheme = () => {
+    try { return localStorage.getItem('wasi.theme') || 'light'; } catch(e) { return 'light'; }
+  };
+  const [theme, setTheme] = useState(getStoredTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('wasi.theme', theme); } catch(e) {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
   return (
     <>
       <nav className={`topnav ${isPublic ? 'public' : ''}`}>
@@ -428,6 +443,14 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
           )}
 
           <div className="right">
+            <button
+              className="icon-btn"
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16}/>
+            </button>
             {isPublic ? (
               <>
                 <Btn variant="outline" size="sm" onClick={() => onNavigate('login')}>Iniciar Sesión</Btn>

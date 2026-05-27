@@ -1893,6 +1893,22 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
                         Comisarías en distrito:
                         <b className="numeric" style={{color:'var(--ink)', marginLeft:4}}>{data.n_comisarias_distrito}</b>
                       </div>
+                      {data.serenazgo && (
+                        <div className="tiny muted" style={{marginTop:8, lineHeight:1.5}}>
+                          Serenazgo del distrito:
+                          <b className="numeric" style={{color:'var(--ink)', marginLeft:4}}>
+                            {data.serenazgo.serenos_total} serenos · {data.serenazgo.serenos_por_km2}/km²
+                          </b>
+                          <span style={{
+                            marginLeft:6,
+                            fontSize:11,
+                            fontWeight:600,
+                            color: data.serenazgo.label === 'Alta' ? 'var(--success)' : data.serenazgo.label === 'Media' ? 'var(--warning)' : 'var(--ink-2)',
+                          }}>
+                            {data.serenazgo.label}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     {/* Servicios */}
                     <div>

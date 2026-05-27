@@ -18,6 +18,8 @@
     --bg: oklch(0.985 0.005 95);
     --bg-tint: oklch(0.97 0.018 240);
     --surface: #ffffff;
+    --topnav-bg: rgba(255,255,255,.85);
+    --modal-overlay-bg: rgba(255,255,255,.6);
 
     --primary: oklch(0.42 0.15 250);
     --primary-2: oklch(0.55 0.16 240);
@@ -44,6 +46,26 @@
     --nav-h: 64px;
     --container: 1240px;
   }
+  [data-theme="dark"]{
+    --ink: oklch(0.92 0.01 250);
+    --ink-2: oklch(0.72 0.02 250);
+    --ink-3: oklch(0.55 0.02 250);
+    --line: oklch(0.28 0.02 250);
+    --line-2: oklch(0.22 0.02 250);
+    --bg: oklch(0.13 0.02 250);
+    --bg-tint: oklch(0.17 0.03 240);
+    --surface: oklch(0.18 0.02 250);
+    --topnav-bg: rgba(26,26,38,.88);
+    --modal-overlay-bg: rgba(0,0,0,.55);
+    --primary-soft: oklch(0.22 0.06 250);
+    --accent-soft: oklch(0.20 0.05 195);
+    --success-soft: oklch(0.20 0.06 155);
+    --danger-soft: oklch(0.22 0.06 25);
+    --warning-soft: oklch(0.22 0.06 70);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.25), 0 1px 1px rgba(0,0,0,.15);
+    --shadow-md: 0 4px 16px -6px rgba(0,0,0,.40), 0 2px 4px rgba(0,0,0,.20);
+    --shadow-lg: 0 20px 50px -20px rgba(0,0,0,.65), 0 8px 20px -10px rgba(0,0,0,.35);
+  }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
@@ -68,7 +90,7 @@
   .topnav{
     position: sticky; top:0; z-index: 50;
     height: var(--nav-h);
-    background: rgba(255,255,255,.85);
+    background: var(--topnav-bg);
     backdrop-filter: blur(18px) saturate(160%);
     border-bottom: 1px solid var(--line);
   }
@@ -787,7 +809,7 @@
   /* ===== Modal / isla flotante ===== */
   .modal-overlay{
     position: fixed; inset: 0; z-index: 200;
-    background: rgba(255,255,255,.6);
+    background: var(--modal-overlay-bg);
     backdrop-filter: blur(10px) saturate(140%);
     display:flex; align-items:center; justify-content:center;
     padding: 24px;
@@ -1720,7 +1742,7 @@
   .big-price{
     display: flex; align-items: baseline; gap: 6px;
     padding: 22px 22px 18px;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid oklch(0.91 0.025 250);
     border-radius: 16px;
     box-shadow: inset 0 1px 2px rgba(15,23,42,.04);
@@ -1877,20 +1899,20 @@
   .wizard-card .field input,
   .wizard-card .field select,
   .wizard-card .field textarea{
-    background: #fff;
+    background: var(--surface);
     border-color: oklch(0.91 0.025 250);
     box-shadow: inset 0 1px 2px rgba(15,23,42,.04);
   }
   .wizard-card .field input:focus,
   .wizard-card .field select:focus{
-    background: #fff;
+    background: var(--surface);
     border-color: var(--primary);
     box-shadow:
       inset 0 1px 2px rgba(15,23,42,.04),
       0 0 0 3px oklch(0.42 0.15 250 / .15);
   }
   .wizard-card .stepper{
-    background: #fff;
+    background: var(--surface);
     border-color: oklch(0.91 0.025 250);
     box-shadow: inset 0 1px 2px rgba(15,23,42,.04);
   }
@@ -1916,7 +1938,7 @@
   }
   /* Pick-chip "off" con tono editorial; "on" con gradient + ring */
   .wizard-card .pick-chip{
-    background: #fff;
+    background: var(--surface);
     border-color: oklch(0.90 0.025 250);
     box-shadow: 0 1px 2px rgba(15,23,42,.03);
   }
@@ -1969,6 +1991,15 @@
 </style>
 </head>
 <body>
+<script>
+  /* Anti-flash: aplica el tema guardado ANTES del primer render. */
+  (function(){
+    try{
+      var t = localStorage.getItem('wasi.theme');
+      if(t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    }catch(e){}
+  })();
+</script>
 <div id="root"></div>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>

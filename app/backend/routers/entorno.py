@@ -91,6 +91,9 @@ def entorno(
     lima_avg = df.lima_avg_denuncias or 1.0
     denuncias_vs_lima_pct = round(denuncias_distrito / lima_avg, 2)
 
+    # Serenazgo — factor visual (Sprint 3.4). None si el distrito no tiene datos.
+    serenazgo_data = df.serenazgo(geo["distrito"])
+
     return EntornoOut(
         distrito=geo["distrito"],
         score=score, level=level, security=security, services=services,
@@ -103,4 +106,5 @@ def entorno(
         n_comisarias_distrito=n_comisarias,
         denuncias_distrito_total=denuncias_distrito,
         denuncias_vs_lima_pct=denuncias_vs_lima_pct,
+        serenazgo=serenazgo_data,
     )

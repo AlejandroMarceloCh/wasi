@@ -1,11 +1,13 @@
 """Helper para features socioeconómicas y de seguridad por distrito (v2).
 
-Carga 3 fuentes:
+Carga 4 fuentes:
   - Tabla manual `distritos_lima_features.py` → estrato_nse + categoria_distrito
   - CSV `comisarias_por_distrito.csv` → n_comisarias_distrito (CENACOM 2017)
   - CSV `denuncias_lima_clean.csv` → denuncias por tipo (MININTER 2024)
+  - CSV `serenazgo_por_distrito.csv` → serenos_total, serenos_por_km2 (factor visual)
 
 Expone `lookup(distrito_oficial)` que devuelve dict con todas las features.
+Expone `serenazgo(distrito_oficial)` → dict | None (solo factor visual, no entra al modelo).
 """
 from __future__ import annotations
 
@@ -26,6 +28,15 @@ class DistritoFeatures:
     def __init__(self):
         nse = get_district_table()                # nombre_norm, estrato_nse, categoria_distrito
         com = pd.read_csv(_DATA / "comisarias_por_distrito.csv")
+
+        # Serenazgo — factor visual (NO entra al modelo ML)
+        ser = pd.read_csv(_DATA / "serenazgo_por_distrito.csv")
+        ser['nombre_norm'] = ser['distrito'].apply(_norm)
+        self._serenazgo: dict = (
+            ser[['nombre_norm', 'serenos_total', 'serenos_por_km2']]
+            .set_index('nombre_norm')
+            .to_dict('index')
+        )
         com['nombre_norm'] = com['distrito_nombre'].apply(_norm)
         com = com[['nombre_norm', 'n_comisarias']]
 
@@ -98,6 +109,30 @@ class DistritoFeatures:
             + d.get('denuncias_patrimoniales_distrito', 0)
             + d.get('denuncias_otras_distrito', 0)
         )
+
+    def serenazgo(self, distrito_oficial: str) -> dict | None:
+        """Datos de serenazgo del distrito — SOLO factor visual, NO entra al modelo.
+
+        Retorna {"serenos_total": int, "serenos_por_km2": float, "label": str}
+        o None si el distrito no figura en el CSV.
+        Labels: serenos_por_km2 > 40 → "Alta", 15-40 → "Media", < 15 → "Baja".
+        """
+        key = _norm(distrito_oficial)
+        row = self._serenazgo.get(key)
+        if row is None:
+            return None
+        s_km2 = float(row['serenos_por_km2'])
+        if s_km2 > 40:
+            label = "Alta"
+        elif s_km2 >= 15:
+            label = "Media"
+        else:
+            label = "Baja"
+        return {
+            "serenos_total": int(row['serenos_total']),
+            "serenos_por_km2": round(s_km2, 1),
+            "label": label,
+        }
 
 
 _DF: DistritoFeatures | None = None
