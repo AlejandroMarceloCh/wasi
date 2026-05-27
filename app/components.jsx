@@ -349,6 +349,49 @@ const FACTOR_TOOLTIPS = {
   'Cocheras': 'Estacionamientos privados. En zonas premium (Miraflores, San Isidro) suma más que en zonas populares.',
 };
 
+/* Contextos cualitativos: score (0-100) → label legible por feature.
+   Reemplaza la barra "X/100" sin contexto. */
+const FACTOR_CONTEXT = {
+  'Área': (s) => s >= 80 ? 'Amplio para la zona' : s >= 60 ? 'Tamaño estándar' : 'Compacto',
+  'Ubicación': (s) => s >= 80 ? 'Distrito con mucha data — alta confianza' : s >= 60 ? 'Distrito con cobertura razonable' : 'Distrito con poca data — confianza baja',
+  'Antigüedad': (s) => s >= 80 ? 'Edificio nuevo (≤10 años)' : s >= 60 ? 'Edificio en buen estado' : 'Edificio antiguo',
+  'Baños': (s) => s >= 80 ? '2+ baños — gama media-alta' : s >= 60 ? 'Estándar para el segmento' : 'Solo 1 baño',
+  'Cocheras': (s) => s >= 70 ? 'Con cochera privada' : 'Sin cochera',
+};
+
+/* Tag de impacto cualitativo según score. */
+const _factorImpact = (score, positive) => {
+  if (!positive)          return { label: 'Resta valor', variant: 'warning' };
+  if (score >= 85)        return { label: 'Premium',      variant: 'success' };
+  if (score >= 70)        return { label: 'Favorable',    variant: 'success' };
+  if (score >= 55)        return { label: 'Estándar',     variant: 'default' };
+  return { label: 'Bajo promedio', variant: 'warning' };
+};
+
+/* FactorRow — reemplaza AnimBar para los 5 factores del modelo. Muestra
+   icono + label + contexto cualitativo + tag de impacto, en lugar de una
+   barra 0-100 abstracta. Mucho más legible para el usuario final. */
+const FactorRow = ({ label, score, positive, tooltip = '' }) => {
+  const key = (label || '').split(':')[0].trim();
+  const ctx = (FACTOR_CONTEXT[key] || (() => ''))(score);
+  const { label: impactLabel, variant } = _factorImpact(score, positive);
+  const labelEl = tooltip
+    ? <abbr title={tooltip} aria-label={`${label}: ${tooltip}`} style={{textDecoration:'underline dotted', textUnderlineOffset:'2px', cursor:'help'}}>{label}</abbr>
+    : label;
+  return (
+    <div className="factor-row" style={{display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)'}}>
+      <div style={{flexShrink:0, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'50%', background: positive ? 'rgba(34,197,94,.12)' : 'rgba(245,158,11,.12)', color: positive ? 'var(--success)' : 'var(--warning)', fontWeight:700}}>
+        {positive ? '↑' : '↓'}
+      </div>
+      <div style={{flex:1, minWidth:0}}>
+        <div className="small" style={{fontWeight:600, color:'var(--ink)'}}>{labelEl}</div>
+        {ctx && <div className="tiny muted" style={{marginTop:2}}>{ctx}</div>}
+      </div>
+      <span className={`tag tag-${variant}`} style={{flexShrink:0}}>{impactLabel}</span>
+    </div>
+  );
+};
+
 /* ============ TopNav ============ */
 const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
   const tabs = [
@@ -531,6 +574,6 @@ Object.assign(window, {
   Input, Select, Switch, ToggleRow,
   GaugeChart, ScoreCircle, AnimBar,
   TopNav, PageHeader, Modal,
-  Glossary, GLOSSARY, onKeyActivate, FACTOR_TOOLTIPS,
+  Glossary, GLOSSARY, onKeyActivate, FACTOR_TOOLTIPS, FactorRow,
   useAnimatedNumber,
 });

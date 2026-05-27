@@ -1691,7 +1691,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
                 const key = (fac.label || '').split(':')[0].trim();
                 const tooltip = FACTOR_TOOLTIPS[key] || '';
                 return (
-                  <AnimBar key={i} label={fac.label} value={fac.score} delay={120 + i*100} positive={!!fac.positive} tooltip={tooltip}/>
+                  <FactorRow key={i} label={fac.label} score={fac.score} positive={!!fac.positive} tooltip={tooltip}/>
                 );
               })}
               {factors.length === 0 && <div className="small muted">Sin factores disponibles.</div>}
@@ -1730,8 +1730,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
         </div>
       </div>
 
-      <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
-        <span className="small muted">Modelo: <Glossary term="XGBoost v2"/> · <Glossary term="R²"/> {data.model_r2} · <Glossary term="MAPE"/> {data.mae_pct}%</span>
+      <div className="row" style={{marginTop:24, justifyContent:'flex-end'}}>
         <Btn variant="primary" size="lg" onClick={onContext}>
           <Icon name="shield" size={16}/> Ver contexto del barrio
         </Btn>

@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from geo_index import OutOfBoundsError
-from ml import MODEL_MAE_PCT, MODEL_MAE_USD, MODEL_R2, predict_fair_value
+import ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
+from ml import predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
 from schemas import Counterfactual, Factor, PredictIn, PredictOut, RecentItem, SaveOut
@@ -36,8 +37,8 @@ def _analysis_to_out(a: Analysis) -> PredictOut:
         confidence=a.confidence,
         n_comparables=a.n_comparables,
         coverage_radius_km=float(a.coverage_radius_km or 0),
-        model_r2=MODEL_R2,
-        model_mae=MODEL_MAE_USD,
+        model_r2=ml.MODEL_R2,           # lazy via ml.__getattr__
+        model_mae=ml.MODEL_MAE_USD,     # lazy via ml.__getattr__
         mae_pct=float(a.mae_pct),
         min=round(fair - delta, 2),
         max=round(fair + delta, 2),

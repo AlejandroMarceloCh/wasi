@@ -48,14 +48,46 @@ ZONE_BAND_PCT = 8.0
 
 # Métricas del modelo en test (informativas, van en PredictOut).
 # v1 (RandomForest) vs v2 (XGBoost re-entrenado con features socio-eco).
-if model_service.mode == "v2":
-    MODEL_R2      = 0.861
-    MODEL_MAE_USD = 158.0
-    MODEL_MAE_PCT = 15.74
-else:
-    MODEL_R2      = 0.785
-    MODEL_MAE_USD = 173.0
-    MODEL_MAE_PCT = 15.9
+#
+# IMPORTANTE: evaluación LAZY. Antes este bloque era `if/else` a nivel de módulo,
+# pero ml.py se importa ANTES que `model_service.load()` corra en lifespan, por
+# lo que `model_service.mode` siempre era "v1" (default) y devolvía métricas
+# erróneas en /api/model/info y en PredictOut.mae_pct (15.9 en vez de 15.74).
+_METRICS_V2 = {"r2": 0.861, "mae_usd": 158.0, "mae_pct": 15.74}
+_METRICS_V1 = {"r2": 0.785, "mae_usd": 173.0, "mae_pct": 15.9}
+
+
+def _model_metrics() -> dict:
+    """Devuelve métricas del modo activo, evaluado en runtime (no en import)."""
+    return _METRICS_V2 if model_service.mode == "v2" else _METRICS_V1
+
+
+# Accessors lazy — se evalúan al acceder, no al import. Compatibles con
+# el resto del código que las usaba como constantes (ml.MODEL_R2, etc.).
+class _LazyMetric:
+    def __init__(self, key: str):
+        self._key = key
+    def __get__(self, instance, owner):
+        return _model_metrics()[self._key]
+    def __float__(self):
+        return float(_model_metrics()[self._key])
+    def __repr__(self):
+        return str(_model_metrics()[self._key])
+
+
+# Las accedemos como funciones helper para evitar magia descriptor:
+def _r2() -> float:        return _model_metrics()["r2"]
+def _mae_usd() -> float:   return _model_metrics()["mae_usd"]
+def _mae_pct() -> float:   return _model_metrics()["mae_pct"]
+
+
+# Compat shim: módulos externos (health.py) usan `ml.MODEL_R2` directo.
+# Definimos `__getattr__` para que el lookup sea lazy.
+def __getattr__(name: str):
+    if name == "MODEL_R2":      return _r2()
+    if name == "MODEL_MAE_USD": return _mae_usd()
+    if name == "MODEL_MAE_PCT": return _mae_pct()
+    raise AttributeError(f"module 'ml' has no attribute {name!r}")
 
 
 # ── construcción de features ────────────────────────────────────────────────
@@ -304,7 +336,10 @@ def predict_fair_value(form: dict) -> dict:
     else:
         zone = "Justo"
 
-    delta = fair_value * (MODEL_MAE_PCT / 100)
+    # Métricas evaluadas LAZY — devuelven v2 cuando el modelo activo es v2,
+    # independientemente del orden de import (bug previo: 15.9 con v2 cargado).
+    mae_pct = _mae_pct()
+    delta = fair_value * (mae_pct / 100)
 
     # Sprint 2.2: contrafactuales ligeros. Cuando S3.1 entre, base_prediction
     # pasará a ser el P50 del modelo de cuantiles.
@@ -319,9 +354,9 @@ def predict_fair_value(form: dict) -> dict:
         "confidence": _confianza(geo),
         "n_comparables": geo["n_comparables"],
         "coverage_radius_km": geo["coverage_radius_km"],
-        "model_r2": MODEL_R2,
-        "model_mae": MODEL_MAE_USD,
-        "mae_pct": MODEL_MAE_PCT,
+        "model_r2": _r2(),
+        "model_mae": _mae_usd(),
+        "mae_pct": mae_pct,
         "min": round(fair_value - delta, 2),
         "max": round(fair_value + delta, 2),
         "factors": _factores(form, geo),
