@@ -124,6 +124,16 @@ class Factor(BaseModel):
     positive: bool
 
 
+class Counterfactual(BaseModel):
+    """¿Qué pasaría si...? — perturbación ±delta de una feature accionable."""
+    feature: str
+    label: str           # legible: "+1 baño", "−5 años de antigüedad", "+10 m²"
+    delta: int           # +1 / −1 / +10 / etc.
+    new_value: int       # valor de la feature tras el clamp
+    new_price: float
+    pct_change: float    # vs base_prediction (fair_value actual, P50 cuando entre quantile)
+
+
 class PredictOut(BaseModel):
     # model_r2 / model_mae chocan con el namespace reservado "model_" de Pydantic;
     # los nombres son del contrato congelado, así que se libera el namespace.
@@ -144,6 +154,7 @@ class PredictOut(BaseModel):
     min: float
     max: float
     factors: List[Factor]
+    counterfactuals: List[Counterfactual] = Field(default_factory=list)
     predicted_in_seconds: float
     warnings: List[str] = Field(default_factory=list)
     fallback_reason: Optional[str] = None

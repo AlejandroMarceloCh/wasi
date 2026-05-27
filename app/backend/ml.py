@@ -173,6 +173,91 @@ def _confianza(geo: dict) -> str:
 
 
 # ── orquestación ────────────────────────────────────────────────────────────
+# ── Contrafactuales ligeros (Sprint 2.2) ─────────────────────────────────────
+# "¿Qué pasaría si...?" — perturbamos 1 feature accionable a la vez ±delta,
+# re-construimos el vector de features y re-predecimos. NO es DiCE (no busca
+# contrafactuales óptimos); es una perturbación numérica simple que da al
+# usuario una idea concreta de la sensibilidad del precio a cada característica.
+#
+# Rango y delta por feature (clamps al schema PredictIn):
+#   area:              [10, 1000]   delta ±10 m²
+#   dormitorios:       [0, 20]      delta ±1
+#   banos:             [1, 20]      delta ±1  (0 solo si es_estudio=True)
+#   cocheras:          [0, 20]      delta ±1
+#   antiguedad_anios:  [0, 100]     delta ±5  (sensibilidad realista)
+COUNTERFACTUAL_SPECS = [
+    {"feature": "area",             "delta": 10,  "label": "área",          "unit": "m²",   "min": 10, "max": 1000},
+    {"feature": "dormitorios",      "delta": 1,   "label": "dormitorio",    "unit": "",     "min": 0,  "max": 20},
+    {"feature": "banos",            "delta": 1,   "label": "baño",          "unit": "",     "min": 1,  "max": 20},
+    {"feature": "cocheras",         "delta": 1,   "label": "cochera",       "unit": "",     "min": 0,  "max": 20},
+    {"feature": "antiguedad_anios", "delta": 5,   "label": "años de antigüedad", "unit": "", "min": 0,  "max": 100},
+]
+
+
+def _clamp_int(value: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, int(value)))
+
+
+def _predict_perturbed(form: dict, geo: dict) -> float:
+    """Re-predict para un form ya perturbado. Ruteo idéntico a predict_fair_value."""
+    if model_service.mode == "v2":
+        from ml_v2 import build_features_v2
+        X = build_features_v2(form, geo)
+    else:
+        X = build_features(form, geo)
+    return float(model_service.predict(X))
+
+
+def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> list[dict]:
+    """Perturbación ±delta por feature accionable, devuelve top-N por |pct_change|.
+
+    base_prediction = predicción del form original (sin perturbar). En Sprint 3.1
+    cuando entre quantile, esto será P50. Antes, es el fair_value central.
+    """
+    if base_prediction <= 0:
+        return []
+
+    results = []
+    es_estudio = bool(form.get("es_estudio", False))
+
+    for spec in COUNTERFACTUAL_SPECS:
+        feat = spec["feature"]
+        delta = spec["delta"]
+        current = int(form.get(feat, 0))
+
+        for sign in (+1, -1):
+            new_val = current + sign * delta
+
+            # Clamps con regla especial para baños: min=1 salvo es_estudio
+            lo = spec["min"]
+            if feat == "banos" and not es_estudio:
+                lo = max(lo, 1)
+            new_val = _clamp_int(new_val, lo, spec["max"])
+
+            # Si tras clamp queda igual al original, no aporta información
+            if new_val == current:
+                continue
+
+            form_perturbed = {**form, feat: new_val}
+            new_price = round(_predict_perturbed(form_perturbed, geo), 2)
+            pct_change = round((new_price - base_prediction) / base_prediction * 100, 1)
+
+            sign_label = "+" if sign > 0 else "−"
+            qty = abs(sign * delta)
+            results.append({
+                "feature": feat,
+                "label": f"{sign_label}{qty} {spec['label']}{'s' if qty != 1 and not spec['unit'] else ''}{(' ' + spec['unit']) if spec['unit'] else ''}".strip(),
+                "delta": sign * delta,
+                "new_value": new_val,
+                "new_price": new_price,
+                "pct_change": pct_change,
+            })
+
+    # Ordenar por |pct_change| desc, devolver top 5
+    results.sort(key=lambda r: abs(r["pct_change"]), reverse=True)
+    return results[:5]
+
+
 def predict_fair_value(form: dict) -> dict:
     """Pipeline completo: form → precio de referencia + veredicto.
 
@@ -205,6 +290,10 @@ def predict_fair_value(form: dict) -> dict:
 
     delta = fair_value * (MODEL_MAE_PCT / 100)
 
+    # Sprint 2.2: contrafactuales ligeros. Cuando S3.1 entre, base_prediction
+    # pasará a ser el P50 del modelo de cuantiles.
+    counterfactuals = compute_counterfactuals(form, geo, base_prediction=fair_value)
+
     return {
         "fair_value": fair_value,
         "announced_price": precio,
@@ -220,6 +309,7 @@ def predict_fair_value(form: dict) -> dict:
         "min": round(fair_value - delta, 2),
         "max": round(fair_value + delta, 2),
         "factors": _factores(form, geo),
+        "counterfactuals": counterfactuals,
         "predicted_in_seconds": round(time.perf_counter() - t0, 3),
         "warnings": list(geo["warnings"]),
         "fallback_reason": geo["fallback_reason"],

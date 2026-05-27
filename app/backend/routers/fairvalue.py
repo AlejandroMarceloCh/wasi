@@ -12,7 +12,7 @@ from geo_index import OutOfBoundsError
 from ml import MODEL_MAE_PCT, MODEL_MAE_USD, MODEL_R2, predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
-from schemas import Factor, PredictIn, PredictOut, RecentItem, SaveOut
+from schemas import Counterfactual, Factor, PredictIn, PredictOut, RecentItem, SaveOut
 
 router = APIRouter(prefix="/api", tags=["fairvalue"])
 
@@ -108,6 +108,9 @@ def predict(
     out = _analysis_to_out(analysis)
     out.predicted_in_seconds = res["predicted_in_seconds"]
     out.warnings = res["warnings"]
+    # Contrafactuales (Sprint 2.2): no se persisten en BD — son derivables del
+    # form + modelo, no histórico. Se calculan en cada predict.
+    out.counterfactuals = [Counterfactual(**cf) for cf in res.get("counterfactuals", [])]
     return out
 
 

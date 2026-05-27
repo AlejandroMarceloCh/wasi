@@ -1692,6 +1692,36 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
               {factors.length === 0 && <div className="small muted">Sin factores disponibles.</div>}
             </div>
           </Card>
+
+          {/* Contrafactuales ligeros (Sprint 2.2) — sensibilidad a cambios
+              chicos en las features accionables. NO es DiCE; es perturbación
+              numérica simple para que el usuario vea qué impulsa el precio. */}
+          {Array.isArray(data.counterfactuals) && data.counterfactuals.length > 0 && (
+            <Card>
+              <div className="row" style={{justifyContent:'space-between'}}>
+                <div className="section-h" style={{margin:0}}>¿Cómo cambiaría tu precio?</div>
+                <Tag variant="outline">Top {data.counterfactuals.length}</Tag>
+              </div>
+              <div className="tiny muted" style={{marginTop:4, marginBottom:10}}>
+                Sensibilidad del precio a un cambio chico en cada característica.
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                {data.counterfactuals.map((cf, i) => {
+                  const positive = cf.pct_change > 0;
+                  const arrow = positive ? '↑' : '↓';
+                  const color = positive ? 'var(--success)' : 'var(--danger)';
+                  return (
+                    <div key={i} className="row" style={{justifyContent:'space-between', padding:'8px 12px', background:'var(--bg-tint)', borderRadius:10}}>
+                      <span className="small">{cf.label}</span>
+                      <span className="numeric" style={{fontWeight:600, color}}>
+                        ${cf.new_price.toFixed(0)} <span className="tiny" style={{marginLeft:6, opacity:.8}}>{arrow} {Math.abs(cf.pct_change)}%</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
