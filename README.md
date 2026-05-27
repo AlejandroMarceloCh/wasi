@@ -105,16 +105,6 @@ el backend esta corriendo.
 | `POST` | `/api/fairvalue/predict` | Prediccion + veredicto + rango + counterfactuals |
 | `GET` | `/api/entorno?lat&lng` | Contexto del barrio |
 
-## Limitaciones conocidas
-
-1. **Sesgo geografico**: 874 listings en Miraflores vs 12 en SMP. Mitigado con
-   sample weighting `1/sqrt(count_distrito)` y target encoding bayesiano (k=30),
-   pero el banner "cobertura baja" sigue siendo necesario para zonas escasas.
-2. **Leakage heredado**: `count_1km_*` calculado en el CSV crudo incluye el
-   propio listing en su conteo. Central v2 y quantile lo heredan coherentemente.
-3. **Sin reentrenamiento automatico**. Manual trimestral. `/api/model/info`
-   expone `days_since_training` para monitoreo.
-
 ## Tests
 
 ```bash
