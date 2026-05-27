@@ -75,10 +75,29 @@ class DistritoFeatures:
             'denuncias_patrimoniales_distrito': int(piv.get('patrimoniales', pd.Series([0])).median()),
             'denuncias_otras_distrito': int(piv.get('otras', pd.Series([0])).median()),
         }
+        # Promedio Lima de denuncias totales por distrito (para comparativa UI)
+        for col in ('denuncias_violentas_distrito', 'denuncias_patrimoniales_distrito', 'denuncias_otras_distrito'):
+            if col not in table.columns:
+                table[col] = 0
+        totales_por_distrito = (
+            table['denuncias_violentas_distrito']
+            + table['denuncias_patrimoniales_distrito']
+            + table['denuncias_otras_distrito']
+        )
+        self.lima_avg_denuncias = float(totales_por_distrito.mean()) if len(totales_por_distrito) else 0.0
 
     def lookup(self, distrito_oficial: str) -> Dict:
         key = _norm(distrito_oficial)
         return self._table.get(key, self._defaults)
+
+    def total_denuncias(self, distrito_oficial: str) -> int:
+        """Suma de violentas+patrimoniales+otras del distrito (para UI)."""
+        d = self.lookup(distrito_oficial)
+        return int(
+            d.get('denuncias_violentas_distrito', 0)
+            + d.get('denuncias_patrimoniales_distrito', 0)
+            + d.get('denuncias_otras_distrito', 0)
+        )
 
 
 _DF: DistritoFeatures | None = None

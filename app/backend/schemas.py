@@ -176,3 +176,7 @@ class EntornoOut(BaseModel):
     n_comparables: int
     summary: str
     warnings: List[str] = Field(default_factory=list)
+    # Breakdown del score (Sprint 1.3) — para visualización expandible
+    n_comisarias_distrito: int = 0
+    denuncias_distrito_total: int = 0
+    denuncias_vs_lima_pct: float = 0.0   # 1.0 = igual al promedio Lima; 2.0 = doble; 0.5 = mitad

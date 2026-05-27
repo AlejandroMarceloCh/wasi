@@ -6,6 +6,7 @@ mapa devuelve el contexto interpolado. No hay tablas de POIs en la BD.
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user
+from distrito_features import get_distrito_features
 from geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, scoring_entorno
 from models import User
 from schemas import EntornoOut, PoiContext
@@ -81,6 +82,15 @@ def entorno(
         f"{denuncias} denuncias registradas."
     )
 
+    # Breakdown del score (Sprint 1.3) — n° comisarías del distrito + ratio
+    # de denuncias del distrito vs promedio Lima. Usa data ya cargada por
+    # DistritoFeatures, sin requests extra.
+    df = get_distrito_features()
+    n_comisarias = int(df.lookup(geo["distrito"]).get("n_comisarias_distrito", 0))
+    denuncias_distrito = df.total_denuncias(geo["distrito"])
+    lima_avg = df.lima_avg_denuncias or 1.0
+    denuncias_vs_lima_pct = round(denuncias_distrito / lima_avg, 2)
+
     return EntornoOut(
         distrito=geo["distrito"],
         score=score, level=level, security=security, services=services,
@@ -90,4 +100,7 @@ def entorno(
         n_comparables=geo["n_comparables"],
         summary=summary,
         warnings=warnings,
+        n_comisarias_distrito=n_comisarias,
+        denuncias_distrito_total=denuncias_distrito,
+        denuncias_vs_lima_pct=denuncias_vs_lima_pct,
     )
