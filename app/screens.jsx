@@ -1797,6 +1797,57 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
                 <div style={{marginTop:14, padding:'12px 14px', background:'var(--bg-tint)', borderRadius:12, fontSize:13, color:'var(--ink-2)', lineHeight:1.55}}>
                   {data.summary}
                 </div>
+
+                {/* Breakdown del score (Sprint 1.3) — qué impulsa Seguridad y Servicios.
+                    Datos vienen del mismo /api/entorno: n_comisarias_distrito,
+                    denuncias_vs_lima_pct, y data.pois. */}
+                <div className="score-breakdown" style={{marginTop:16, paddingTop:14, borderTop:'1px solid var(--border)'}}>
+                  <div className="tiny muted" style={{textTransform:'uppercase', letterSpacing:'.06em', fontWeight:600, marginBottom:10}}>¿Qué impulsa este score?</div>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+                    {/* Seguridad */}
+                    <div>
+                      <div className="small" style={{fontWeight:600, marginBottom:6}}>🛡️ Seguridad</div>
+                      <div className="tiny muted" style={{lineHeight:1.5}}>
+                        Denuncias del distrito:
+                        <b className="numeric" style={{color:'var(--ink)', marginLeft:4}}>{data.denuncias_distrito_total}</b>
+                      </div>
+                      <div className="tiny muted" style={{marginTop:4, lineHeight:1.5}}>
+                        vs promedio Lima:
+                        <b className="numeric" style={{
+                          color: data.denuncias_vs_lima_pct <= 1.0 ? 'var(--success)' : data.denuncias_vs_lima_pct <= 1.5 ? 'var(--warning)' : 'var(--danger)',
+                          marginLeft:4
+                        }}>
+                          {data.denuncias_vs_lima_pct ? `${data.denuncias_vs_lima_pct}×` : '—'}
+                        </b>
+                      </div>
+                      {/* Barra relativa: 100% = igual al promedio Lima; capeada a 200% */}
+                      <div style={{height:6, background:'var(--bg-tint)', borderRadius:3, marginTop:6, overflow:'hidden'}}>
+                        <div style={{
+                          height:'100%',
+                          width: `${Math.min(100, (data.denuncias_vs_lima_pct || 0) * 50)}%`,
+                          background: data.denuncias_vs_lima_pct <= 1.0 ? 'var(--success)' : data.denuncias_vs_lima_pct <= 1.5 ? 'var(--warning)' : 'var(--danger)',
+                          transition:'width .3s'
+                        }}/>
+                      </div>
+                      <div className="tiny muted" style={{marginTop:8, lineHeight:1.5}}>
+                        Comisarías en distrito:
+                        <b className="numeric" style={{color:'var(--ink)', marginLeft:4}}>{data.n_comisarias_distrito}</b>
+                      </div>
+                    </div>
+                    {/* Servicios */}
+                    <div>
+                      <div className="small" style={{fontWeight:600, marginBottom:6}}>🏘️ Servicios (1 km)</div>
+                      <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                        {data.pois.map(p => (
+                          <div key={p.kind} className="tiny" style={{display:'flex', justifyContent:'space-between', color:'var(--ink-2)'}}>
+                            <span>{p.emoji} {p.label}</span>
+                            <b className="numeric" style={{color: p.count_1km > 0 ? 'var(--ink)' : 'var(--ink-2)'}}>{p.count_1km}</b>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
           </Card>
