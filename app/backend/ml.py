@@ -346,8 +346,10 @@ def predict_fair_value(form: dict) -> dict:
     mae_pct = _mae_pct()
     delta = fair_value * (mae_pct / 100)
 
-    # Sprint 2.2: contrafactuales sobre el centro del modelo. Si entró
-    # quantile (S3.1), base_prediction = P50 para coherencia; sino, fair_value.
+    # Contrafactuales (S2.2 + S3.1): la base es P50 del modelo de cuantiles
+    # cuando está disponible, sino fair_value central. Esto asegura coherencia
+    # — el usuario ve el contrafactual perturbado desde el mismo centro
+    # estadístico que está mirando arriba en el card del rango.
     base_for_cf = (prediction_interval or {}).get("p50") or fair_value
     counterfactuals = compute_counterfactuals(form, geo, base_prediction=base_for_cf)
 

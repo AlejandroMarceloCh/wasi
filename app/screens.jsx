@@ -1652,7 +1652,7 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
                 <span className="numeric" style={{fontSize:22, fontWeight:700, color:'var(--primary)'}}>${Math.round(data.prediction_interval.p75)}</span>
               </div>
               <div className="tiny muted" style={{textAlign:'center', marginTop:4}}>
-                centro probable ${Math.round(data.prediction_interval.p50)} · 50 % de listings similares cae acá
+                centro probable ${Math.round(data.prediction_interval.p50)} · rango cuartil 25 – 75 (modelo de cuantiles)
               </div>
             </div>
           )}
