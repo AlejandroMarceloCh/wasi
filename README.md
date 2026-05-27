@@ -7,13 +7,18 @@ Datos, UTEC.
 
 ## Cómo correr
 
-Requisitos: Python 3.11 y un navegador moderno. Probado en macOS 14 y Ubuntu 22.04.
+Requisitos: Python 3.11, Git y un navegador moderno. Probado en macOS 14 y
+Ubuntu 22.04.
 
 ```bash
-# Setup (una sola vez)
+# Clonar
+git clone https://github.com/AlejandroMarceloCh/ubica.git
+cd ubica
+
+# Setup (una sola vez · crea venv e instala dependencias)
 make setup
 
-# Levantar — abre dos terminales
+# Levantar — abrir dos terminales en paralelo
 make backend     # FastAPI en http://localhost:8000
 make frontend    # Estatico en http://localhost:5500
 ```
