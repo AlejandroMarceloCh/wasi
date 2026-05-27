@@ -627,7 +627,7 @@ const HomeScreen = ({ onGo }) => {
         Estimación de precio + análisis de entorno, conectados sobre los mismos datos.
       </p>
       <div className="home-modules">
-        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Fair Value: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')}>
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Fair Value: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')} onKeyDown={onKeyActivate(() => onGo('fairvalue-form'))}>
           <div className="top">
             <div className="feat-ico ico-fv">
               <Icon name="key" size={26}/>
@@ -656,7 +656,7 @@ const HomeScreen = ({ onGo }) => {
           <span className="cta">Probar estimación <Icon name="fwd" size={14}/></span>
         </div>
 
-        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Entorno y Seguridad: explorador de contexto del barrio" onClick={() => onGo('entorno-map')}>
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Entorno y Seguridad: explorador de contexto del barrio" onClick={() => onGo('entorno-map')} onKeyDown={onKeyActivate(() => onGo('entorno-map'))}>
           <div className="top">
             <div className="feat-ico ico-en">
               <Icon name="shield" size={26}/>
@@ -983,7 +983,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
               <span className="small muted">Selecciona un módulo para comenzar</span>
             </div>
             <div className="grid-2">
-              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Fair Value" onClick={()=>setConfirm('fairvalue')}>
+              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Fair Value" onClick={()=>setConfirm('fairvalue')} onKeyDown={onKeyActivate(()=>setConfirm('fairvalue'))}>
                 <div className="top-row">
                   <div className="feat-ico"><Icon name="key" size={24}/></div>
                 </div>
@@ -991,7 +991,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                 <div className="d">Estimación del precio de referencia con XGBoost v2. Identifica sobreprecios y oportunidades.</div>
                 <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
               </div>
-              <div className="action-card en" role="button" tabIndex={0} aria-label="Explorar mapa de Entorno y Seguridad" onClick={()=>setConfirm('entorno')}>
+              <div className="action-card en" role="button" tabIndex={0} aria-label="Explorar mapa de Entorno y Seguridad" onClick={()=>setConfirm('entorno')} onKeyDown={onKeyActivate(()=>setConfirm('entorno'))}>
                 <div className="top-row">
                   <div className="feat-ico"><Icon name="shield" size={24}/></div>
                 </div>
@@ -1003,7 +1003,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
           </div>
 
           {/* Entrada al modal de análisis recientes — reemplaza la tabla grande */}
-          <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal}>
+          <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal} onKeyDown={onKeyActivate(openAnalysesModal)}>
             <div className="ana-entry-ico"><Icon name="chart" size={22}/></div>
             <div className="ana-entry-body">
               <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Análisis recientes</div>
@@ -1180,7 +1180,7 @@ const DashboardScreen = ({ onGo, onOpenAnalysis, onError, onAuthExpired }) => {
                 const sign = r.diff_pct > 0 ? '+' : '';
                 const iconName = neg ? 'flag' : ganga ? 'sparkle' : 'check';
                 return (
-                  <div className="ana-row" key={r.id} role="button" tabIndex={0} aria-label={`Ver análisis: ${r.address}`} onClick={() => openAnalysisRow(r)}>
+                  <div className="ana-row" key={r.id} role="button" tabIndex={0} aria-label={r.address ? `Ver análisis: ${r.address}` : 'Ver análisis'} onClick={() => openAnalysisRow(r)} onKeyDown={onKeyActivate(() => openAnalysisRow(r))}>
                     <div className="ico" style={{background: bg, color}}>
                       <Icon name={iconName} size={14}/>
                     </div>
@@ -1390,9 +1390,11 @@ const FairValueForm = ({ onBack, onSubmit, onError, onAuthExpired }) => {
               <div key={a.key}
                 className={`pick-chip ${f.amenities.includes(a.key)?'on':''}`}
                 role="button"
+                tabIndex={0}
                 aria-pressed={f.amenities.includes(a.key)}
                 aria-label={a.label}
-                onClick={()=>toggleAmenity(a.key)}>{a.label}</div>
+                onClick={()=>toggleAmenity(a.key)}
+                onKeyDown={onKeyActivate(()=>toggleAmenity(a.key))}>{a.label}</div>
             ))}
           </div>
           {f.area && !areaOk && (
@@ -1612,10 +1614,11 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
         </div>
       )}
 
-      {/* Banner honesto de baja cobertura. Se activa cuando la zona tiene
-          poca data alrededor del pin (<20 listings en 1 km internamente).
-          Comunicamos en lenguaje del usuario, sin exponer números técnicos. */}
-      {typeof data.n_comparables === 'number' && data.n_comparables < 20 && (
+      {/* Banner honesto de baja cobertura. Se activa cuando el backend marca
+          confianza Baja (< 27 comparables internos calibrados por backtest LOO).
+          Antes el trigger era < 20 hard-coded, lo que dejaba una zona gris
+          20-27 donde la confianza era Baja pero el banner no aparecía. */}
+      {data.confidence === 'Baja' && (
         <div className="banner banner-coverage" style={{marginBottom:14}}>
           <Icon name="info" size={14}/>
           <div>
@@ -1721,6 +1724,8 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
         .then(r => { if (!cancel) { setData(r); setErr(''); setLoading(false); } })
         .catch(ex => {
           if (cancel) return;
+          // Limpia data vieja para no mostrar mixed state (banner error + score viejo).
+          setData(null);
           const msg = handleApiErr(ex, { setErr, onAuthExpired });
           if (typeof onError === 'function') onError(msg);
           setLoading(false);
@@ -1821,7 +1826,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
                           color: data.denuncias_vs_lima_pct <= 1.0 ? 'var(--success)' : data.denuncias_vs_lima_pct <= 1.5 ? 'var(--warning)' : 'var(--danger)',
                           marginLeft:4
                         }}>
-                          {data.denuncias_vs_lima_pct ? `${data.denuncias_vs_lima_pct}×` : '—'}
+                          {typeof data.denuncias_vs_lima_pct === 'number' ? `${data.denuncias_vs_lima_pct}×` : '—'}
                         </b>
                       </div>
                       {/* Barra relativa: 100% = igual al promedio Lima; capeada a 200% */}
@@ -2005,15 +2010,15 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
           <div>
             <div className="section-h">Opciones</div>
             <div className="stack-12">
-              <div className="menu-row" role="button" tabIndex={0} aria-label="Configuración" onClick={()=>setModal('config')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Configuración" onClick={()=>setModal('config')} onKeyDown={onKeyActivate(()=>setModal('config'))}>
                 <Icon name="settings" size={18} stroke="var(--ink-2)"/> Configuración
                 <Icon name="fwd" size={14} stroke="var(--ink-3)" className="arr"/>
               </div>
-              <div className="menu-row" role="button" tabIndex={0} aria-label="Ayuda y soporte" onClick={()=>setModal('help')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Ayuda y soporte" onClick={()=>setModal('help')} onKeyDown={onKeyActivate(()=>setModal('help'))}>
                 <Icon name="help" size={18} stroke="var(--ink-2)"/> Ayuda y soporte
                 <Icon name="fwd" size={14} stroke="var(--ink-3)" className="arr"/>
               </div>
-              <div className="menu-row" role="button" tabIndex={0} aria-label="Cambiar idioma" onClick={()=>setModal('lang')}>
+              <div className="menu-row" role="button" tabIndex={0} aria-label="Cambiar idioma" onClick={()=>setModal('lang')} onKeyDown={onKeyActivate(()=>setModal('lang'))}>
                 <Icon name="globe" size={18} stroke="var(--ink-2)"/> Idioma
                 <span className="muted small" style={{marginLeft:'auto'}}>Español</span>
                 <Icon name="fwd" size={14} stroke="var(--ink-3)"/>
@@ -2034,7 +2039,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
             </div>
             <div className="stack-12">
               {reports.map((r,i)=>(
-                <div className="report-row" key={r.id || i} role="button" tabIndex={0} aria-label={`Abrir reporte: ${r.address}`} onClick={()=>openReport(r)}>
+                <div className="report-row" key={r.id || i} role="button" tabIndex={0} aria-label={r.address ? `Abrir reporte: ${r.address}` : 'Abrir reporte'} onClick={()=>openReport(r)} onKeyDown={onKeyActivate(()=>openReport(r))}>
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{fontSize:14, fontWeight:600}}>{r.address}</div>
                     <div className="small muted" style={{marginTop:2}}>Reporte · {r.date}</div>
@@ -2148,7 +2153,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onAuthExpired }) => 
         <div>
           {PROFILE_FAQS.map((f,i)=>(
             <div className="faq-item" key={i}>
-              <div className="faq-q" role="button" tabIndex={0} aria-expanded={faqOpen===i} aria-label={f.q} onClick={()=>setFaqOpen(o=>o===i?-1:i)}>
+              <div className="faq-q" role="button" tabIndex={0} aria-expanded={faqOpen===i} aria-label={f.q} onClick={()=>setFaqOpen(o=>o===i?-1:i)} onKeyDown={onKeyActivate(()=>setFaqOpen(o=>o===i?-1:i))}>
                 {f.q}
                 <Icon name={faqOpen===i ? 'back' : 'fwd'} size={14} stroke="var(--ink-3)"/>
               </div>

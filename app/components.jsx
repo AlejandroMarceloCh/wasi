@@ -127,6 +127,15 @@ const GLOSSARY = {
   'Veredicto': 'Comparación entre el precio anunciado y el precio de referencia del modelo: Inflado, Justo o Ganga.',
 };
 
+/* onKeyActivate — helper para divs con role="button". Hace que Enter y Space
+   disparen el handler igual que un <button> nativo (WCAG 2.1.1 Keyboard). */
+const onKeyActivate = (handler) => (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    if (typeof handler === 'function') handler(e);
+  }
+};
+
 const Glossary = ({ term, children, custom }) => {
   const explicacion = custom || GLOSSARY[term] || term;
   return (
@@ -372,7 +381,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
                 <button className="icon-btn" aria-label="Configuración" onClick={() => onNavigate('profile')}>
                   <Icon name="settings" size={16}/>
                 </button>
-                <div className="user-pill" role="button" tabIndex={0} aria-label={`Ver perfil de ${user?.name || 'Ana'}`} onClick={() => onNavigate('profile')}>
+                <div className="user-pill" role="button" tabIndex={0} aria-label={`Ver perfil de ${user?.name || 'Ana'}`} onClick={() => onNavigate('profile')} onKeyDown={onKeyActivate(() => onNavigate('profile'))}>
                   <div className="avatar" style={{width:32, height:32, fontSize:13, border:'2px solid #fff'}}>{(user?.name || 'A').charAt(0)}</div>
                   <span className="name">{user?.name || 'Ana'}</span>
                 </div>
@@ -505,6 +514,6 @@ Object.assign(window, {
   Input, Select, Switch, ToggleRow,
   GaugeChart, ScoreCircle, AnimBar,
   TopNav, PageHeader, Modal,
-  Glossary, GLOSSARY,
+  Glossary, GLOSSARY, onKeyActivate,
   useAnimatedNumber,
 });
