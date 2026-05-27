@@ -56,3 +56,51 @@ def test_entorno_por_pin(client, auth_headers):
     assert d["distrito"] == "Miraflores"
     assert len(d["pois"]) == 7
     assert 0 <= d["score"] <= 100
+
+
+def test_entorno_breakdown_score_campos(client, auth_headers):
+    """Sprint 1.3 backend: EntornoOut expone n_comisarias_distrito,
+    denuncias_distrito_total y denuncias_vs_lima_pct para el breakdown UI.
+    Verificamos presencia + tipo + rangos sensatos."""
+    r = client.get("/api/entorno", headers=auth_headers,
+                   params={"lat": -12.121, "lng": -77.030})
+    assert r.status_code == 200
+    d = r.json()
+    # Presencia de los 3 campos
+    assert "n_comisarias_distrito" in d
+    assert "denuncias_distrito_total" in d
+    assert "denuncias_vs_lima_pct" in d
+    # Tipos
+    assert isinstance(d["n_comisarias_distrito"], int)
+    assert isinstance(d["denuncias_distrito_total"], int)
+    assert isinstance(d["denuncias_vs_lima_pct"], (int, float))
+    # Rangos sensatos
+    assert d["n_comisarias_distrito"] >= 0
+    assert d["denuncias_distrito_total"] >= 0
+    assert d["denuncias_vs_lima_pct"] >= 0
+    # Miraflores tiene comisarías y denuncias publicadas — no debe ser todo 0
+    assert d["n_comisarias_distrito"] > 0
+    assert d["denuncias_distrito_total"] > 0
+    assert d["denuncias_vs_lima_pct"] > 0
+
+
+def test_entorno_400_mensaje_amable(client, auth_headers):
+    """Sprint 1.2b: el detail del 400 ahora es copy amable, no jerga
+    de 'bbox de Lima'."""
+    # Pin en Cusco (claramente fuera de Lima)
+    r = client.get("/api/entorno", headers=auth_headers,
+                   params={"lat": -13.531, "lng": -71.967})
+    assert r.status_code == 400
+    detail = r.json().get("detail", "")
+    assert "Lima Metropolitana" in detail
+    assert "bbox" not in detail  # no debe filtrar jerga técnica
+
+
+def test_entorno_summary_sin_km_del_mar(client, auth_headers):
+    """Sprint 1.2b: el summary ya no menciona 'a X km del mar'."""
+    r = client.get("/api/entorno", headers=auth_headers,
+                   params={"lat": -12.121, "lng": -77.030})
+    assert r.status_code == 200
+    summary = r.json()["summary"]
+    assert "del mar" not in summary.lower()
+    assert "km del mar" not in summary.lower()
