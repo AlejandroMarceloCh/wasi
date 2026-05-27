@@ -1,0 +1,176 @@
+{
+ "version": 0.6,
+ "generator": "Nominatim (wasi-research-bot 2026-05-27)",
+ "elements": [
+  {
+   "type": "node",
+   "lat": -12.1253878,
+   "lon": -77.0306079,
+   "tags": {
+    "name": "Maido",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1525709,
+   "lon": -77.0225397,
+   "tags": {
+    "name": "Central",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0964374,
+   "lon": -77.0350797,
+   "tags": {
+    "name": "Astrid y Gastón",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.125309,
+   "lon": -77.0313663,
+   "tags": {
+    "name": "Rafael Osterling",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1168294,
+   "lon": -77.0452874,
+   "tags": {
+    "name": "Costanera 700",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1287093,
+   "lon": -77.026562,
+   "tags": {
+    "name": "ámaZ",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1180982,
+   "lon": -77.0349338,
+   "tags": {
+    "name": "IK Restaurante",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.109858,
+   "lon": -77.0492381,
+   "tags": {
+    "name": "Mayta",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1060377,
+   "lon": -77.0387153,
+   "tags": {
+    "name": "Osaka",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0900415,
+   "lon": -77.050367,
+   "tags": {
+    "name": "La Bonbonniere",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1158277,
+   "lon": -77.0434252,
+   "tags": {
+    "name": "Statera",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0074199,
+   "lon": -77.0112509,
+   "tags": {
+    "name": "Mil Delicias",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1476401,
+   "lon": -77.0223811,
+   "tags": {
+    "name": "Isolina Taberna",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1447958,
+   "lon": -77.0256725,
+   "tags": {
+    "name": "Cala",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1240196,
+   "lon": -77.0270337,
+   "tags": {
+    "name": "Saqra",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0972919,
+   "lon": -77.0193404,
+   "tags": {
+    "name": "Edo Sushi Bar",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1113844,
+   "lon": -77.0486571,
+   "tags": {
+    "name": "El Mercado",
+    "amenity": "restaurant_fine_dining",
+    "source": "nominatim"
+   }
+  }
+ ]
+}

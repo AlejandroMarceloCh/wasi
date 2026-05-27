@@ -1713,6 +1713,10 @@ const FairValueResult = ({ analysisId, onBack, onContext, onError, onAuthExpired
               })}
               {factors.length === 0 && <div className="small muted">Sin factores disponibles.</div>}
             </div>
+            <p style={{margin:'12px 0 0', fontSize:12, color:'var(--ink-3)', lineHeight:1.55}}>
+              Los factores son una capa de UX. El modelo predice solo el valor en USD;
+              estas etiquetas te ayudan a leer rápido qué pesa en el cálculo.
+            </p>
           </Card>
 
           {/* Contrafactuales ligeros (Sprint 2.2) — sensibilidad a cambios
@@ -1765,6 +1769,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
   const [data, setData] = useS(null);
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
+  const [scoreInfoOpen, setScoreInfoOpen] = useS(false);
 
   // Recalcula el entorno cada vez que el pin cambia (debounce 250 ms).
   useE(() => {
@@ -1921,6 +1926,79 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired }) => {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* B1 — Disclosure: cómo se calcula el score */}
+                <div style={{marginTop:16, borderTop:'1px solid var(--border)', paddingTop:12}}>
+                  <button
+                    onClick={() => setScoreInfoOpen(o => !o)}
+                    aria-expanded={scoreInfoOpen}
+                    style={{
+                      display:'flex', alignItems:'center', gap:8,
+                      background:'none', border:'none', cursor:'pointer',
+                      padding:0, color:'var(--ink-2)', fontSize:13, fontWeight:600,
+                    }}
+                  >
+                    <span style={{
+                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                      width:18, height:18, borderRadius:'50%',
+                      border:'1.5px solid var(--ink-3)', fontSize:11, fontWeight:700,
+                      color:'var(--ink-3)', flexShrink:0, lineHeight:1,
+                    }}>i</span>
+                    Como calculamos este score
+                    <span style={{
+                      marginLeft:'auto', fontSize:11, color:'var(--ink-3)',
+                      transform: scoreInfoOpen ? 'rotate(180deg)' : 'none',
+                      transition:'transform .2s',
+                      display:'inline-block',
+                    }}>▾</span>
+                  </button>
+
+                  <div style={{
+                    overflow:'hidden',
+                    maxHeight: scoreInfoOpen ? 600 : 0,
+                    opacity: scoreInfoOpen ? 1 : 0,
+                    transition:'max-height .3s ease, opacity .2s ease',
+                  }}>
+                    <div style={{paddingTop:12, fontSize:13, color:'var(--ink-2)', lineHeight:1.65}}>
+                      <p style={{margin:'0 0 10px'}}>
+                        El score va de 0 a 100 y mide que tan bueno es el barrio para vivir.
+                        Sale de mezclar dos cosas, con 50% de peso cada una:
+                      </p>
+
+                      <p style={{margin:'0 0 4px', fontWeight:700, color:'var(--ink)'}}>Seguridad (peso 50%)</p>
+                      <p style={{margin:'0 0 6px'}}>
+                        Miramos cuantas denuncias policiales hay en el distrito. Comparamos contra
+                        todos los distritos de Lima del dataset.
+                      </p>
+                      <ul style={{margin:'0 0 6px', paddingLeft:18, listStyle:'disc'}}>
+                        <li>Si el distrito tiene menos denuncias que la mayoria, el puntaje es alto (cerca de 98).</li>
+                        <li>Si el distrito tiene mas denuncias que la mayoria, el puntaje es bajo (cerca de 20).</li>
+                      </ul>
+                      <p style={{margin:'0 0 12px', fontSize:12, color:'var(--ink-3)'}}>
+                        Fuente: MININTER 2024 (Ministerio del Interior), agregadas por distrito.
+                      </p>
+
+                      <p style={{margin:'0 0 4px', fontWeight:700, color:'var(--ink)'}}>Servicios (peso 50%)</p>
+                      <p style={{margin:'0 0 6px'}}>
+                        Miramos cuantos puntos utiles hay alrededor del pin en 1 km: supermercados,
+                        farmacias, colegios, hospitales, bancos, universidades, parqueos. Comparamos
+                        contra el resto de Lima.
+                      </p>
+                      <ul style={{margin:'0 0 6px', paddingLeft:18, listStyle:'disc'}}>
+                        <li>Si la zona tiene muchos servicios, el puntaje es alto (cerca de 98).</li>
+                        <li>Si la zona tiene pocos servicios, el puntaje es bajo (cerca de 30).</li>
+                      </ul>
+                      <p style={{margin:'0 0 12px', fontSize:12, color:'var(--ink-3)'}}>
+                        Fuente: OpenStreetMap (11,100 POIs georreferenciados).
+                      </p>
+
+                      <p style={{margin:0, fontSize:12, color:'var(--ink-3)'}}>
+                        El score final es el promedio simple de ambos. Nunca decimos "seguridad absoluta"
+                        (techo en 98) ni "vacio total" (piso en 20-30).
+                      </p>
                     </div>
                   </div>
                 </div>

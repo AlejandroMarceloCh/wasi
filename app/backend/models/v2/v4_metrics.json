@@ -1,0 +1,36 @@
+{
+  "central": {
+    "mape_pct": 15.995,
+    "mae_usd": 162.8,
+    "rmse_usd": 303.0,
+    "r2": 0.8411
+  },
+  "quantile": {
+    "coverage_p25_p75": 0.4433,
+    "expected_coverage": 0.5,
+    "width_avg_usd": 199.22,
+    "mape_p50_pct": 15.327
+  },
+  "baseline_v3_sprint32": {
+    "mape_pct": 15.629,
+    "mae_usd": 159,
+    "r2": 0.847
+  },
+  "baseline_v2_pre_premium_pois": {
+    "mape_pct": 15.74,
+    "mae_usd": 158,
+    "r2": 0.861
+  },
+  "n_train": 2845,
+  "n_test": 503,
+  "n_features": 107,
+  "new_features": [
+    "count_1km_osm_colegios_top",
+    "dist_nearest_m_osm_colegios_top",
+    "count_1km_osm_clinicas_premium",
+    "dist_nearest_m_osm_clinicas_premium",
+    "count_1km_osm_restaurantes_premium",
+    "dist_nearest_m_osm_restaurantes_premium"
+  ],
+  "note": "Sprint 3.6 \u2014 POIs premium adicionales (colegios top/clinicas premium/restaurantes fine dining)."
+}

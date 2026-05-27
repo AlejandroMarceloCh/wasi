@@ -1,0 +1,116 @@
+{
+ "version": 0.6,
+ "generator": "Nominatim (wasi-research-bot 2026-05-27)",
+ "elements": [
+  {
+   "type": "node",
+   "lat": -12.1092154,
+   "lon": -77.0391345,
+   "tags": {
+    "name": "Clínica Anglo Americana",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0907117,
+   "lon": -77.0183014,
+   "tags": {
+    "name": "Clinica Ricardo Palma",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1131102,
+   "lon": -77.0330522,
+   "tags": {
+    "name": "Clínica Delgado",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1218994,
+   "lon": -76.9864759,
+   "tags": {
+    "name": "Clinica Denta Alemana",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.070901,
+   "lon": -77.0597637,
+   "tags": {
+    "name": "Clínica Stella Maris",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0910996,
+   "lon": -77.0284596,
+   "tags": {
+    "name": "Clínica Javier Prado",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0821843,
+   "lon": -76.969217,
+   "tags": {
+    "name": "Clinica San Felipe",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0985932,
+   "lon": -77.0517845,
+   "tags": {
+    "name": "Clínica El Golf",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1031967,
+   "lon": -76.9720073,
+   "tags": {
+    "name": "Clínica Padre Luis Tezza",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1088487,
+   "lon": -77.0064294,
+   "tags": {
+    "name": "Clinica San Borja",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1573083,
+   "lon": -77.0227201,
+   "tags": {
+    "name": "Clinica Maison de Santé",
+    "amenity": "clinic_premium",
+    "source": "nominatim"
+   }
+  }
+ ]
+}

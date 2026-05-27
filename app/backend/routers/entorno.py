@@ -94,6 +94,27 @@ def entorno(
     # Serenazgo — factor visual (Sprint 3.4). None si el distrito no tiene datos.
     serenazgo_data = df.serenazgo(geo["distrito"])
 
+    # Sprint 3.6 — POIs premium del barrio (colegios top / clínicas premium / restaurantes
+    # fine dining). Geocodificados via Nominatim, son features VISUALES para el usuario
+    # (NO entran al modelo central porque la cobertura es muy chica). Si la categoría
+    # devuelve 0 en 1km, se omite del response para no contaminar el UI.
+    from osm_lookup import get_osm
+    osm_feats = get_osm().lookup(lat, lng)
+    premium_nearby = {}
+    for cat, label in (
+        ("colegios_top", "Colegios top"),
+        ("clinicas_premium", "Clínicas premium"),
+        ("restaurantes_premium", "Restaurantes fine dining"),
+    ):
+        count = int(osm_feats.get(f"count_1km_osm_{cat}", 0))
+        dist_m = float(osm_feats.get(f"dist_nearest_m_osm_{cat}", 9999.0))
+        if count > 0 or dist_m < 3000:
+            premium_nearby[cat] = {
+                "label": label,
+                "count_1km": count,
+                "dist_nearest_m": round(dist_m, 0) if dist_m < 9999 else None,
+            }
+
     return EntornoOut(
         distrito=geo["distrito"],
         score=score, level=level, security=security, services=services,
@@ -107,4 +128,5 @@ def entorno(
         denuncias_distrito_total=denuncias_distrito,
         denuncias_vs_lima_pct=denuncias_vs_lima_pct,
         serenazgo=serenazgo_data,
+        premium_nearby=premium_nearby or None,
     )

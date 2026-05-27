@@ -28,6 +28,11 @@ EARTH_M = 6_371_000.0
 OSM_CATEGORIES = ['supermercados', 'malls', 'universidades', 'parques',
                   'farmacias', 'bancos', 'estaciones']
 
+# Sprint 3.6 — Categorías premium adicionales geocodificadas via Nominatim.
+# Cada categoría emite 2 features: count_1km_osm_<cat> y dist_nearest_m_osm_<cat>
+# (no se emite count_500m porque la cobertura es muy chica: 11-24 POIs por categoría).
+PREMIUM_CATEGORIES = ['colegios_top', 'clinicas_premium', 'restaurantes_premium']
+
 # Regex de tier por categoría. Casos sin match caen a "other" (no genera feature).
 # Diseñados con \b o anchors para evitar falsos positivos (Ej: "Banco de la Nación"
 # no debería matchear "BCP"). Insensitive a may/min.
@@ -117,7 +122,7 @@ class OSMIndex:
         self._names:  Dict[str, List[str]]  = {}
         self._tier_masks: Dict[str, Dict[str, np.ndarray]] = {}
         self._trees:  Dict[str, cKDTree] = {}
-        for cat in OSM_CATEGORIES:
+        for cat in OSM_CATEGORIES + PREMIUM_CATEGORIES:
             coords, names = _load_category(_DATA_DIR / f"{cat}.json")
             self._coords[cat] = coords
             self._names[cat] = names
@@ -176,6 +181,22 @@ class OSMIndex:
                     mass_mask    = masks.get('mass',    np.zeros(len(coords), dtype=bool))
                     out[f"count_1km_osm_{cat}_premium"] = int(premium_mask[neighbor_global_idx].sum())
                     out[f"count_1km_osm_{cat}_mass"]    = int(mass_mask[neighbor_global_idx].sum())
+
+        # Sprint 3.6 — 3 categorías premium adicionales (colegios top / clínicas premium / restaurantes fine dining).
+        # Solo emiten count_1km y dist_nearest (cobertura muy chica — 11-24 POIs cada una).
+        for cat in PREMIUM_CATEGORIES:
+            coords = self._coords.get(cat, np.empty((0, 2)))
+            if len(coords) == 0:
+                out[f"count_1km_osm_{cat}"]      = 0
+                out[f"dist_nearest_m_osm_{cat}"] = 9999.0
+                continue
+            tree = self._trees[cat]
+            k = min(20, len(coords))  # menos vecinos: cobertura chica
+            _, idx = tree.query(listing_xyz, k=k)
+            idx = np.atleast_1d(idx).ravel()
+            d_m = _haversine_m(lat, lng, coords[idx, 0], coords[idx, 1])
+            out[f"count_1km_osm_{cat}"]      = int((d_m <= 1000).sum())
+            out[f"dist_nearest_m_osm_{cat}"] = float(d_m.min())
         return out
 
 

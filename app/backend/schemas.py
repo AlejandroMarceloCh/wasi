@@ -202,3 +202,7 @@ class EntornoOut(BaseModel):
     # Factor visual de serenazgo (Sprint 3.4) — NO entra al modelo ML.
     # {serenos_total, serenos_por_km2, label} o None si el distrito no tiene datos.
     serenazgo: Optional[dict] = None
+    # Sprint 3.6 — POIs premium del barrio (colegios top, clínicas premium, restaurantes
+    # fine dining). NO entran al modelo ML (cobertura muy chica genera overfitting).
+    # Cada key: {label, count_1km, dist_nearest_m}. None si no hay ninguno relevante.
+    premium_nearby: Optional[dict] = None

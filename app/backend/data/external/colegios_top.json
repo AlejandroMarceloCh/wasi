@@ -1,0 +1,246 @@
+{
+ "version": 0.6,
+ "generator": "Nominatim (wasi-research-bot 2026-05-27)",
+ "elements": [
+  {
+   "type": "node",
+   "lat": -12.0996458,
+   "lon": -76.975614,
+   "tags": {
+    "name": "Markham College Monterrico Campus",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0776274,
+   "lon": -76.9960122,
+   "tags": {
+    "name": "Institución Educativa Isaac Newton",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1389567,
+   "lon": -77.0062085,
+   "tags": {
+    "name": "Colegio Hiram Bingham",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1155639,
+   "lon": -77.0403524,
+   "tags": {
+    "name": "Colegio San Silvestre",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1215572,
+   "lon": -76.974396,
+   "tags": {
+    "name": "Institución Educativa Casuarinas International College",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1145999,
+   "lon": -76.9758234,
+   "tags": {
+    "name": "Institución Educativa Antares",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1246827,
+   "lon": -77.0148091,
+   "tags": {
+    "name": "Colegio Pestalozzi",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0788397,
+   "lon": -76.92432,
+   "tags": {
+    "name": "Colegio Reina de los Ángeles",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.2128622,
+   "lon": -76.8685014,
+   "tags": {
+    "name": "Colegio TRENER",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0749474,
+   "lon": -76.9604813,
+   "tags": {
+    "name": "Colegio Sagrados Corazones Recoleta",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0745135,
+   "lon": -76.9516951,
+   "tags": {
+    "name": "Colegio italiano Antonio Raimondi",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1147091,
+   "lon": -76.976701,
+   "tags": {
+    "name": "Institución Educativa Hans Christian Andersen",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1274839,
+   "lon": -76.9987191,
+   "tags": {
+    "name": "Institución Educativa La Inmaculada Concepcion",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.069258,
+   "lon": -76.9099921,
+   "tags": {
+    "name": "Colegio Villa María",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1263749,
+   "lon": -77.0153411,
+   "tags": {
+    "name": "Colegio Nuestra Señora del Carmen-Carmelitas",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1040078,
+   "lon": -76.9202809,
+   "tags": {
+    "name": "Colegio San Pedro",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.2003691,
+   "lon": -77.0002951,
+   "tags": {
+    "name": "Colegio Aleph",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1274839,
+   "lon": -76.9987191,
+   "tags": {
+    "name": "Institución Educativa La Inmaculada Concepcion",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1081825,
+   "lon": -77.0361957,
+   "tags": {
+    "name": "Institución Educativa Maria Reina Marianistas",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1601931,
+   "lon": -76.9759046,
+   "tags": {
+    "name": "Colegio Saco Oliveros",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0869543,
+   "lon": -77.0489458,
+   "tags": {
+    "name": "Institución Educativa Sagrado Corazon Sophianum",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.0926932,
+   "lon": -76.9727719,
+   "tags": {
+    "name": "Institución Educativa Peruano Britanico",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -11.9897328,
+   "lon": -77.0054886,
+   "tags": {
+    "name": "Franklin Roosevelt",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  },
+  {
+   "type": "node",
+   "lat": -12.1145999,
+   "lon": -76.9758234,
+   "tags": {
+    "name": "Institución Educativa Antares",
+    "amenity": "school_top",
+    "source": "nominatim"
+   }
+  }
+ ]
+}
