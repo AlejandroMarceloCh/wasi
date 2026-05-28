@@ -546,7 +546,7 @@ const HomeScreen = ({ onGo }) => {
             <div className="k">Distritos</div>
           </div>
           <div>
-            <div className="v">15.7%</div>
+            <div className="v">15.6%</div>
             <div className="k"><Glossary term="MAPE"/></div>
           </div>
         </div>
@@ -635,7 +635,7 @@ const HomeScreen = ({ onGo }) => {
           </div>
           <h3>Fair Value</h3>
           <p className="desc">
-            XGBoost v2 estima el precio de referencia comparando 74 atributos
+            XGBoost v2 estima el precio de referencia comparando 101 atributos
             contra 3,348 avisos reales de Lima.
           </p>
           <div className="home-module-mock">
@@ -696,7 +696,7 @@ const HomeScreen = ({ onGo }) => {
             <p>XGBoost v2 cruza los datos contra 3,348 avisos reales de alquiler en Lima.</p>
             <div className="home-step-chip">
               <Icon name="chart" size={14} stroke="var(--primary)"/>
-              XGBoost v2 · MAPE 15.7%
+              XGBoost v2 · MAPE 15.6%
             </div>
           </div>
           <div className="home-step-big">
@@ -763,7 +763,7 @@ const HomeScreen = ({ onGo }) => {
           ['Precio de referencia confiable',    'Por ubicación exacta, no por distrito promedio'],
           ['Reducir la asimetría de información', 'El inquilino sabe tanto como el agente'],
           ['Contexto del barrio integrado',     'Seguridad y servicios, no solo precio'],
-          ['Honestos sobre el margen de error', 'MAPE 15.7%, comunicado en cada predicción'],
+          ['Honestos sobre el margen de error', 'MAPE 15.6%, comunicado en cada predicción'],
         ].map(([t, d]) => (
           <div key={t} className="home-obj">
             <span className="check"><Icon name="check" size={16}/></span>
@@ -787,7 +787,7 @@ const HomeScreen = ({ onGo }) => {
           {[
             ['3,348',  null, 'Avisos de alquiler analizados de Urbania, AdondeVivir y Properati'],
             ['40',     null, 'Distritos de Lima Metropolitana con cobertura'],
-            ['15.7',   '%',  'Error medio del modelo (MAPE) en test — XGBoost v2'],
+            ['15.6',   '%',  'Error medio del modelo (MAPE) en test — XGBoost v2'],
             ['95',     null, 'Variables por inmueble — físicas, geográficas, NSE y de seguridad'],
           ].map(([v, suf, k], i) => (
             <div key={i}>
@@ -2043,7 +2043,7 @@ const PROFILE_ROLES = ['Inquilino', 'Propietario', 'Agente inmobiliario'];
 
 const PROFILE_FAQS = [
   { q: '¿Cómo calcula Wasi el precio de referencia?',
-    a: 'Un modelo XGBoost v2 entrenado con 3.348 avisos reales de alquiler en Lima estima el precio de mercado según ubicación, área, dormitorios y entorno. El error medio (MAPE) de validación es 15,7 %.' },
+    a: 'Un modelo XGBoost v2 entrenado con 3.348 avisos reales de alquiler en Lima estima el precio de mercado según ubicación, área, dormitorios y entorno. El error medio (MAPE) de validación es 15,6 %.' },
   { q: '¿Qué significan "Inflado", "Justo" y "Ganga"?',
     a: 'Comparamos el precio anunciado contra el precio de referencia estimado. Muy por encima es "Inflado", cerca del estimado es "Justo", y por debajo es "Ganga".' },
   { q: '¿De dónde salen los datos de seguridad?',
@@ -2400,7 +2400,7 @@ const Loading = ({ label = 'Calculando precio de referencia…' }) => (
     </div>
     <div className="text-center">
       <div style={{fontWeight:600, color:'var(--ink-2)', fontSize:15}}>{label}</div>
-      <div className="small muted" style={{marginTop:6}}>XGBoost v2 · MAPE 15,7 % · 3.348 avisos</div>
+      <div className="small muted" style={{marginTop:6}}>XGBoost v2 · MAPE 15,6 % · 3.348 avisos</div>
     </div>
   </div>
 );
