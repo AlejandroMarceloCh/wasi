@@ -7,8 +7,8 @@ Datos, UTEC.
 
 ## Cómo correr
 
-Requisitos: Python 3.11, Git y un navegador moderno. Probado en macOS 14 y
-Ubuntu 22.04.
+Requisitos: Python 3.9-3.12 (3.10 recomendado), Git y un navegador moderno.
+Probado en macOS 14 y Ubuntu 22.04.
 
 ```bash
 # Clonar

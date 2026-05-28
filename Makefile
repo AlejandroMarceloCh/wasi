@@ -13,9 +13,12 @@ help:
 	@echo "Despues: open http://localhost:5500"
 
 setup:
-	cd app/backend && python3.11 -m venv venv && \
+	cd app/backend && python3 -m venv venv && \
 		venv/bin/pip install --upgrade pip && \
 		venv/bin/pip install -r requirements.txt
+	@echo ""
+	@echo "Nota: venv testeado con Python 3.9-3.12. xgboost 2.1.4 + sklearn 1.6.1 + numpy 2.0.2"
+	@echo "Si python3 < 3.9, instalar pyenv: brew install pyenv && pyenv install 3.10.12"
 	@echo ""
 	@echo "Setup listo. Ahora: 'make backend' (terminal 1) y 'make frontend' (terminal 2)."
 
