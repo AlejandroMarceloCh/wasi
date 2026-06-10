@@ -3,12 +3,11 @@
 Puebla la tabla `listings` con los ~3.3k avisos limpios del pipeline para que la
 pantalla Explorar tenga densidad estilo Zillow (mapa + grid por viewport).
 
-- Owner: usuario demo Roberto (propietario). Se crea con seed.py si no existe.
+- Owner: usuario "Catálogo Wasi" (lo crea seed.py), separado de los demo.
 - fair_value_ref: se deriva de la MEDIANA USD/m² por distrito (del propio dataset)
   -> el veredicto Ganga/Justo/Inflado sale con dispersión realista, no monocromo.
 - Idempotente por bandera: si ya hay > UMBRAL listings, no vuelve a insertar.
-
-Correr a mano:
+- Corre solo en el startup del backend; también se puede correr a mano:
     ./venv/bin/python seed_listings_bulk.py
 """
 from pathlib import Path
@@ -19,8 +18,8 @@ from sqlalchemy import func, select
 from database import SessionLocal
 from models import Listing, User
 
-CSV = (Path(__file__).resolve().parent.parent.parent
-       / "pipeline" / "data" / "raw" / "inmuebles_alquiler_clean.csv")
+# Dataset incluido en el repo: el catálogo es reproducible desde un clone.
+CSV = Path(__file__).resolve().parent / "data" / "inmuebles_alquiler_clean.csv"
 
 # Los avisos del dataset pertenecen al usuario "catálogo", NO a Roberto: así el
 # propietario demo conserva solo sus 2 listings reales (Mis Propiedades/Leads sanos).

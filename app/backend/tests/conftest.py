@@ -16,6 +16,8 @@ sys.path.insert(0, str(BACKEND))
 # BD temporal — debe definirse antes de importar database/main.
 _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDB.name}"
+# Los tests no necesitan el catálogo masivo de Explorar (3.3k inserts por sesión).
+os.environ["WASI_SKIP_BULK_SEED"] = "1"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from main import app  # noqa: E402

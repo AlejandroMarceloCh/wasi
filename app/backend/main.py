@@ -1,4 +1,5 @@
 """Entry point FastAPI para Wasi."""
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,6 +29,14 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_schema()                      # migración ligera (columnas nuevas)
     seed_if_empty()                      # distritos + usuario demo (idempotente)
+    # Catálogo de Explorar (~3.3k avisos reales): solo siembra en el primer
+    # arranque (umbral idempotente). Los tests lo saltan con WASI_SKIP_BULK_SEED.
+    if not os.environ.get("WASI_SKIP_BULK_SEED"):
+        try:
+            from seed_listings_bulk import seed_bulk
+            seed_bulk()
+        except Exception as e:
+            print(f"[Wasi] catálogo no sembrado: {e}")
     print("[Wasi] Base de datos lista.")
 
     model_service.load()                 # 3 validaciones de startup; falla dura

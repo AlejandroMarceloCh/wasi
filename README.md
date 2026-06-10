@@ -25,8 +25,9 @@ make frontend    # Estatico en http://localhost:5500
 
 Demo: http://localhost:5500 · usuario `ana@wasi.pe` / `demo1234`.
 
-El primer arranque tarda ~10 s mientras se valida el modelo y se calienta
-el indice geografico (cKDTree con 11 K POIs).
+El primer arranque tarda ~15 s: valida el modelo, calienta el indice
+geografico (cKDTree con 11 K POIs) y siembra el catalogo de Explorar
+(~3.3k avisos reales de alquiler). Los arranques siguientes son rapidos.
 
 ## Stack
 
