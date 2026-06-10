@@ -7,22 +7,26 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user
 from distrito_features import get_distrito_features
-from geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, scoring_entorno
+from geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, in_bbox, scoring_entorno
 from models import User
-from schemas import EntornoOut, PoiContext
+from schemas import EntornoOut, EntornoPoiLayer, EntornoPoisOut, PoiContext
 
 router = APIRouter(prefix="/api/entorno", tags=["entorno"])
 
-# Presentación de cada tipo de POI.
-POI_META = {
-    "supermercados": ("Supermercados", "🛒"),
-    "farmacias":     ("Farmacias", "💊"),
-    "colegios":      ("Colegios", "🏫"),
-    "hospitales":    ("Hospitales", "🏥"),
-    "bancos":        ("Bancos", "🏦"),
-    "universidades": ("Universidades", "🎓"),
-    "parqueos":      ("Parqueos", "🅿️"),
-}
+
+@router.get("/pois", response_model=EntornoPoisOut)
+def entorno_pois(
+    lat: float = Query(..., description="Latitud del pin"),
+    lng: float = Query(..., description="Longitud del pin"),
+    current: User = Depends(get_current_user),
+):
+    """POIs individuales (lat/lng por categoría) en 1 km del pin, para pintarlos
+    en el mapa. Misma fuente que los conteos (display_pois, solo-display)."""
+    if not in_bbox(lat, lng):
+        return EntornoPoisOut(layers=[])
+    from display_pois import get_display_pois
+    layers = get_display_pois().points(lat, lng, radius_m=1000.0)
+    return EntornoPoisOut(layers=[EntornoPoiLayer(**l) for l in layers])
 
 
 def _level_for(score: int) -> str:
@@ -53,21 +57,23 @@ def entorno(
             detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
         )
 
-    # POIs por tipo
-    total_poi = 0
-    pois = []
-    for kind in POI_TYPES:
-        count = int(round(geo[f"count_1km_{kind}"]))
-        total_poi += count
-        label, emoji = POI_META[kind]
-        pois.append(PoiContext(
-            kind=kind, label=label, emoji=emoji,
-            count_1km=count,
-            dist_nearest_m=round(geo[f"dist_nearest_m_{kind}"], 1),
-        ))
-
+    # Score: se mantiene calibrado sobre geo_index (percentile rank del dataset).
+    # NO se toca para no romper la calibración del backtest.
+    score_total_poi = sum(geo[f"count_1km_{t}"] for t in POI_TYPES)
     denuncias = int(round(geo["cantidad_denuncias"]))
-    security, services = scoring_entorno(geo["cantidad_denuncias"], float(total_poi))
+    security, services = scoring_entorno(geo["cantidad_denuncias"], float(score_total_poi))
+
+    # POIs MOSTRADOS: data fresca de OSM (display_pois), conteo real sin el cap de
+    # 60 del geo_index y con supermercados separados de tiendas de conveniencia.
+    # Esto es solo display — el modelo no usa estos números.
+    from display_pois import get_display_pois
+    poi_rows = get_display_pois().lookup(lat, lng)
+    pois = [PoiContext(
+        kind=p["kind"], label=p["label"],
+        count_500m=p["count_500m"], count_1km=p["count_1km"],
+        dist_nearest_m=p["dist_nearest_m"],
+    ) for p in poi_rows]
+    total_poi = sum(p["count_1km"] for p in poi_rows)
     score = _clamp(round(0.5 * security + 0.5 * services), 0, 100)
     level = _level_for(score)
 

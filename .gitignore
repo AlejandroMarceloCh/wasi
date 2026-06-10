@@ -57,3 +57,16 @@ _archive/
 _defensa/
 _backup_pre_sprint32/
 
+
+# --- Infra AWS del scraper (credenciales/config fuera del entregable web) ---
+aws/
+
+# --- Log de trabajo local ---
+session.log
+
+# --- Entornos y caches de herramientas locales ---
+app/backend/.audit-cache/
+app/backend/.audit-venv*/
+
+# --- Artefactos de modelos candidatos no promovidos (item1) ---
+*_item1.joblib

@@ -1,19 +1,26 @@
 /* Wasi — App router (web app) */
 const { useState: uS } = React;
 
+// Tab (nav por rol) -> screen. Las claves dependen del rol pero el mapa es común:
+// un comprador nunca dispara 'mis-propiedades'/'leads' y un vendedor nunca
+// dispara 'explorar'/'guardados', así que conviven sin colisión.
 const TAB_TO_SCREEN = {
-  home: 'home',
-  operaciones: 'operaciones',
+  explorar: 'listings',
+  guardados: 'saved',
+  'mis-propiedades': 'mis-publicaciones',
+  leads: 'leads',
   fairvalue: 'fairvalue-form',
-  entorno: 'entorno-map',
   profile: 'profile',
 };
 const SCREEN_TO_TAB = (s) => {
-  if (s === 'home') return 'home';
-  if (s === 'operaciones') return 'operaciones';
   if (s.startsWith('fairvalue')) return 'fairvalue';
-  if (s.startsWith('entorno')) return 'entorno';
+  if (s.startsWith('listing')) return 'explorar';   // cubre 'listings' y 'listing-detail'
+  if (s === 'saved') return 'guardados';
+  if (s === 'mis-publicaciones') return 'mis-propiedades';
+  if (s === 'leads') return 'leads';
   if (s === 'profile') return 'profile';
+  // 'home'/'operaciones'/'entorno-map'/'publish' devuelven null: pantallas
+  // residuales o acciones contextuales, sin tab activo en la nav nueva.
   return null;
 };
 
@@ -37,44 +44,96 @@ const ErrorBanner = ({ msg, onClose }) => {
   );
 };
 
+// Home según rol leyendo el usuario vigente (localStorage). Se usa en los
+// puntos donde el `roleHome` del render quedó desactualizado (justo tras login).
+const computeRoleHome = () => {
+  const u = (window.Api && window.Api.getUser()) || {};
+  return (u.role === 'Propietario' || u.role === 'Agente inmobiliario')
+    ? 'mis-publicaciones' : 'listings';
+};
+
 function App() {
-  const [screen, setScreen] = uS(window.Api && window.Api.isAuthed() ? 'home' : 'splash');
+  const [screen, setScreen] = uS(window.Api && window.Api.isAuthed() ? computeRoleHome() : 'splash');
   const [currentAnalysisId, setCurrentAnalysisId] = uS(null);
+  // Resultado de VENTA: el modelo v1 no devuelve analysis_id, así que el data
+  // se pasa directo a FairValueResult (sin fetch). null = flujo de alquiler.
+  const [ventaResult, setVentaResult] = uS(null);
   // contexto geográfico (lat/lng del último análisis) para la pantalla Entorno
   const [geoCtx, setGeoCtx] = uS({ lat: null, lng: null });
   const [errorMsg, setErrorMsg] = uS('');
+  // Flywheel de oferta: inmueble abierto + pre-carga del form de publicación
+  const [currentListingId, setCurrentListingId] = uS(null);
+  const [publishPrefill, setPublishPrefill] = uS(null);
+  // "Analizar este precio" desde el detalle: características del inmueble que
+  // pre-cargan el form de Fair Value. null = form en blanco (entrada por nav).
+  const [fvPrefill, setFvPrefill] = uS(null);
 
   const go = (s) => setScreen(s);
 
-  // FairValueForm dispara esto cuando ya tiene analysis_id
-  const onSubmitForm = (analysisId, ctx) => {
-    if (analysisId) setCurrentAnalysisId(analysisId);
+  // FairValueForm dispara esto al terminar. Alquiler: llega analysis_id (flujo
+  // original). Venta: extra = { operacion:'venta', ventaData } con el resultado
+  // directo (no hay analysis_id).
+  const onSubmitForm = (analysisId, ctx, extra) => {
+    if (extra && extra.operacion === 'venta') {
+      setVentaResult(extra.ventaData || null);
+      setCurrentAnalysisId(null);
+    } else {
+      setVentaResult(null);
+      if (analysisId) setCurrentAnalysisId(analysisId);
+    }
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
     setScreen('fairvalue-result');
   };
 
   const onOpenAnalysis = (id, ctx) => {
+    setVentaResult(null);
     setCurrentAnalysisId(id);
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
     setScreen('fairvalue-result');
   };
 
+  // Detalle de inmueble: recuerda desde dónde se abrió (Explorar, Guardados,
+  // Leads, Mis propiedades) para que "Volver" regrese al origen, no al home.
+  const [detailReturn, setDetailReturn] = uS(null);
+  const onOpenListing = (id) => {
+    setDetailReturn(screen === 'listing-detail' ? detailReturn : screen);
+    setCurrentListingId(id);
+    setScreen('listing-detail');
+  };
+
+  const onPublish = (prefill) => {
+    setPublishPrefill(prefill || null);
+    setScreen('publish');
+  };
+
   const onLogout = () => {
     try { window.Api && window.Api.logout(); } catch (_) {}
     setCurrentAnalysisId(null);
+    setVentaResult(null);
     setGeoCtx({ lat: null, lng: null });
+    setCurrentListingId(null);
+    setPublishPrefill(null);
     setScreen('splash');
   };
 
   const onTopNavNav = (key) => {
     if (key === 'login') return setScreen('auth-login');
     if (key === 'signup') return setScreen('auth-register');
+    if (key === 'fairvalue') setFvPrefill(null); // entrada por nav = form en blanco
     const target = TAB_TO_SCREEN[key];
     if (target) setScreen(target);
   };
 
   const isPublic = PUBLIC_SCREENS.has(screen);
   const activeTab = SCREEN_TO_TAB(screen);
+  // Rol del usuario: decide vista comprador (Inquilino) vs vendedor (Propietario/Agente).
+  const currentUser = (window.Api && window.Api.getUser()) || { name: 'Ana' };
+  const userRole = currentUser.role || 'Inquilino';
+  const isSeller = userRole === 'Propietario' || userRole === 'Agente inmobiliario';
+  // Pantalla "home" según rol: a dónde vuelve un flujo que termina (form, detalle,
+  // publicación). El comprador aterriza en Explorar; el vendedor en Mis Propiedades.
+  // Reemplaza al viejo 'operaciones', que ya no está en la nav por rol.
+  const roleHome = isSeller ? 'mis-publicaciones' : 'listings';
 
   return (
     <div className="app-shell" data-screen-label={`Wasi · ${screen}`}>
@@ -82,8 +141,8 @@ function App() {
       <TopNav
         active={activeTab}
         onNavigate={onTopNavNav}
-        onLogo={() => setScreen(isPublic ? 'splash' : 'home')}
-        user={(window.Api && window.Api.getUser()) || { name: 'Ana' }}
+        onLogo={() => setScreen(isPublic ? 'splash' : roleHome)}
+        user={currentUser}
         isPublic={isPublic}
       />
       <main className={(screen === 'splash' || screen.startsWith('auth')) ? 'no-pad' : ''}>
@@ -93,22 +152,26 @@ function App() {
         {(screen === 'auth-login' || screen === 'auth-register') && (
           <AuthScreen
             initialMode={screen === 'auth-login' ? 'login' : 'register'}
-            onAuth={() => setScreen('home')}
+            onAuth={() => setScreen(computeRoleHome())}
             onError={setErrorMsg}
           />
         )}
-        {screen === 'home' && <HomeScreen onGo={go}/>}
+        {screen === 'home' && <HomeScreen onGo={go} onOpenListing={onOpenListing}/>}
         {screen === 'operaciones' && (
           <DashboardScreen
+            role={userRole}
             onGo={go}
             onOpenAnalysis={onOpenAnalysis}
+            onPublish={() => onPublish(null)}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
         )}
         {screen === 'fairvalue-form' && (
           <FairValueForm
-            onBack={() => setScreen('operaciones')}
+            role={userRole}
+            prefill={fvPrefill}
+            onBack={() => setScreen(roleHome)}
             onSubmit={onSubmitForm}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
@@ -117,6 +180,8 @@ function App() {
         {screen === 'fairvalue-result' && (
           <FairValueResult
             analysisId={currentAnalysisId}
+            ventaData={ventaResult}
+            role={userRole}
             onBack={() => setScreen('fairvalue-form')}
             onContext={() => setScreen('entorno-map')}
             onError={setErrorMsg}
@@ -127,7 +192,62 @@ function App() {
           <EntornoMapScreen
             lat={geoCtx.lat}
             lng={geoCtx.lng}
-            onBack={() => setScreen('operaciones')}
+            onBack={() => setScreen('fairvalue-result')}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'listings' && (
+          <ListingsScreen
+            onOpenListing={onOpenListing}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'listing-detail' && (
+          <ListingDetailScreen
+            listingId={currentListingId}
+            role={userRole}
+            onBack={() => setScreen(detailReturn || roleHome)}
+            onAnalyze={(ctx) => {
+              if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
+              setFvPrefill(ctx || null);
+              setScreen('fairvalue-form');
+            }}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'publish' && (
+          <PublishScreen
+            role={userRole}
+            prefill={publishPrefill}
+            onBack={() => setScreen(roleHome)}
+            onPublished={(id) => { setDetailReturn(null); setCurrentListingId(id); setScreen('listing-detail'); }}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'mis-publicaciones' && (
+          <MyListingsScreen
+            onOpenListing={onOpenListing}
+            onPublish={() => onPublish(null)}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'leads' && (
+          <LeadsScreen
+            onOpenListing={onOpenListing}
+            onGo={go}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'saved' && (
+          <SavedScreen
+            onOpenListing={onOpenListing}
+            onGo={go}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
@@ -137,6 +257,8 @@ function App() {
             onLogout={onLogout}
             onError={setErrorMsg}
             onOpenAnalysis={onOpenAnalysis}
+            onMyListings={() => setScreen('mis-publicaciones')}
+            onSaved={() => setScreen('saved')}
             onAuthExpired={onLogout}
           />
         )}

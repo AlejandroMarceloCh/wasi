@@ -2,7 +2,7 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
 /* ============ Icons ============ */
-const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fill = "none" }) => {
+const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fill = "none", ...rest }) => {
   const paths = {
     home: <><path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/></>,
     chart: <><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></>,
@@ -38,9 +38,12 @@ const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fil
     mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></>,
     moon: <><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></>,
+    nav: <><polygon points="12,3 20,21 12,17 4,21" strokeLinejoin="round"/></>,
+    bus: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 11h18"/><path d="M8 19v2"/><path d="M16 19v2"/><circle cx="7.5" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="15" r="1" fill="currentColor" stroke="none"/><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/></>,
+    heart: <><path d="M12 21s-7-4.6-9.5-9A5.2 5.2 0 0 1 12 6a5.2 5.2 0 0 1 9.5 6c-2.5 4.4-9.5 9-9.5 9z"/></>,
   };
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" {...rest}>
       {paths[name] || null}
     </svg>
   );
@@ -113,16 +116,81 @@ const Tag = ({ variant = 'default', children, className = '', ...rest }) => (
   <span className={`tag tag-${variant} ${className}`} {...rest}>{children}</span>
 );
 
+/* ============ ListingCard ============
+   Card estilo Zillow para el grid de inmuebles: bloque visual arriba (foto si
+   hay image_url, si no placeholder de marca con gradiente), veredicto Wasi
+   (Ganga/Justo/Inflado) como badge flotante sobre el bloque, y debajo el precio
+   prominente + dirección + specs. El veredicto es la diferenciación del producto,
+   por eso va flotando sobre el media. Reusa .card.hover y los tags semánticos. */
+const ZONE_VARIANT = { Ganga: 'success', Justo: 'warning', Inflado: 'danger' };
+// Whitelist anti-XSS: solo aceptamos URLs http(s). Bloquea javascript:, data:,
+// vbscript:, etc. que podrían inyectarse vía image_url no confiable.
+const safeImageUrl = (url) =>
+  (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) ? url : null;
+
+const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
+  const z = listing.zone;
+  const open = () => onOpen && onOpen(listing.id);
+  const price = Math.round(listing.price_usd).toLocaleString('en-US');
+  const specs = listing.es_estudio ? 'Estudio' : `${listing.dormitorios} dorm`;
+  const imgSrc = safeImageUrl(listing.image_url);
+  // El corazón solo aparece si el padre cablea onToggleFav. Mantiene compatible
+  // todos los usos previos de ListingCard que no pasan estos props.
+  const showFav = typeof onToggleFav === 'function';
+  const toggleFav = (e) => {
+    e.stopPropagation();   // no abrir el detalle al tocar el corazón
+    onToggleFav(listing.id, !isFav);
+  };
+  return (
+    <div className="listing-card-z card hover" role="button" tabIndex={0}
+         onClick={open} onKeyDown={onKeyActivate(open)}>
+      <div className="lcz-media">
+        {imgSrc
+          ? <img src={imgSrc} alt={listing.address} loading="lazy"
+                 onError={(e)=>{ e.target.style.display='none'; }}/>
+          : (
+            // Placeholder de marca tintado por veredicto: scanear la grid deja ver
+            // de un vistazo dónde hay gangas (verde) vs inflados (rojo). El distrito
+            // ya va en el cuerpo (.lcz-dist), no se duplica aquí.
+            <div className={`lcz-placeholder lcz-ph-${ZONE_VARIANT[z] || 'default'}`}>
+              <Icon name="home" size={28} stroke="#fff"/>
+            </div>
+          )}
+        {z && <span className={`lcz-verdict tag tag-${ZONE_VARIANT[z] || 'default'}`}>{z}</span>}
+        {showFav && (
+          <button
+            type="button"
+            className={`lcz-fav ${isFav ? 'on' : ''}`}
+            aria-pressed={isFav}
+            aria-label={isFav ? 'Quitar de guardados' : 'Guardar inmueble'}
+            title={isFav ? 'Quitar de guardados' : 'Guardar inmueble'}
+            onClick={toggleFav}
+          >
+            <Icon name="heart" size={17} fill={isFav ? 'currentColor' : 'none'}/>
+          </button>
+        )}
+      </div>
+      <div className="lcz-body">
+        <div className="lcz-price numeric">
+          ${price}<span className="lcz-per"> /mes</span>
+        </div>
+        <div className="lcz-addr">{listing.address}</div>
+        <div className="lcz-dist small muted">{listing.district}</div>
+        <div className="lcz-specs tiny muted">
+          {specs} · {listing.banos} {listing.banos === 1 ? 'baño' : 'baños'} · {Math.round(listing.area_m2)} m²
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ============ Glossary ============
    Tooltip educativo para términos técnicos. Usa <abbr> nativo: lo lee el
    screen reader, lo muestra el browser en hover (desktop) y al hacer tap
    largo (mobile en iOS / Android moderno).
 */
 const GLOSSARY = {
-  'MAPE': 'Error porcentual absoluto medio: en promedio, qué tan lejos está la predicción del precio real, expresado en %.',
-  'R²':   'Coeficiente de determinación. Indica qué tanto explica el modelo la variabilidad de los precios. 1.0 = perfecto, 0 = no explica nada.',
-  'XGBoost': 'Modelo de gradient boosting que combina muchos árboles de decisión para predecir el precio de alquiler.',
-  'XGBoost v2': 'Segunda versión del modelo, entrenada con 101 features y 3,348 listings reales de Lima. MAPE 15.6 %, R² 0.85.',
+  'Error medio': 'En promedio, qué tan lejos cae la estimación del modelo respecto al precio real, expresado en %. Más bajo es mejor.',
   'Confianza Alta': 'Muchos avisos comparables cerca del pin: la predicción es más estable.',
   'Confianza Media': 'Algunos avisos comparables: la predicción es razonable pero con más margen.',
   'Confianza Baja': 'Pocos avisos comparables cerca: el rango puede ser amplio, tómalo como referencia general.',
@@ -175,7 +243,9 @@ const Select = ({ label, options, value, onChange, placeholder }) => (
 
 /* ============ Switch ============ */
 const Switch = ({ checked, onChange, label }) => (
-  <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)} role="switch" aria-checked={checked} aria-label={label}/>
+  <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}
+       role="switch" aria-checked={checked} aria-label={label}
+       tabIndex={0} onKeyDown={onKeyActivate(() => onChange(!checked))}/>
 );
 
 const ToggleRow = ({ label, icon, checked, onChange }) => (
@@ -213,7 +283,7 @@ const useAnimatedNumber = (target, dur = 1100, trigger = true) => {
    coinciden con el corte del backend (ZONE_BAND_PCT = ±8 %):
    Ganga p[0, 1/3] · Justo p[1/3, 2/3] · Inflado p[2/3, 1].
    La aguja apunta a la posición del precio anunciado según diffPct. */
-const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo' }) => {
+const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false, sellerPos = null, unitLabel = '/ mes', perMes = true }) => {
   const SCALE = 24;                                        // ± % que abarca el arco
   const markP = Math.max(0, Math.min(1, (diffPct + SCALE) / (2 * SCALE)));
   const animP = useAnimatedNumber(markP, 1100);
@@ -230,7 +300,13 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo' }) => {
     return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
   };
 
-  const zoneColor = zone === 'Inflado' ? 'var(--danger)'
+  // En modo vendedor el marco es posicionamiento (Conservador/Competitivo/Agresivo),
+  // NO veredicto Ganga/Inflado. El arco y el chip se reetiquetan; la aguja es la misma.
+  const posColor = sellerPos === 'Competitivo' ? 'var(--success)'
+                 : sellerPos === 'Agresivo' ? 'var(--warning)'
+                 : 'var(--primary)';   // Conservador (o sin precio)
+  const zoneColor = seller ? posColor
+                  : zone === 'Inflado' ? 'var(--danger)'
                   : zone === 'Ganga'  ? 'var(--success)'
                   : 'var(--warning)';
   const tip = polar(animP);
@@ -256,10 +332,10 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo' }) => {
         <path d={arc(0, 1)} fill="none" stroke="url(#gaugeArcGrad)"
               strokeWidth="22" strokeLinecap="round"/>
 
-        {/* etiquetas de zona */}
-        <text x="24"  y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--success)">GANGA</text>
-        <text x="130" y="17"  fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="oklch(0.48 0.13 60)" textAnchor="middle">JUSTO</text>
-        <text x="236" y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--danger)" textAnchor="end">INFLADO</text>
+        {/* etiquetas del arco: posicionamiento (vendedor) o veredicto (comprador) */}
+        <text x="24"  y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--success)">{seller ? 'CONSERVADOR' : 'GANGA'}</text>
+        <text x="130" y="17"  fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="oklch(0.48 0.13 60)" textAnchor="middle">{seller ? 'MERCADO' : 'JUSTO'}</text>
+        <text x="236" y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--danger)" textAnchor="end">{seller ? 'AGRESIVO' : 'INFLADO'}</text>
 
         {/* aguja → posición del precio anunciado */}
         <line x1={CX} y1={CY} x2={tip.x} y2={tip.y} stroke="var(--ink)" strokeWidth="4" strokeLinecap="round"/>
@@ -272,13 +348,15 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo' }) => {
         <div style={{ fontFamily: 'Space Grotesk', fontSize: 34, fontWeight: 700, color: 'var(--ink)' }}>
           ${Math.round(animVal).toLocaleString('en-US')}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: -2 }}>Precio de referencia / mes</div>
-        <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 7,
-                      background: 'var(--line-2)', padding: '6px 13px', borderRadius: 999,
-                      fontSize: 12, fontWeight: 700, color: zoneColor }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: zoneColor }}/>
-          Tu anuncio: {zone} ({sign}{diffPct}%)
-        </div>
+        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: -2 }}>Precio de referencia {unitLabel}</div>
+        {(seller ? sellerPos : true) && (
+          <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 7,
+                        background: 'var(--line-2)', padding: '6px 13px', borderRadius: 999,
+                        fontSize: 12, fontWeight: 700, color: zoneColor }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: zoneColor }}/>
+            {seller ? `Tu precio: ${sellerPos}` : `Tu anuncio: ${zone} (${sign}${diffPct}%)`}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -340,67 +418,21 @@ const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix =
   );
 };
 
-/* Diccionario de tooltips para los factores del modelo. La key es el prefijo
-   del label (antes del ":"). Si no hay match, el AnimBar se renderiza sin
-   tooltip y sin underline punteado (degrada limpio). */
-const FACTOR_TOOLTIPS = {
-  'Área': 'Tamaño habitable en m². Tiene peso fuerte: el precio crece casi lineal con el área hasta ~120 m². En estudios y monoambientes el peso por m² es mayor.',
-  'Ubicación': 'Distrito del pin (vecino más cercano del dataset). El modelo aprende un promedio por distrito; cuando el distrito tiene pocos avisos, el valor se suaviza hacia el promedio de Lima para no sobreajustar.',
-  'Antigüedad': 'Años desde construcción del edificio. Penalización fuerte después de 20 años; muy bajo impacto entre 0-10 años.',
-  'Baños': 'Número de baños completos. Marca de gama: pasar de 1 a 2 baños eleva el precio más que pasar de 2 a 3.',
-  'Cocheras': 'Estacionamientos privados. En zonas premium (Miraflores, San Isidro) suma más que en zonas populares.',
-};
-
-/* Contextos cualitativos: score (0-100) → label legible por feature.
-   Reemplaza la barra "X/100" sin contexto. */
-const FACTOR_CONTEXT = {
-  'Área': (s) => s >= 80 ? 'Amplio para la zona' : s >= 60 ? 'Tamaño estándar' : 'Compacto',
-  'Ubicación': (s) => s >= 80 ? 'Distrito con mucha data — alta confianza' : s >= 60 ? 'Distrito con cobertura razonable' : 'Distrito con poca data — confianza baja',
-  'Antigüedad': (s) => s >= 80 ? 'Edificio nuevo (≤10 años)' : s >= 60 ? 'Edificio en buen estado' : 'Edificio antiguo',
-  'Baños': (s) => s >= 80 ? '2+ baños — gama media-alta' : s >= 60 ? 'Estándar para el segmento' : 'Solo 1 baño',
-  'Cocheras': (s) => s >= 70 ? 'Con cochera privada' : 'Sin cochera',
-};
-
-/* Tag de impacto cualitativo según score. */
-const _factorImpact = (score, positive) => {
-  if (!positive)          return { label: 'Resta valor', variant: 'warning' };
-  if (score >= 85)        return { label: 'Premium',      variant: 'success' };
-  if (score >= 70)        return { label: 'Favorable',    variant: 'success' };
-  if (score >= 55)        return { label: 'Estándar',     variant: 'default' };
-  return { label: 'Bajo promedio', variant: 'warning' };
-};
-
-/* FactorRow — reemplaza AnimBar para los 5 factores del modelo. Muestra
-   icono + label + contexto cualitativo + tag de impacto, en lugar de una
-   barra 0-100 abstracta. Mucho más legible para el usuario final. */
-const FactorRow = ({ label, score, positive, tooltip = '' }) => {
-  const key = (label || '').split(':')[0].trim();
-  const ctx = (FACTOR_CONTEXT[key] || (() => ''))(score);
-  const { label: impactLabel, variant } = _factorImpact(score, positive);
-  const labelEl = tooltip
-    ? <abbr title={tooltip} aria-label={`${label}: ${tooltip}`} style={{textDecoration:'underline dotted', textUnderlineOffset:'2px', cursor:'help'}}>{label}</abbr>
-    : label;
-  return (
-    <div className="factor-row" style={{display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)'}}>
-      <div style={{flexShrink:0, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'50%', background: positive ? 'rgba(34,197,94,.12)' : 'rgba(245,158,11,.12)', color: positive ? 'var(--success)' : 'var(--warning)', fontWeight:700}}>
-        {positive ? '↑' : '↓'}
-      </div>
-      <div style={{flex:1, minWidth:0}}>
-        <div className="small" style={{fontWeight:600, color:'var(--ink)'}}>{labelEl}</div>
-        {ctx && <div className="tiny muted" style={{marginTop:2}}>{ctx}</div>}
-      </div>
-      <span className={`tag tag-${variant}`} style={{flexShrink:0}}>{impactLabel}</span>
-    </div>
-  );
-};
-
 /* ============ TopNav ============ */
 const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
-  const tabs = [
-    { key: 'home', label: 'Inicio', icon: 'home' },
-    { key: 'operaciones', label: 'Operaciones', icon: 'layers' },
+  // Navegación por rol: el comprador (Inquilino) explora y guarda; el vendedor
+  // (Propietario/Agente) gestiona sus inmuebles y sus leads. Fair Value y Perfil
+  // son comunes. Entorno ya no es tab: vive como pestaña dentro del detalle.
+  const isSeller = user?.role === 'Propietario' || user?.role === 'Agente inmobiliario';
+  const tabs = isSeller ? [
+    { key: 'mis-propiedades', label: 'Mis propiedades', icon: 'home' },
     { key: 'fairvalue', label: 'Fair Value', icon: 'chart' },
-    { key: 'entorno', label: 'Entorno', icon: 'pin' },
+    { key: 'leads', label: 'Leads', icon: 'mail' },
+    { key: 'profile', label: 'Perfil', icon: 'user' },
+  ] : [
+    { key: 'explorar', label: 'Explorar', icon: 'map' },
+    { key: 'fairvalue', label: 'Fair Value', icon: 'chart' },
+    { key: 'guardados', label: 'Guardados', icon: 'heart' },
     { key: 'profile', label: 'Perfil', icon: 'user' },
   ];
   const [notifOpen, setNotifOpen] = useState(false);
@@ -453,7 +485,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
             </button>
             {isPublic ? (
               <>
-                <Btn variant="outline" size="sm" onClick={() => onNavigate('login')}>Iniciar Sesión</Btn>
+                <Btn variant="outline" size="sm" onClick={() => onNavigate('login')}>Iniciar sesión</Btn>
                 <Btn variant="primary" size="sm" onClick={() => onNavigate('signup')}>Comenzar gratis</Btn>
               </>
             ) : (
@@ -593,10 +625,10 @@ const PageHeader = ({ title, subtitle, onBack, actions, tag }) => (
 );
 
 Object.assign(window, {
-  Icon, StatusBar, Header, Logo, Btn, Card, Tag,
+  Icon, StatusBar, Header, Logo, Btn, Card, Tag, ListingCard,
   Input, Select, Switch, ToggleRow,
   GaugeChart, ScoreCircle, AnimBar,
   TopNav, PageHeader, Modal,
-  Glossary, GLOSSARY, onKeyActivate, FACTOR_TOOLTIPS, FactorRow,
-  useAnimatedNumber,
+  Glossary, GLOSSARY, onKeyActivate,
+  useAnimatedNumber, ZONE_VARIANT,
 });

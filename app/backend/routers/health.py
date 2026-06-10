@@ -9,12 +9,14 @@ deben poder consultar sin token.
 """
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import ml
@@ -76,6 +78,19 @@ def _trained_at_iso() -> Optional[str]:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────
+_DISTRITOS_PATH = Path(__file__).resolve().parent.parent / "data" / "distritos_zona.json"
+_distritos_cache: Optional[List[Any]] = None
+
+
+@router.get("/distritos-zona")
+def distritos_zona():
+    """Zonas de precio por distrito (ganga/justo/inflado). No requiere auth."""
+    global _distritos_cache
+    if _distritos_cache is None and _DISTRITOS_PATH.exists():
+        _distritos_cache = json.loads(_DISTRITOS_PATH.read_text())
+    return JSONResponse(_distritos_cache or [])
+
+
 @router.get("/health", response_model=HealthOut)
 def health():
     """Liveness probe. No requiere auth."""

@@ -3,8 +3,8 @@
 Verifican: presencia en PredictOut cuando v2 + quantile cargado, ordenamiento
 P25 ≤ P50 ≤ P75, y consistencia del centro (P50 cercano a fair_value).
 
-Post-auditoría T2: si el modelo activo es v2 con quantile, los asserts son
-ESTRICTOS (no permitir skip silencioso); si es v1 sin quantile, se ignoran.
+Si el modelo activo es v2 con quantile, los asserts son estrictos (sin
+skip silencioso); si es v1 sin quantile, se ignoran.
 """
 import json
 from pathlib import Path
@@ -49,7 +49,7 @@ def test_prediction_interval_ordenado(client, auth_headers):
 def test_p50_cercano_a_fair_value(client, auth_headers):
     """El P50 quantile debe estar cerca del fair_value central.
 
-    Tolerancia: 15% (post-auditoría T5; antes 25% era permisivo en exceso).
+    Tolerancia: 15%.
     Si la diferencia supera ese gap, hay divergencia material entre los
     objectives `reg:squarederror` y `reg:quantileerror` que merece investigarse.
     """
@@ -89,6 +89,6 @@ def test_quantile_coverage_file_existe():
     assert 0.35 < cov < 0.65, f"coverage P25-P75 fuera de rango defendible: {cov}"
     assert "mape_p50_pct" in data
     assert 10 < data["mape_p50_pct"] < 25, f"MAPE P50 sospechoso: {data['mape_p50_pct']}"
-    # Hiperparámetros ahora son dict, no string (post-auditoría T1).
+    # Los hiperparámetros se registran como dict con los valores reales.
     assert isinstance(data.get("hyperparams"), dict), \
         "hyperparams debe ser dict con los valores reales (no string genérico)"

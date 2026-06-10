@@ -1,0 +1,96 @@
+{
+  "descripcion": "Sesgo del modelo v2 (congelado) por distrito vs precio anunciado del catálogo. diff_pct=(estimado-anunciado)/anunciado*100. RESULTADO 2026-06-10: mediana dentro de ±2% en los distritos premium y ±4% en todos — el modelo está bien calibrado DENTRO de su distribución de entrenamiento (no hay compresión hacia la media). El gap percibido en Miraflores ($918 estimado vs $1,000-1,400 de avisos premium actuales) es composición del DATASET (stock premium subrepresentado en el scraping 2026-05), no un sesgo del modelo. Plan V2: scraping dirigido al segmento premium > más volumen general. Generado por scripts/audit_calibracion_distritos.py.",
+  "muestra_max_por_distrito": 40,
+  "distritos": {
+    "Miraflores": {
+      "n": 40,
+      "median_diff_pct": 1.6,
+      "p25_diff_pct": -3.6,
+      "p75_diff_pct": 6.9
+    },
+    "San Isidro": {
+      "n": 40,
+      "median_diff_pct": 1.3,
+      "p25_diff_pct": -2.9,
+      "p75_diff_pct": 9.0
+    },
+    "Barranco": {
+      "n": 40,
+      "median_diff_pct": -1.2,
+      "p25_diff_pct": -7.8,
+      "p75_diff_pct": 6.4
+    },
+    "Santiago de Surco": {
+      "n": 40,
+      "median_diff_pct": 1.9,
+      "p25_diff_pct": -3.0,
+      "p75_diff_pct": 5.9
+    },
+    "La Molina": {
+      "n": 40,
+      "median_diff_pct": -0.1,
+      "p25_diff_pct": -3.9,
+      "p75_diff_pct": 4.5
+    },
+    "Jesus Maria": {
+      "n": 40,
+      "median_diff_pct": -1.6,
+      "p25_diff_pct": -4.5,
+      "p75_diff_pct": 0.3
+    },
+    "Lince": {
+      "n": 40,
+      "median_diff_pct": -1.1,
+      "p25_diff_pct": -6.5,
+      "p75_diff_pct": 1.3
+    },
+    "Pueblo Libre": {
+      "n": 40,
+      "median_diff_pct": -1.5,
+      "p25_diff_pct": -4.9,
+      "p75_diff_pct": 3.6
+    },
+    "Magdalena del Mar": {
+      "n": 40,
+      "median_diff_pct": -1.3,
+      "p25_diff_pct": -6.0,
+      "p75_diff_pct": 3.0
+    },
+    "Surquillo": {
+      "n": 40,
+      "median_diff_pct": -0.4,
+      "p25_diff_pct": -5.6,
+      "p75_diff_pct": 1.2
+    },
+    "San Miguel": {
+      "n": 40,
+      "median_diff_pct": -4.2,
+      "p25_diff_pct": -8.4,
+      "p75_diff_pct": -0.4
+    },
+    "Cercado de Lima": {
+      "n": 40,
+      "median_diff_pct": -3.9,
+      "p25_diff_pct": -8.5,
+      "p75_diff_pct": 0.2
+    },
+    "Chorrillos": {
+      "n": 40,
+      "median_diff_pct": -0.7,
+      "p25_diff_pct": -4.5,
+      "p75_diff_pct": 2.7
+    },
+    "San Martin de Porres": {
+      "n": 40,
+      "median_diff_pct": -2.8,
+      "p25_diff_pct": -13.9,
+      "p75_diff_pct": 0.8
+    },
+    "Ate": {
+      "n": 40,
+      "median_diff_pct": -0.9,
+      "p25_diff_pct": -3.4,
+      "p75_diff_pct": 4.9
+    }
+  }
+}

@@ -17,11 +17,20 @@ SQLITE_DEFAULT = f"sqlite:///{os.path.join(BACKEND_DIR, 'wasi.db')}"
 class Settings(BaseSettings):
     """Variables de entorno (.env)."""
     database_url: str = SQLITE_DEFAULT
-    jwt_secret: str = "dev_secret_change_me"
+    # Obligatorio: debe venir del .env (o del entorno). Sin default inseguro —
+    # si falta, el arranque falla en vez de firmar JWT con un secreto conocido.
+    jwt_secret: str
     jwt_algo: str = "HS256"
     jwt_expire_days: int = 7
+    groq_api_key: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    # env_file por ruta absoluta: el .env se resuelve igual sin importar el cwd
+    # desde el que se lance la app o pytest.
+    model_config = SettingsConfigDict(
+        env_file=os.path.join(BACKEND_DIR, ".env"),
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 settings = Settings()

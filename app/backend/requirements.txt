@@ -20,6 +20,9 @@ numpy==2.0.2
 pandas==2.2.3
 scipy==1.13.1
 
+# --- LLM narrativa SHAP (Groq/Llama) ---
+groq==0.11.0
+
 # --- Tests (Fase 3) ---
 pytest==8.3.4
 httpx==0.27.2

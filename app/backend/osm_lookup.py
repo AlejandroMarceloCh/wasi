@@ -109,6 +109,26 @@ def _classify_tier(category: str, names: List[str]) -> Dict[str, np.ndarray]:
     return tiers
 
 
+# Nombres OSM genéricos/ruidosos que no sirven como landmark para la narrativa.
+# Un "Agente BCP" o "Cajero" no es una agencia: el regex de tier lo etiquetaría
+# 'premium' y confundiría la gama del barrio. Se descartan del contexto del LLM.
+_GENERIC_POI_NAMES = {
+    "banco", "farmacia", "botica", "cajero", "agente", "atm", "supermercado",
+    "minimarket", "mini market", "bodega", "tienda", "market", "parque",
+    "universidad", "instituto", "clinica", "clínica", "restaurante", "estacion",
+    "estación", "mall", "centro comercial",
+}
+_GENERIC_PREFIX = ("agente ", "cajero", "atm ")
+
+
+def _is_noise_name(name: str) -> bool:
+    """True si el nombre del POI es vacío, numérico o genérico (no es landmark)."""
+    n = name.strip().lower()
+    if not n or n in _GENERIC_POI_NAMES or n.isdigit():
+        return True
+    return n.startswith(_GENERIC_PREFIX)
+
+
 class OSMIndex:
     """Singleton lazy: 7 KD-trees, uno por categoría.
 
@@ -197,6 +217,59 @@ class OSMIndex:
             d_m = _haversine_m(lat, lng, coords[idx, 0], coords[idx, 1])
             out[f"count_1km_osm_{cat}"]      = int((d_m <= 1000).sum())
             out[f"dist_nearest_m_osm_{cat}"] = float(d_m.min())
+        return out
+
+    def nearest_named(self, lat: float, lng: float, per_cat: int = 2,
+                      max_m: float = 1200.0) -> Dict[str, List[dict]]:
+        """POIs nombrados más cercanos por categoría, con su tier de calidad.
+
+        Reusa los KD-trees y _names ya cargados; NO recalcula nada del modelo.
+        Solo para contexto del LLM y display — no entra al pipeline de features.
+
+        Devuelve dict[cat] -> [{name, dist_m, tier}, ...] ordenado por distancia,
+        descartando POIs sin nombre o más lejos de max_m. tier es 'premium'/'mass'
+        (super, bancos), 'cadena' (farmacias) o None si no aplica/no clasifica.
+        """
+        listing_xyz = _to_unit_sphere(np.array([lat]), np.array([lng]))
+        out: Dict[str, List[dict]] = {}
+        for cat in OSM_CATEGORIES + PREMIUM_CATEGORIES:
+            coords = self._coords.get(cat)
+            names = self._names.get(cat, [])
+            if coords is None or len(coords) == 0:
+                continue
+            tree = self._trees[cat]
+            k = min(30, len(coords))
+            _, idx = tree.query(listing_xyz, k=k)
+            idx = np.atleast_1d(idx).ravel()
+            d_m = _haversine_m(lat, lng, coords[idx, 0], coords[idx, 1])
+            order = np.argsort(d_m)
+            masks = self._tier_masks.get(cat, {})
+            items: List[dict] = []
+            seen: set = set()
+            for j in order:
+                gi = int(idx[j])                       # índice global en coords/names
+                dist = float(d_m[j])
+                if dist > max_m:
+                    break                              # order es ascendente: lo demás está más lejos
+                nm = names[gi].strip() if gi < len(names) else ''
+                if _is_noise_name(nm):
+                    continue                           # sin nombre o genérico/cajero → inútil
+                key = nm.lower()
+                if key in seen:
+                    continue                           # dedupe: no repetir la misma marca/sucursal
+                seen.add(key)
+                tier = None
+                for tier_name, mask in masks.items():
+                    if gi < len(mask) and mask[gi]:
+                        tier = tier_name
+                        break
+                if tier is None and cat == "farmacias":
+                    tier = "indep"                     # farmacia que no es cadena → independiente
+                items.append({"name": nm, "dist_m": round(dist), "tier": tier})
+                if len(items) >= per_cat:
+                    break
+            if items:
+                out[cat] = items
         return out
 
 

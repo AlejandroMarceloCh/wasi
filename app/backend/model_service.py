@@ -56,6 +56,7 @@ class ModelService:
         self._target_enc: dict | None = None
         self._mode: str = "v1"
         self._model_name: str | None = None
+        self._poi_importance_cache: list[dict] | None = None
 
     # ─── carga + validación de startup ──────────────────────────────────
     def load(self) -> None:
@@ -76,7 +77,13 @@ class ModelService:
             print(f"[model_service] modelo v1 cargado y validado · version {self.version}")
 
     def _load_v2(self) -> None:
-        """Carga modelo_final_v2.joblib + artefactos v2 (101 features XGBoost)."""
+        """Carga modelo_final_v2.joblib + artefactos v2 (101 features XGBoost).
+
+        Corre las mismas 3 validaciones fail-fast que v1 contra los artefactos
+        v2 (manifest_v2.json / golden_prediction_v2.json, generados por
+        scripts/generate_model_artefacts_v2.py).
+        """
+        self._check_manifest_v2()                        # 1 — hashes
         bundle = joblib.load(MODELS_V2 / MODELO_PRINCIPAL_V2)
         self._model = bundle["modelo"]
         self._model_name = bundle["nombre"]
@@ -90,6 +97,7 @@ class ModelService:
         }
         self._log_features = list(joblib.load(MODELS_V2 / "features_log_transformed_v2.joblib"))
         self._mode = "v2"
+        self._check_n_features()                         # 2 — n_features/orden
         metrics = bundle.get("metricas_test", {})
         print(f"[model_service] modelo v2 cargado · {self._model_name} · "
               f"R²={metrics.get('r2', '?')} MAPE={metrics.get('mape', '?')}%")
@@ -106,6 +114,46 @@ class ModelService:
             cov = json.loads(cov_path.read_text()) if cov_path.exists() else {}
             print(f"[model_service] quantile cargado · coverage P25-P75={cov.get('coverage_p25_p75', '?')} · "
                   f"MAPE P50={cov.get('mape_p50_pct', '?')}%")
+        self._check_golden_v2()                          # 3 — golden prediction
+        print("[model_service] v2 validado · manifest + n_features + golden OK")
+
+    def _check_manifest_v2(self) -> None:
+        path = MODELS_V2 / "manifest_v2.json"
+        if not path.exists():
+            raise RuntimeError(
+                "model_service: falta manifest_v2.json — correr "
+                "scripts/generate_model_artefacts_v2.py")
+        manifest = json.loads(path.read_text())
+        for nombre, hash_esperado in manifest["artefactos"].items():
+            f = MODELS_V2 / nombre
+            if not f.exists():
+                raise RuntimeError(f"model_service: falta el artefacto v2 '{nombre}'")
+            real = _sha256(f)
+            if real != hash_esperado:
+                raise RuntimeError(
+                    f"model_service: el hash de '{nombre}' no coincide con "
+                    f"manifest_v2 (esperado {hash_esperado[:12]}…, real {real[:12]}…). "
+                    f"¿Cambió el modelo? Correr generate_model_artefacts_v2.py.")
+        self._manifest = manifest
+
+    def _check_golden_v2(self) -> None:
+        path = MODELS_V2 / "golden_prediction_v2.json"
+        if not path.exists():
+            raise RuntimeError(
+                "model_service: falta golden_prediction_v2.json — correr "
+                "scripts/generate_model_artefacts_v2.py")
+        golden = json.loads(path.read_text())
+        tol = golden["tolerancia_relativa"]
+        for caso in golden["casos"]:
+            X = pd.DataFrame([caso["input"]], columns=self._feature_order)
+            pred = self.predict(X)
+            esperado = caso["expected"]
+            dif = abs(pred - esperado) / esperado
+            if dif > tol:
+                raise RuntimeError(
+                    f"model_service: golden v2 falló (caso '{caso['rank_precio']}'): "
+                    f"esperado ${esperado:.2f}, obtenido ${pred:.2f}, "
+                    f"dif {dif * 100:.4f}% > {tol * 100}%. Modelo o entorno cambiado.")
 
     def _check_manifest(self) -> None:
         path = MODELS / "manifest.json"
@@ -161,10 +209,10 @@ class ModelService:
 
     # ─── predicción ─────────────────────────────────────────────────────
     def predict(self, X) -> float:
-        """Predice el precio de referencia en USD para un caso (74 features).
+        """Predice el precio de referencia en USD para un caso.
 
-        X: DataFrame 1×74 o array-like de 74 valores, en el orden de
-        feature_order. Devuelve USD (el modelo predice en log → expm1).
+        X: DataFrame 1×N o array-like en el orden de feature_order (74 en v1,
+        101 en v2). Devuelve USD (el modelo predice en log → expm1).
         """
         if self._model is None:
             raise RuntimeError("model_service: modelo no cargado (llamar load())")
@@ -193,12 +241,43 @@ class ModelService:
         for q, model in self._quantile_models.items():
             pred_log = float(model.predict(X)[0])
             out[q[1:] if q.startswith("q") else q] = round(float(np.expm1(pred_log)), 2)
-        # Llaves consistentes: p25/p50/p75
-        return {"p25": out.get("25"), "p50": out.get("50"), "p75": out.get("75")}
+        # Los 3 cuantiles se entrenan por separado y pueden CRUZARSE (P25 > P50)
+        # en casos límite. Forzamos monotonía ordenando — fix estándar para
+        # quantile regression con modelos independientes.
+        lo, mid, hi = sorted([out.get("25"), out.get("50"), out.get("75")])
+        return {"p25": lo, "p50": mid, "p75": hi}
 
     @property
     def has_quantile(self) -> bool:
         return bool(getattr(self, "_quantile_models", None))
+
+    # ─── explainability (SHAP) ──────────────────────────────────────────
+    def shap_contributions(self, X) -> tuple[list[float], float]:
+        """TreeSHAP exacto vía XGBoost nativo (booster.predict(pred_contribs=True)).
+
+        Devuelve (contribs, bias) EN ESPACIO LOG (el modelo predice log1p del
+        precio). `contribs` tiene un valor por feature en el orden de
+        feature_order; `bias` es el valor base del modelo. Se cumple la
+        additividad: bias + sum(contribs) == predict_raw_log == log1p(precio).
+
+        Solo v2 (XGBoost). pred_contribs es nativo del booster — no requiere la
+        librería `shap` (más liviano para el deploy Lambda) y es exacto.
+        """
+        if self._model is None:
+            raise RuntimeError("model_service: modelo no cargado (llamar load())")
+        if self._mode != "v2":
+            raise RuntimeError("shap_contributions: solo disponible en v2 (XGBoost)")
+        import xgboost as xgb
+        if isinstance(X, pd.DataFrame):
+            X = X[self._feature_order]
+        else:
+            X = pd.DataFrame([list(X)], columns=self._feature_order)
+        booster = self._model.get_booster() if hasattr(self._model, "get_booster") else self._model
+        dm = xgb.DMatrix(X, feature_names=self._feature_order)
+        raw = booster.predict(dm, pred_contribs=True)[0]  # shape (n_features + 1,)
+        contribs = [float(v) for v in raw[:-1]]
+        bias = float(raw[-1])
+        return contribs, bias
 
     # ─── accesores ──────────────────────────────────────────────────────
     @property
@@ -236,6 +315,41 @@ class ModelService:
         if imp is None:
             return {}
         return dict(zip(self._feature_order, (float(x) for x in imp)))
+
+    def poi_importance(self) -> list[dict]:
+        """Importancia agregada por categoría POI (XGBoost feature_importances_, v2).
+
+        Calcula una vez y cachea. Devuelve lista ordenada de mayor a menor.
+        Cada elemento: {category, pct, n_features}.
+        """
+        if self._poi_importance_cache is not None:
+            return self._poi_importance_cache
+        imp = getattr(self._model, "feature_importances_", None)
+        if imp is None or self._feature_order is None:
+            return []
+        total = float(imp.sum())
+        if total == 0:
+            return []
+        categories = {
+            "Parques":          "parque",
+            "Parqueos":         "parqueo",
+            "Farmacias":        "farmacia",
+            "Bancos":           "banco",
+            "Supermercados":    "supermercado",
+            "Universidades":    "universidad",
+            "Estaciones Metro": "estacion",
+            "Colegios":         "colegio",
+            "Hospitales":       "hospital",
+            "Malls":            "mall",
+        }
+        result = []
+        for label, keyword in categories.items():
+            idxs = [i for i, f in enumerate(self._feature_order) if keyword in f]
+            pct = round(sum(float(imp[i]) for i in idxs) / total * 100, 2)
+            result.append({"category": label, "pct": pct, "n_features": len(idxs)})
+        result.sort(key=lambda x: -x["pct"])
+        self._poi_importance_cache = result
+        return result
 
 
 # ─── singleton — se carga una vez en el startup del backend ─────────────────

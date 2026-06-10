@@ -7,7 +7,8 @@ El ORM es agnóstico del motor: corre igual en SQLite y PostgreSQL.
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func,
+    Boolean, DateTime, Float, ForeignKey, Integer, String, Text,
+    UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +28,9 @@ class User(Base):
 
     analyses = relationship("Analysis", back_populates="user")
     reports = relationship("Report", back_populates="user")
+    listings = relationship("Listing", back_populates="owner")
+    favorites = relationship(
+        "Favorite", back_populates="user", cascade="all, delete-orphan")
 
 
 class District(Base):
@@ -108,3 +112,72 @@ class Report(Base):
 
     user = relationship("User", back_populates="reports")
     analysis = relationship("Analysis", back_populates="report")
+
+
+class Listing(Base):
+    """Inmueble publicado por un propietario/agente para alquiler. Arranca el
+    flywheel de oferta. fair_value_ref se captura del modelo al publicar."""
+    __tablename__ = "listings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    district: Mapped[str] = mapped_column(String(128), nullable=False)
+    address: Mapped[str] = mapped_column(String(255), nullable=False)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    lng: Mapped[float] = mapped_column(Float, nullable=False)
+    area_m2: Mapped[float] = mapped_column(Float, nullable=False)
+    dormitorios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    banos: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    cocheras: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    antiguedad_anios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    es_estudio: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    price_usd: Mapped[float] = mapped_column(Float, nullable=False)              # precio publicado USD/mes
+    fair_value_ref: Mapped[float] = mapped_column(Float, nullable=True)          # referencia del modelo al publicar (para veredicto)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_url: Mapped[str] = mapped_column(String(512), nullable=True)  # URL de foto opcional; si null el front muestra placeholder de marca
+    amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")  # csv de chips
+    contact_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    contact_phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="activo")  # activo|pausado|alquilado
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    owner = relationship("User", back_populates="listings")
+    leads = relationship("Lead", back_populates="listing",
+                         cascade="all, delete-orphan", order_by="Lead.created_at.desc()")
+    favorites = relationship(
+        "Favorite", back_populates="listing", cascade="all, delete-orphan")
+
+
+class Lead(Base):
+    """Contacto generado por un inquilino sobre un Listing (Capa 2 del negocio)."""
+    __tablename__ = "leads"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    listing_id: Mapped[int] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    listing = relationship("Listing", back_populates="leads")
+
+
+class Favorite(Base):
+    """Inmueble guardado por un inquilino. Tabla NUEVA (aditiva): create_all la
+    crea sin tocar tablas existentes. unique(user_id, listing_id) garantiza que
+    un usuario no pueda guardar el mismo listing dos veces (idempotencia a nivel
+    de BD; el endpoint también lo maneja para no devolver 500)."""
+    __tablename__ = "favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "listing_id", name="uq_favorite_user_listing"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    listing_id: Mapped[int] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="favorites")
+    listing = relationship("Listing", back_populates="favorites")

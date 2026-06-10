@@ -1,6 +1,7 @@
 """Endpoints de autenticación: register, login, me."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -22,14 +23,24 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     existing = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
+    role = payload.role or "Inquilino"
+    if role not in VALID_ROLES:
+        raise HTTPException(status_code=422, detail=f"Rol inválido. Opciones: {', '.join(sorted(VALID_ROLES))}")
     user = User(
         email=payload.email,
         name=payload.name,
         password_hash=hash_password(payload.password),
         plan="free",
+        role=role,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Race condition: otro request insertó el mismo email entre el SELECT
+        # de arriba y este commit. El UNIQUE de la BD lo atrapa → 409, no 500.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
     db.refresh(user)
     token = create_access_token(user.id, user.email)
     return AuthOut(token=token, user=UserOut.model_validate(user))

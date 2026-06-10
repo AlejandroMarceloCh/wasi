@@ -28,6 +28,13 @@ LNG_MIN, LNG_MAX = -77.2, -76.7
 
 EARTH_RADIUS_M = 6_371_000.0
 
+# Centro de Lima para dist_centro_km. Reverse-engineered (Nelder-Mead) sobre el
+# dataset de entrenamiento, que SÍ trae dist_centro_km — reproduce esos valores
+# con ~130 m de error medio. En inferencia se calcula con haversine (no se
+# interpola desde geo_index.csv, que no incluye la columna). Sin esto,
+# dist_centro_km caía a 0.0 en serving → train/serve skew + es_zona_premium muerto.
+CENTRO_LAT, CENTRO_LNG = -12.046711, -77.029016
+
 # Piso de distancia del peso IDW. DECISIÓN DE MODELO, no detalle técnico.
 # El test de sensibilidad (100 pins a 5-15 m de listings reales) mostró:
 #   floor 10 vs 50 m → mediana 0,7 %  pero  p95 16 % en el vector geo.
@@ -155,6 +162,9 @@ class GeoIndex:
             "latitud": float(lat),
             "longitud": float(lng),
             "distrito": distrito,
+            # Calculada en serving (no está en geo_index.csv) para que el modelo
+            # reciba el mismo dist_centro_km que vio en entrenamiento.
+            "dist_centro_km": float(_haversine_m(lat, lng, CENTRO_LAT, CENTRO_LNG) / 1000.0),
             "n_comparables": n_comparables,
             "coverage_radius_km": round(coverage_radius_km, 3),
             "dist_nearest_km": round(dist_nearest_km, 4),

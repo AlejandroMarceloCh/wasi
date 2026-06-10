@@ -21,6 +21,37 @@ def test_predict_happy_path(client, auth_headers):
     assert d["version"]
 
 
+def test_explain_shap_additividad(client, auth_headers):
+    """El endpoint SHAP devuelve atribución real y reconstruye la predicción.
+
+    Como el modelo predice en log, debe cumplirse:
+    1 + predicted_price = (1 + base_price) · Π exp(contribution_log_grupo).
+    Además predicted_price == fair_value del mismo análisis.
+    """
+    import math
+
+    pred = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    assert pred.status_code == 200
+    aid = pred.json()["analysis_id"]
+    fair_value = pred.json()["fair_value"]
+
+    r = client.get(f"/api/fairvalue/explain/{aid}", headers=auth_headers)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["groups"], "debe haber grupos de explicación"
+    # El precio explicado coincide con el fair_value central.
+    assert abs(d["predicted_price"] - fair_value) <= 1.0
+    # Additividad multiplicativa en log-space.
+    recon = (1 + d["base_price"]) * math.prod(
+        math.exp(g["contribution_log"]) for g in d["groups"])
+    assert abs(recon - (1 + d["predicted_price"])) <= 1.0
+
+
+def test_explain_analisis_inexistente_404(client, auth_headers):
+    r = client.get("/api/fairvalue/explain/999999", headers=auth_headers)
+    assert r.status_code == 404
+
+
 def test_predict_pin_fuera_de_lima_400(client, auth_headers):
     r = client.post("/api/fairvalue/predict", headers=auth_headers,
                     json=_payload(lat=-13.5, lng=-77.0))
@@ -54,8 +85,33 @@ def test_entorno_por_pin(client, auth_headers):
     assert r.status_code == 200
     d = r.json()
     assert d["distrito"] == "Miraflores"
-    assert len(d["pois"]) == 7
+    # 8 categorías de display (incluye "Tiendas de conveniencia", separada de
+    # supermercados desde el fix de calidad de dato — display_pois sobre Overpass).
+    kinds = {p["kind"] for p in d["pois"]}
+    assert {"supermercados", "conveniencia"} <= kinds
+    assert len(d["pois"]) == 8
+    # Cada POI trae las 3 métricas (500m / 1km / nearest).
+    for p in d["pois"]:
+        assert "count_500m" in p and "count_1km" in p
+    # Conveniencia debe superar a supermercados (Tambo/Mass/Oxxo > cadenas reales).
+    por_kind = {p["kind"]: p for p in d["pois"]}
+    assert por_kind["conveniencia"]["count_1km"] >= por_kind["supermercados"]["count_1km"]
     assert 0 <= d["score"] <= 100
+
+
+def test_entorno_pois_puntos_para_el_mapa(client, auth_headers):
+    """El endpoint de puntos devuelve POIs individuales [lat,lng] por categoría
+    para pintarlos en el mapa (zona densa = Miraflores)."""
+    r = client.get("/api/entorno/pois", headers=auth_headers,
+                   params={"lat": -12.121, "lng": -77.030})
+    assert r.status_code == 200
+    layers = r.json()["layers"]
+    kinds = {l["kind"] for l in layers}
+    assert {"supermercados", "conveniencia"} <= kinds
+    for l in layers:
+        for p in l["points"]:
+            assert len(p) == 2  # [lat, lng]
+    assert sum(len(l["points"]) for l in layers) > 0
 
 
 def test_entorno_breakdown_score_campos(client, auth_headers):
@@ -85,8 +141,7 @@ def test_entorno_breakdown_score_campos(client, auth_headers):
 
 
 def test_entorno_400_mensaje_amable(client, auth_headers):
-    """Sprint 1.2b: el detail del 400 ahora es copy amable, no jerga
-    de 'bbox de Lima'."""
+    """El detail del 400 debe ser copy amable, sin jerga de 'bbox'."""
     # Pin en Cusco (claramente fuera de Lima)
     r = client.get("/api/entorno", headers=auth_headers,
                    params={"lat": -13.531, "lng": -71.967})
@@ -97,7 +152,7 @@ def test_entorno_400_mensaje_amable(client, auth_headers):
 
 
 def test_entorno_summary_sin_km_del_mar(client, auth_headers):
-    """Sprint 1.2b: el summary ya no menciona 'a X km del mar'."""
+    """El summary de entorno no debe mencionar 'a X km del mar'."""
     r = client.get("/api/entorno", headers=auth_headers,
                    params={"lat": -12.121, "lng": -77.030})
     assert r.status_code == 200

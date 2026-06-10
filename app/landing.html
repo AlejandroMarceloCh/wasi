@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wasi — ¿Ese alquiler está inflado, justo o es una ganga?</title>
+<meta name="description" content="Wasi compara cualquier departamento de Lima contra miles de avisos reales y te dice en segundos si el precio es justo, y qué lo explica." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0A0F1A; --ink-2:#101a30; --ink-3:#1a2740;
+    --paper:#ffffff; --paper-2:#f5f8fc; --paper-3:#eef3fa;
+    --line:#e4e9f1; --line-d:rgba(255,255,255,.10);
+    --text:#0c1322; --muted:#5a6678; --muted-d:rgba(255,255,255,.64);
+    --teal:#14b8c4; --blue:#2563eb;
+    --ganga:#16a34a; --justo:#f59e0b; --inflado:#ef4444;
+    --brand:linear-gradient(118deg,#14b8c4 0%,#2563eb 100%);
+    --r:14px; --r-lg:22px;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Hanken Grotesk',system-ui,sans-serif;
+    color:var(--text); background:var(--paper);
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  .mono{font-family:'JetBrains Mono',monospace; font-feature-settings:"tnum";}
+  .display{font-family:'Bricolage Grotesque',sans-serif; line-height:1.02; letter-spacing:-.02em;}
+
+  /* ---------- NAV ---------- */
+  .nav{position:sticky; top:0; z-index:50;
+    background:rgba(10,15,26,.72); backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line-d);}
+  .nav .wrap{display:flex; align-items:center; gap:28px; height:66px;}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; color:#fff; font-size:18px;}
+  .brand .logo{width:30px; height:30px; border-radius:9px; background:var(--brand);
+    display:grid; place-items:center; box-shadow:0 4px 14px rgba(37,99,235,.45);}
+  .brand .logo svg{width:17px; height:17px;}
+  .nav nav{display:flex; gap:26px; margin-left:14px;}
+  .nav nav a{color:var(--muted-d); font-size:14.5px; font-weight:500; transition:color .15s;}
+  .nav nav a:hover{color:#fff;}
+  .nav .spacer{flex:1;}
+  .btn{display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:14.5px;
+    padding:10px 18px; border-radius:11px; cursor:pointer; border:1px solid transparent;
+    transition:transform .12s ease, box-shadow .2s ease, background .2s;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--brand); color:#fff; box-shadow:0 6px 20px rgba(37,99,235,.35);}
+  .btn-primary:hover{box-shadow:0 8px 28px rgba(37,99,235,.5);}
+  .btn-ghost{background:transparent; color:#fff; border-color:var(--line-d);}
+  .btn-ghost:hover{background:rgba(255,255,255,.06);}
+  .btn-lg{padding:14px 24px; font-size:16px; border-radius:13px;}
+
+  /* ---------- HERO ---------- */
+  .hero{position:relative; background:var(--ink); color:#fff; overflow:hidden;}
+  .hero .map-bg{position:absolute; inset:0; z-index:0; opacity:.5;}
+  .hero .glow{position:absolute; z-index:0; filter:blur(80px); opacity:.5;}
+  .hero .glow.g1{width:460px; height:460px; left:-120px; top:-120px;
+    background:radial-gradient(circle, #14b8c4 0%, transparent 65%);}
+  .hero .glow.g2{width:520px; height:520px; right:-160px; bottom:-200px;
+    background:radial-gradient(circle, #2563eb 0%, transparent 65%);}
+  .hero .wrap{position:relative; z-index:2; display:grid; grid-template-columns:1.05fr .95fr;
+    gap:48px; align-items:center; padding-top:78px; padding-bottom:92px;}
+  .eyebrow{display:inline-flex; align-items:center; gap:9px; font-family:'JetBrains Mono',monospace;
+    font-size:12px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--teal); padding:6px 12px; border:1px solid var(--line-d); border-radius:999px;
+    background:rgba(20,184,196,.07);}
+  .eyebrow .dot{width:6px; height:6px; border-radius:50%; background:var(--teal);
+    box-shadow:0 0 0 4px rgba(20,184,196,.25); animation:pulse 2.4s ease-in-out infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(20,184,196,0);}}
+  .hero h1{font-size:clamp(40px,5.4vw,68px); font-weight:800; margin:22px 0 0;}
+  .hero h1 .hl{position:relative; white-space:nowrap;}
+  .hero h1 .hl.ganga{color:#4ade80;}
+  .hero h1 .hl.justo{color:#fbbf24;}
+  .hero h1 .hl.inflado{color:#f87171;}
+  .hero p.lead{margin-top:22px; font-size:19px; line-height:1.55; color:var(--muted-d); max-width:30em;}
+  .hero .cta{margin-top:34px; display:flex; gap:14px; flex-wrap:wrap;}
+  .hero .trust{margin-top:30px; font-size:13.5px; color:var(--muted-d);
+    display:flex; align-items:center; gap:10px;}
+  .hero .trust .mono{color:#fff;}
+
+  /* staggered load */
+  .reveal{opacity:0; transform:translateY(16px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards;}
+  .d1{animation-delay:.05s;} .d2{animation-delay:.15s;} .d3{animation-delay:.25s;}
+  .d4{animation-delay:.35s;} .d5{animation-delay:.5s;}
+  @keyframes rise{to{opacity:1; transform:none;}}
+
+  /* ---------- Verdict instrument (signature) ---------- */
+  .vcard{position:relative; background:linear-gradient(180deg,#111c33,#0c1526);
+    border:1px solid var(--line-d); border-radius:var(--r-lg); padding:26px;
+    box-shadow:0 30px 70px rgba(0,0,0,.5);}
+  .vcard .vc-top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px;}
+  .vc-addr{font-weight:600; font-size:15.5px; color:#fff;}
+  .vc-sub{font-size:13px; color:var(--muted-d); margin-top:3px;}
+  .vc-badge{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12.5px;
+    letter-spacing:.04em; padding:7px 13px; border-radius:10px; white-space:nowrap;
+    opacity:0; transform:scale(.8); animation:pop .5s cubic-bezier(.2,1.4,.4,1) 1.5s forwards;}
+  .vc-badge.justo{background:rgba(245,158,11,.16); color:#fbbf24; border:1px solid rgba(245,158,11,.4);}
+  @keyframes pop{to{opacity:1; transform:none;}}
+  .vc-price{margin:22px 0 6px; display:flex; align-items:baseline; gap:8px;}
+  .vc-price .amount{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:46px; color:#fff;}
+  .vc-price .per{font-size:15px; color:var(--muted-d);}
+  .vc-ref{font-size:13.5px; color:var(--muted-d);}
+  .vc-ref .mono{color:#cdd7e6;}
+  /* gauge */
+  .gauge{margin-top:24px;}
+  .gauge .track{position:relative; height:10px; border-radius:999px;
+    background:linear-gradient(90deg,#16a34a 0%,#22c55e 26%,#f59e0b 50%,#f97316 72%,#ef4444 100%);}
+  .gauge .needle{position:absolute; top:-7px; width:3px; height:24px; border-radius:2px;
+    background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.6); left:0;
+    animation:swing 1.6s cubic-bezier(.5,0,.2,1) .4s forwards;}
+  @keyframes swing{0%{left:0;} 60%{left:62%;} 78%{left:44%;} 100%{left:50%;}}
+  .gauge .labels{display:flex; justify-content:space-between; margin-top:11px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.04em; color:var(--muted-d);}
+  .gauge .labels b.on{color:#fbbf24;}
+  .vc-levers{margin-top:22px; border-top:1px solid var(--line-d); padding-top:16px;}
+  .vc-levers .lh{font-size:12px; color:var(--muted-d); margin-bottom:11px;
+    font-family:'JetBrains Mono',monospace; letter-spacing:.04em; text-transform:uppercase;}
+  .lever{display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:13.5px;}
+  .lever .lbar{flex:1; height:6px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden;}
+  .lever .lbar i{display:block; height:100%; border-radius:999px; width:0;
+    animation:grow 1s ease .9s forwards;}
+  .lever.up .lbar i{background:#4ade80;}
+  .lever.down .lbar i{background:#f87171;}
+  .lever .ld{font-family:'JetBrains Mono',monospace; font-size:12.5px; min-width:54px; text-align:right;}
+  .lever.up .ld{color:#4ade80;} .lever.down .ld{color:#f87171;}
+  @keyframes grow{to{width:var(--w);}}
+
+  /* ---------- STAT BAND ---------- */
+  .stats{background:var(--ink-2); border-top:1px solid var(--line-d); border-bottom:1px solid var(--line-d);}
+  .stats .wrap{display:grid; grid-template-columns:repeat(4,1fr); gap:24px; padding:34px 24px;}
+  .stat .n{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:32px;
+    color:#fff; line-height:1;}
+  .stat .n .u{color:var(--teal); font-size:20px;}
+  .stat .l{margin-top:7px; font-size:13.5px; color:var(--muted-d);}
+
+  /* ---------- SECTION base ---------- */
+  section.block{padding:96px 0;}
+  .sec-head{max-width:640px;}
+  .kicker{font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:500;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--blue);}
+  .sec-head h2{font-family:'Bricolage Grotesque',sans-serif; font-weight:700;
+    font-size:clamp(28px,3.6vw,42px); letter-spacing:-.02em; margin-top:14px; line-height:1.06;}
+  .sec-head p{margin-top:16px; font-size:17.5px; color:var(--muted); line-height:1.55;}
+
+  /* ---------- HOW (sequence) ---------- */
+  .how{background:var(--paper-2);}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:52px;}
+  .step{background:var(--paper); border:1px solid var(--line); border-radius:var(--r-lg);
+    padding:30px 26px; position:relative; overflow:hidden;}
+  .step .idx{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;
+    color:var(--blue); letter-spacing:.05em;}
+  .step .ico{width:46px; height:46px; border-radius:13px; background:var(--paper-3);
+    display:grid; place-items:center; margin:18px 0 16px; color:var(--blue);}
+  .step h3{font-size:19px; font-weight:700; letter-spacing:-.01em;}
+  .step p{margin-top:9px; font-size:15px; color:var(--muted); line-height:1.55;}
+  .step::before{content:""; position:absolute; left:0; top:0; height:3px; width:100%; background:var(--brand);
+    transform:scaleX(0); transform-origin:left; transition:transform .4s;}
+  .step:hover::before{transform:scaleX(1);}
+
+  /* ---------- MODEL ---------- */
+  .model .grid{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; margin-top:30px;}
+  .feat{display:flex; gap:15px; padding:18px 0; border-bottom:1px solid var(--line);}
+  .feat:last-child{border-bottom:none;}
+  .feat .fi{flex:0 0 40px; height:40px; border-radius:11px; display:grid; place-items:center;
+    background:var(--paper-3); color:var(--blue);}
+  .feat h4{font-size:16.5px; font-weight:700;}
+  .feat p{font-size:14.5px; color:var(--muted); margin-top:4px; line-height:1.5;}
+  /* mini heat map panel */
+  .heat{background:var(--ink); border-radius:var(--r-lg); padding:24px; color:#fff;
+    border:1px solid var(--line-d); box-shadow:0 24px 60px rgba(10,15,26,.25);}
+  .heat .ht{display:flex; justify-content:space-between; align-items:center; font-size:13.5px;
+    color:var(--muted-d); margin-bottom:16px;}
+  .heat .ht .mono{color:#fff;}
+  .heat .pins{display:grid; grid-template-columns:repeat(8,1fr); gap:7px;}
+  .heat .pins i{aspect-ratio:1; border-radius:6px; opacity:.9;}
+
+  /* ---------- AUDIENCE ---------- */
+  .aud{background:var(--paper-2);}
+  .aud .cols{display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:48px;}
+  .acard{border-radius:var(--r-lg); padding:34px; border:1px solid var(--line); background:var(--paper);}
+  .acard .tag{font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.05em;
+    text-transform:uppercase; font-weight:500;}
+  .acard.inq .tag{color:var(--blue);}
+  .acard.prop .tag{color:var(--ganga);}
+  .acard h3{font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:24px;
+    margin-top:12px; letter-spacing:-.01em;}
+  .acard p{margin-top:12px; color:var(--muted); font-size:15.5px; line-height:1.6;}
+  .acard ul{margin-top:18px; list-style:none; display:grid; gap:11px;}
+  .acard li{display:flex; gap:10px; font-size:15px; align-items:flex-start;}
+  .acard li svg{flex:0 0 18px; margin-top:2px;}
+  .acard.inq li svg{color:var(--blue);} .acard.prop li svg{color:var(--ganga);}
+
+  /* ---------- CTA ---------- */
+  .cta-final{background:var(--ink); color:#fff; position:relative; overflow:hidden;}
+  .cta-final .glow{position:absolute; width:600px; height:600px; filter:blur(90px); opacity:.4;
+    background:radial-gradient(circle,#2563eb,transparent 65%); left:50%; top:-200px; transform:translateX(-50%);}
+  .cta-final .wrap{position:relative; z-index:1; text-align:center; padding:100px 24px;}
+  .cta-final h2{font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:clamp(32px,4.4vw,54px); letter-spacing:-.02em; line-height:1.04;}
+  .cta-final p{margin:18px auto 0; max-width:34em; font-size:18px; color:var(--muted-d);}
+  .cta-final .cta{margin-top:34px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--ink-2); color:var(--muted-d); padding:38px 0; border-top:1px solid var(--line-d);}
+  footer .wrap{display:flex; justify-content:space-between; align-items:center; gap:18px; flex-wrap:wrap;}
+  footer .brand{font-size:16px;}
+  footer .fnote{font-size:13px;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:900px){
+    .hero .wrap{grid-template-columns:1fr; gap:40px; padding-top:54px; padding-bottom:64px;}
+    .stats .wrap{grid-template-columns:repeat(2,1fr); gap:28px;}
+    .steps{grid-template-columns:1fr;}
+    .model .grid{grid-template-columns:1fr; gap:34px;}
+    .aud .cols{grid-template-columns:1fr;}
+    .nav nav{display:none;}
+    section.block{padding:68px 0;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important; scroll-behavior:auto !important;}
+    .reveal{opacity:1; transform:none;}
+    .lever .lbar i{width:var(--w);}
+    .gauge .needle{left:50%;}
+    .vc-badge{opacity:1; transform:none;}
+  }
+  :focus-visible{outline:2px solid var(--teal); outline-offset:3px; border-radius:6px;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      </span>
+      Wasi
+    </a>
+    <nav>
+      <a href="#como">Cómo funciona</a>
+      <a href="#modelo">El modelo</a>
+      <a href="#para-quien">Para propietarios</a>
+    </nav>
+    <span class="spacer"></span>
+    <a class="btn btn-primary" href="/">Analizar un precio</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <svg class="map-bg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <pattern id="grid" width="46" height="46" patternUnits="userSpaceOnUse">
+        <path d="M46 0H0V46" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#grid)"/>
+    <circle cx="18%" cy="30%" r="5" fill="#16a34a"/>
+    <circle cx="74%" cy="22%" r="5" fill="#ef4444"/>
+    <circle cx="60%" cy="64%" r="5" fill="#f59e0b"/>
+    <circle cx="32%" cy="72%" r="5" fill="#16a34a"/>
+    <circle cx="86%" cy="56%" r="5" fill="#f59e0b"/>
+    <circle cx="46%" cy="40%" r="4" fill="#16a34a"/>
+  </svg>
+  <span class="glow g1" aria-hidden="true"></span>
+  <span class="glow g2" aria-hidden="true"></span>
+
+  <div class="wrap">
+    <div>
+      <span class="eyebrow reveal d1"><span class="dot"></span> PropTech · Lima</span>
+      <h1 class="display reveal d2">¿Ese alquiler está <span class="hl inflado">inflado</span>, <span class="hl justo">justo</span> o es una <span class="hl ganga">ganga</span>?</h1>
+      <p class="lead reveal d3">Wasi compara cualquier departamento de Lima contra miles de avisos reales y te dice en segundos si el precio es justo — y exactamente qué lo explica.</p>
+      <div class="cta reveal d4">
+        <a class="btn btn-primary btn-lg" href="/">Analizar un precio</a>
+        <a class="btn btn-ghost btn-lg" href="#como">Ver cómo funciona</a>
+      </div>
+      <div class="trust reveal d5">
+        Modelo entrenado con <span class="mono" data-stat="avisos">3,348</span> alquileres reales · error medio <span class="mono" data-stat="mape-pct">16.4%</span>
+      </div>
+    </div>
+
+    <!-- SIGNATURE: instrumento de veredicto -->
+    <div class="vcard reveal d4" role="img" aria-label="Ejemplo: departamento en San Isidro, 120 metros cuadrados, anunciado en 2,100 dólares. Veredicto del modelo: justo.">
+      <div class="vc-top">
+        <div>
+          <div class="vc-addr">Departamento · San Isidro</div>
+          <div class="vc-sub">120 m² · 3 dorm · 2 baños</div>
+        </div>
+        <span class="vc-badge justo">JUSTO</span>
+      </div>
+      <div class="vc-price">
+        <span class="amount mono">$2,100</span><span class="per">/mes</span>
+      </div>
+      <div class="vc-ref">Referencia del modelo: <span class="mono">$2,180</span> · diferencia −3.7%</div>
+
+      <div class="gauge" aria-hidden="true">
+        <div class="track"><span class="needle"></span></div>
+        <div class="labels"><span>Ganga</span><b class="on">Justo</b><span>Inflado</span></div>
+      </div>
+
+      <div class="vc-levers" aria-hidden="true">
+        <div class="lh">Qué mueve este precio</div>
+        <div class="lever up"><span style="flex:0 0 38%">Cercanía al mar</span><span class="lbar"><i style="--w:74%"></i></span><span class="ld">+$190</span></div>
+        <div class="lever up"><span style="flex:0 0 38%">2 cocheras</span><span class="lbar"><i style="--w:52%"></i></span><span class="ld">+$130</span></div>
+        <div class="lever down"><span style="flex:0 0 38%">Antigüedad 8 años</span><span class="lbar"><i style="--w:40%"></i></span><span class="ld">−$95</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STAT BAND -->
+<section class="stats">
+  <div class="wrap">
+    <div class="stat"><div class="n mono" data-stat="avisos">3,348</div><div class="l">avisos reales de alquiler</div></div>
+    <div class="stat"><div class="n mono"><span data-stat="mape">16.4</span><span class="u">%</span></div><div class="l">error medio del modelo</div></div>
+    <div class="stat"><div class="n mono" data-stat="distritos">40</div><div class="l">distritos de Lima cubiertos</div></div>
+    <div class="stat"><div class="n mono" data-stat="variables">101</div><div class="l">variables por inmueble</div></div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="block how" id="como">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Cómo funciona</span>
+      <h2>De una dirección a un veredicto, en tres pasos.</h2>
+      <p>No es una tasación a ojo ni un promedio del distrito. Es el precio que el mercado real está pagando por un inmueble como el tuyo.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="idx">01</span>
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3>Describe el inmueble</h3>
+        <p>Área, dormitorios, baños y dónde queda. Marcas el punto exacto en el mapa de Lima.</p>
+      </div>
+      <div class="step">
+        <span class="idx">02</span>
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 8l-5 5-3-3-4 4"/></svg></div>
+        <h3>El modelo lo compara</h3>
+        <p>El modelo de Wasi cruza tu inmueble con miles de alquileres reales y calcula su precio justo de referencia.</p>
+      </div>
+      <div class="step">
+        <span class="idx">03</span>
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h3>Recibe el veredicto</h3>
+        <p>Caro, justo o ganga — con las palancas que suben o bajan el precio, para que negocies con datos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODEL -->
+<section class="block model" id="modelo">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">El motor</span>
+      <h2>Un instrumento, no una corazonada.</h2>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="feat">
+          <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <div><h4><span data-stat="variables">101</span> variables por inmueble</h4><p>No solo área y dormitorios: cercanía al mar, densidad de avisos vecinos, antigüedad, cocheras, amenities y más.</p></div>
+        </div>
+        <div class="feat">
+          <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="8"/><rect x="14" y="5" width="3" height="12"/></svg></div>
+          <div><h4>Contrafactuales claros</h4><p>El modelo no solo da un número: te muestra cuánto aporta o resta cada característica del inmueble.</p></div>
+        </div>
+        <div class="feat">
+          <div class="fi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <div><h4>Confianza según la zona</h4><p>Donde hay muchos comparables cerca, la estimación es más firme. Wasi te dice cuándo tomarla como referencia amplia.</p></div>
+        </div>
+      </div>
+      <div class="heat" aria-label="Mapa de calor de precios por zona">
+        <div class="ht"><span>Mapa de precios · Lima</span><span class="mono">USD / m²</span></div>
+        <div class="pins" id="heat"></div>
+        <div class="ht" style="margin:16px 0 0;"><span class="mono" style="color:#4ade80">ganga</span><span class="mono" style="color:#fbbf24">justo</span><span class="mono" style="color:#f87171">inflado</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCE -->
+<section class="block aud" id="para-quien">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Para quién</span>
+      <h2>Las dos caras del mismo precio.</h2>
+    </div>
+    <div class="cols">
+      <div class="acard inq">
+        <span class="tag">Inquilinos</span>
+        <h3>Negocia con datos, no con corazonadas.</h3>
+        <p>Antes de firmar, sabe si el alquiler que viste está por encima del mercado y cuánto margen real tienes para negociar.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Veredicto del precio en segundos</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Explorador con gangas resaltadas en el mapa</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Guarda y compara inmuebles</li>
+        </ul>
+      </div>
+      <div class="acard prop">
+        <span class="tag">Propietarios</span>
+        <h3>Publica al precio que sí se alquila.</h3>
+        <p>Pon un precio respaldado por el mercado: ni tan alto que se quede vacío, ni tan bajo que dejes plata sobre la mesa.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Precio sugerido al publicar</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Palancas para subir el valor del inmueble</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Inbox de interesados en un solo lugar</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <span class="glow" aria-hidden="true"></span>
+  <div class="wrap">
+    <h2 class="display">Deja de adivinar el precio.</h2>
+    <p>Ingresa un inmueble y obtén su veredicto ahora. Sin tasaciones, sin promedios vagos.</p>
+    <div class="cta">
+      <a class="btn btn-primary btn-lg" href="/">Analizar un precio</a>
+      <a class="btn btn-ghost btn-lg" href="#como">Cómo funciona</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      </span>
+      Wasi
+    </a>
+    <span class="fnote mono">Inteligencia de precios de alquiler · Lima, Perú</span>
+  </div>
+</footer>
+
+<script>
+  // Mapa de calor decorativo: 32 celdas con color por "veredicto". Sin Math.random
+  // (determinista) para que el render sea estable entre cargas.
+  (function(){
+    var grid = document.getElementById('heat');
+    if(!grid) return;
+    var palette = ['#16a34a','#22c55e','#84cc16','#f59e0b','#f97316','#ef4444'];
+    // patrón pseudo-aleatorio estable: índice * primo, módulo paleta
+    for(var i=0;i<32;i++){
+      var cell = document.createElement('i');
+      var idx = (i*7 + 3) % palette.length;
+      cell.style.background = palette[idx];
+      cell.style.opacity = (0.55 + ((i*13)%40)/100).toFixed(2);
+      grid.appendChild(cell);
+    }
+  })();
+</script>
+<script src="stats.js"></script>
+<script>
+  /* Sincroniza los números con stats.js (única fuente de verdad app+landing). */
+  (function () {
+    var S = window.WASI_STATS || {};
+    var MAP = { avisos: S.ALQ_AVISOS, mape: S.ALQ_MAPE, 'mape-pct': S.ALQ_MAPE && S.ALQ_MAPE + '%',
+                distritos: S.DISTRITOS, variables: S.VARIABLES };
+    document.querySelectorAll('[data-stat]').forEach(function (el) {
+      var v = MAP[el.getAttribute('data-stat')];
+      if (v) el.textContent = v;
+    });
+  })();
+</script>
+</body>
+</html>

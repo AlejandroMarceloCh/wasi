@@ -1,0 +1,12 @@
+{
+  "version": "f366ff19fcaecb57",
+  "artefactos": {
+    "modelo_final_v2.joblib": "3f8d5872bae8c318e0950deb14f5a0e7da6a1e7487631d7cfd7e25e2146eed22",
+    "feature_names_v2.joblib": "c0f30b4eca6dba3fe4e5db008f9c24030d3a9206d6c770bdbd7ab07ddc743cb6",
+    "target_enc_distrito_v2.joblib": "aa7162e9b126cebeffdcf085ee5b6e2c0163107a7d05a69355714f20541d2a03",
+    "features_log_transformed_v2.joblib": "d7ecc2901856c84a6ebdf4bf8e1d732c997a2faebfc7169fde816a69668964da",
+    "xgb_q25_v2.joblib": "c085774c4eef4769ddee8469ec4adc4938ee7300209c07a7fb01f46cada52ff9",
+    "xgb_q50_v2.joblib": "4a97fa1ee06aeca465adc44029d9babcdb57e9b29d6b4696e2e0dee4f8d6227e",
+    "xgb_q75_v2.joblib": "25392727034364a5f0025aee678e4352898d2618c3f03411b5c63ec811bd4303"
+  }
+}

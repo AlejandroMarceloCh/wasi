@@ -1,8 +1,8 @@
 """Tests de validación de startup del modelo (Fase 0.5 / Fase 3 + v2).
 
 Cubre el caso de ÉXITO en ambos modos y los dos de FALLA que aplican solo a
-v1 (manifest/golden). En v2 (XGBoost con 95 features socio-eco) esas
-validaciones se saltan porque corresponden al RF v1.
+v1 (manifest/golden de la versión RandomForest); v2 valida contra sus
+propios artefactos (manifest_v2/golden_v2).
 """
 import json
 

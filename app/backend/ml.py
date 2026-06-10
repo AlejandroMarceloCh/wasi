@@ -42,6 +42,19 @@ AMENITY_CHIPS: dict[str, str] = {
     "exteriores":     "tiene_exteriores",
 }
 
+# Labels en español neutro para el contrafactual accionable. Mismas 8 keys de
+# AMENITY_CHIPS / AMENIDADES del front. Se usan para armar "Agregar/Quitar <X>".
+_AMENITY_LABELS: dict[str, str] = {
+    "ascensor":       "ascensor",
+    "seguridad":      "seguridad",
+    "cocina":         "cocina equipada",
+    "amoblado":       "amoblado",
+    "piscina":        "piscina",
+    "terraza":        "terraza",
+    "walk_in_closet": "walk-in closet",
+    "exteriores":     "áreas exteriores",
+}
+
 # Banda ± para el veredicto "Justo". Más angosto que el MAE del modelo
 # (~16 %): un precio dentro del 8 % del valor de referencia se considera justo.
 ZONE_BAND_PCT = 8.0
@@ -49,11 +62,13 @@ ZONE_BAND_PCT = 8.0
 # Métricas del modelo en test (informativas, van en PredictOut).
 # v1 (RandomForest) vs v2 (XGBoost re-entrenado con features socio-eco).
 #
-# IMPORTANTE: evaluación LAZY. Antes este bloque era `if/else` a nivel de módulo,
-# pero ml.py se importa ANTES que `model_service.load()` corra en lifespan, por
-# lo que `model_service.mode` siempre era "v1" (default) y devolvía métricas
-# erróneas en /api/model/info y en PredictOut.mae_pct (15.9 en vez de 15.74).
-_METRICS_V2 = {"r2": 0.847, "mae_usd": 159.0, "mae_pct": 15.63}
+# Evaluación LAZY: ml.py se importa antes de que model_service.load() corra en
+# el lifespan, así que el modo activo (v1/v2) recién se conoce en runtime.
+# mae_pct = MAPE por validación espacial (GroupKFold 5-fold por coordenada,
+# sin leakage de ubicación): 16.42% ± 0.59%. El split aleatorio da 15.74%, pero
+# inflado: 35% de los inmuebles de test comparten coordenada con train.
+# Ver pipeline/scripts/_audit_spatial_cv.py.
+_METRICS_V2 = {"r2": 0.847, "mae_usd": 159.0, "mae_pct": 16.4}
 _METRICS_V1 = {"r2": 0.785, "mae_usd": 173.0, "mae_pct": 15.9}
 
 
@@ -160,6 +175,96 @@ def build_features(form: dict, geo: dict) -> pd.DataFrame:
     # 5 — ensamblar en orden canónico
     orden = model_service.feature_order
     return pd.DataFrame([[feats[name] for name in orden]], columns=orden)
+
+
+# ── explainability SHAP (TreeSHAP nativo de XGBoost) ─────────────────────────
+# Agrupa las 101 features en 7 grupos legibles. Cada feature cae en exactamente
+# un grupo (cobertura verificada). El orden de chequeo importa: las reglas más
+# específicas (denuncias, POIs) van antes que las genéricas.
+GRUPO_META = {
+    "Ubicación":              "Distrito, nivel socioeconómico, distancia al mar y al centro",
+    "Tamaño y distribución":  "Área, dormitorios, baños y cocheras",
+    "Antigüedad":             "Años de antigüedad del inmueble",
+    "Amenidades":             "Ascensor, seguridad, piscina, acabados y demás equipamiento",
+    "Seguridad":              "Denuncias y comisarías del distrito",
+    "Servicios cercanos":     "Supermercados, colegios, bancos y otros POIs a 1 km",
+    "Otros":                  "Factores técnicos (fuente del aviso, tipo de propiedad)",
+}
+
+
+def _grupo_de_feature(f: str) -> str:
+    """Mapea una feature cruda del modelo a su grupo legible."""
+    if "denuncias" in f or "comisarias" in f:
+        return "Seguridad"
+    if f.startswith("count_") or f.startswith("dist_nearest_m_") or f == "total_poi_1km":
+        return "Servicios cercanos"
+    if f.startswith("antiguedad"):
+        return "Antigüedad"
+    if (f in ("latitud", "longitud", "dist_mar_km", "dist_centro_km", "distrito_enc",
+              "estrato_nse", "es_zona_premium") or f.startswith("cat_dist_")):
+        return "Ubicación"
+    if f in ("area_final_m2", "dormitorios", "banos", "cocheras", "area_por_dormitorio",
+             "ratio_area_banos", "es_estudio", "cocheras_informadas", "area_x_amenities"):
+        return "Tamaño y distribución"
+    if f.startswith("tiene_") or f == "amenities_count":
+        return "Amenidades"
+    return "Otros"
+
+
+def explain_fair_value(form: dict) -> dict:
+    """Explicación SHAP de la predicción central (solo v2).
+
+    Devuelve el precio base del modelo, el precio estimado y la contribución de
+    cada grupo de features. Como el modelo predice en log, la atribución es
+    aditiva en log-space (Σ contribuciones = log1p(precio) − base) y se traduce
+    a un efecto MULTIPLICATIVO sobre el precio: factor_g = exp(Σφ del grupo).
+
+    Matemática (validada): 1 + precio = exp(base) · Π exp(φ_i). Por eso el
+    precio base se reporta como exp(base) − 1 y el % de cada grupo como
+    (exp(Σφ_grupo) − 1)·100. Los efectos NO se suman entre grupos (son
+    multiplicativos).
+    """
+    if model_service.mode != "v2":
+        raise RuntimeError("explain_fair_value: solo disponible con el modelo v2")
+
+    geo = geo_lookup(float(form["lat"]), float(form["lng"]))
+    from ml_v2 import build_features_v2
+    X = build_features_v2(form, geo)
+
+    contribs, bias = model_service.shap_contributions(X)
+    orden = model_service.feature_order
+
+    # Suma de contribuciones (log-space) por grupo.
+    por_grupo: dict[str, float] = {}
+    for nombre, phi in zip(orden, contribs):
+        g = _grupo_de_feature(nombre)
+        por_grupo[g] = por_grupo.get(g, 0.0) + phi
+
+    total_log = bias + sum(contribs)
+    base_price = float(np.expm1(bias))
+    predicted_price = float(np.expm1(total_log))
+
+    grupos = []
+    for g, phi_g in por_grupo.items():
+        # Efecto multiplicativo puro (orden-independiente).
+        factor = float(np.exp(phi_g))
+        pct = (factor - 1.0) * 100.0
+        grupos.append({
+            "label": g,
+            "description": GRUPO_META.get(g, ""),
+            "contribution_log": round(phi_g, 6),  # aditivo: Σ = total_log - bias
+            "pct_effect": round(pct, 1),
+            "positive": phi_g >= 0,
+        })
+    # Mayor impacto (|log|) primero.
+    grupos.sort(key=lambda x: abs(x["contribution_log"]), reverse=True)
+
+    return {
+        "base_price": round(base_price, 2),
+        "predicted_price": round(predicted_price, 2),
+        "groups": grupos,
+        "distrito": geo["distrito"],
+    }
 
 
 # ── factores explicativos (importancias globales del RF) ────────────────────
@@ -306,6 +411,114 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
     return deduped[:5]
 
 
+# ── Contrafactuales accionables (endpoint dedicado /fairvalue/counterfactual) ─
+# A diferencia de compute_counterfactuals (±delta numérico para el card de
+# /predict), aquí se exploran palancas accionables COMPLETAS: variantes
+# numéricas con límites PLAUSIBLES (no los del schema) + toggle de las 8
+# amenities conocidas. Todo es re-serving del modelo congelado (mismo
+# _predict_perturbed), cero re-entrenamiento. El modelo NO es monótono: un
+# cambio "positivo" puede dar delta negativo -> se reporta tal cual (honestidad
+# del dominio). geo se calcula UNA vez fuera y se reusa (lat/lng fijo en todas
+# las variantes; la única diferencia es la palanca).
+#
+#   feature,           delta, cap_plausible, label
+_CF_NUM_SPECS = [
+    ("area",              +15, 1000, "+15 m²"),
+    ("cocheras",          +1,    3,  "Agregar 1 cochera"),
+    ("banos",             +1,    4,  "Agregar 1 baño"),
+    ("dormitorios",       +1,    5,  "Agregar 1 dormitorio"),
+    ("antiguedad_anios",  -5,    0,  "Si fuera 5 años más nuevo"),  # informativo
+]
+_CF_INFORMATIVE = {"antiguedad_anios"}
+_CF_NOISE_PCT = 0.5   # |delta_pct| < 0.5% = ruido del árbol, se descarta
+
+
+def _direction(delta: float) -> str:
+    if delta > 0:
+        return "sube"
+    if delta < 0:
+        return "baja"
+    return "neutro"
+
+
+def compute_counterfactuals_full(form: dict, geo: dict, base: float) -> list[dict]:
+    """Palancas accionables (numéricas + amenities) re-servidas contra el modelo
+    congelado. `geo` se calcula una vez fuera y se reusa (lat/lng fijos)."""
+    if base <= 0:
+        return []
+    items = []
+    es_estudio = bool(form.get("es_estudio", False))
+    current_amen = list(form.get("amenities", []))
+
+    # --- numéricas ---
+    for feat, delta, cap, label in _CF_NUM_SPECS:
+        cur = int(form.get(feat, 0))
+        new_val = cur + delta
+        # clamp realista: subir no pasa el cap; bajar (antigüedad) no baja del cap=0
+        if delta > 0:
+            new_val = min(new_val, cap)
+        else:
+            new_val = max(new_val, cap)
+        if feat == "banos" and not es_estudio:
+            new_val = max(new_val, 1)
+        if new_val == cur:
+            continue
+        new_price = round(_predict_perturbed({**form, feat: new_val}, geo), 2)
+        d = round(new_price - base, 2)
+        dpct = round(d / base * 100, 1)
+        if abs(dpct) < _CF_NOISE_PCT:
+            continue
+        items.append({
+            "label": label, "feature": feat,
+            "kind": "informativo" if feat in _CF_INFORMATIVE else "estructura",
+            "delta": d, "delta_pct": dpct,
+            "direction": _direction(d), "new_price": new_price,
+        })
+
+    # --- amenities: togglear cada una de las 8 conocidas ---
+    for key, label_es in _AMENITY_LABELS.items():
+        present = key in current_amen
+        if present:
+            new_amen = [a for a in current_amen if a != key]
+            verb = "Quitar"
+        else:
+            new_amen = current_amen + [key]
+            verb = "Agregar"
+        new_price = round(_predict_perturbed({**form, "amenities": new_amen}, geo), 2)
+        d = round(new_price - base, 2)
+        dpct = round(d / base * 100, 1)
+        if abs(dpct) < _CF_NOISE_PCT:
+            continue
+        items.append({
+            "label": f"{verb} {label_es}", "feature": f"amenity:{key}",
+            "kind": "amenity",
+            "delta": d, "delta_pct": dpct,
+            "direction": _direction(d), "new_price": new_price,
+        })
+
+    items.sort(key=lambda r: abs(r["delta"]), reverse=True)
+    return items
+
+
+def counterfactual_full(form: dict) -> dict:
+    """Entry-point del endpoint. geo una vez; base = P50 si hay quantile, sino
+    el predict central. Puede lanzar OutOfBoundsError (pin fuera de Lima)."""
+    geo = geo_lookup(float(form["lat"]), float(form["lng"]))
+    if model_service.mode == "v2":
+        from ml_v2 import build_features_v2
+        X = build_features_v2(form, geo)
+    else:
+        X = build_features(form, geo)
+    base = round(model_service.predict(X), 2)
+    pi = model_service.predict_interval(X) if model_service.has_quantile else None
+    base = (pi or {}).get("p50") or base
+    return {
+        "base_fair_value": base,
+        "distrito": geo["distrito"],
+        "items": compute_counterfactuals_full(form, geo, base),
+    }
+
+
 def predict_fair_value(form: dict) -> dict:
     """Pipeline completo: form → precio de referencia + veredicto.
 
@@ -341,8 +554,7 @@ def predict_fair_value(form: dict) -> dict:
     else:
         zone = "Justo"
 
-    # Métricas evaluadas LAZY — devuelven v2 cuando el modelo activo es v2,
-    # independientemente del orden de import (bug previo: 15.9 con v2 cargado).
+    # Métricas resueltas en runtime según el modo activo del servicio.
     mae_pct = _mae_pct()
     delta = fair_value * (mae_pct / 100)
 

@@ -197,7 +197,9 @@ def test_predict_low_coverage_marca_confianza_baja():
     ))
     assert res['distrito'] == 'La Molina'
     assert res['confidence'] == 'Baja'
-    assert res['n_comparables'] < 20  # disparador del banner UX
+    # El umbral real de "Baja" es CONF_MEDIA_MIN=27 (confidence_thresholds.json);
+    # este punto premium queda muy por debajo, sanity check del caso escaso.
+    assert res['n_comparables'] < 27
 
 
 def test_predict_no_lima_lanza_400():

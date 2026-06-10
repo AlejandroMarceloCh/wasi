@@ -52,7 +52,7 @@ En total, 101 features alimentan el modelo (incluye breakdown por tier de POIs: 
 
 | Metrica | Valor | Conjunto |
 |---|---|---|
-| MAPE | 15.63 % | Test (n=503) |
+| MAPE | 16.4 % | GroupKFold espacial (n=503) |
 | R² | 0.847 | Test |
 | MAE | $159 | Test |
 | RMSE | $298 | Test |
@@ -66,11 +66,14 @@ En total, 101 features alimentan el modelo (incluye breakdown por tier de POIs: 
 ├── Makefile                · make backend / make frontend / make test
 ├── .env.example            · template de variables de entorno
 ├── app/                    · webapp end-to-end
-│   ├── index.html          · entry del frontend
-│   ├── app.jsx             · router
-│   ├── screens.jsx         · pantallas (Login, Wizard, Result, Entorno, FAQ)
+│   ├── index.html          · entry del frontend (carga los módulos en orden)
+│   ├── styles.css          · hoja de estilos (tokens OKLCH + componentes)
+│   ├── app.jsx             · router por rol
+│   ├── screens-*.jsx       · pantallas por dominio (core, public, fairvalue,
+│   │                         profile, listings, seller, home)
 │   ├── components.jsx      · UI compartida
 │   ├── api.js              · cliente fetch + JWT
+│   ├── stats.js            · números oficiales del modelo (fuente única)
 │   └── backend/
 │       ├── main.py         · entry FastAPI + lifespan (valida modelo)
 │       ├── model_service.py · aislamiento del .joblib
@@ -82,7 +85,7 @@ En total, 101 features alimentan el modelo (incluye breakdown por tier de POIs: 
 │       ├── routers/        · auth, dashboard, fairvalue, entorno, health
 │       ├── models/v2/      · .joblib del modelo XGBoost + quantile
 │       ├── data/external/  · POIs, denuncias, comisarias
-│       └── tests/          · 63 pytest tests
+│       └── tests/          · 126 pytest tests
 └── notebooks/              · proceso de ML reproducible
     ├── 01_limpieza.ipynb
     ├── 02_eda.ipynb
