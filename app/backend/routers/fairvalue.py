@@ -18,7 +18,7 @@ from schemas import (Counterfactual, CounterfactualIn, CounterfactualOut,
                      DetailedNarrativeOut, ExplainGroup, ExplainOut,
                      Factor, NarrativeOut, PoiHighlight, PredictIn, PredictOut,
                      PredictionInterval, PredictVentaIn, PredictVentaOut,
-                     RecentItem, SaveOut)
+                     RecentItem, SaveOut, SimulateOut)
 from venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VENTA_R2,
                            ZONE_BAND_PCT as VENTA_ZONE_BAND, venta_service)
 
@@ -149,6 +149,30 @@ def predict(
     pi = res.get("prediction_interval")
     out.prediction_interval = PredictionInterval(**pi) if pi else None
     return out
+
+
+@router.post("/fairvalue/simulate", response_model=SimulateOut)
+def simulate(
+    payload: PredictIn,
+    current: User = Depends(get_current_user),
+):
+    """Simulador what-if: corre el modelo con las características que el usuario
+    ajusta en vivo (sliders) y devuelve solo la predicción. A diferencia de
+    /predict NO persiste Property/Analysis: un slider dispara muchas llamadas y
+    no son análisis del historial."""
+    try:
+        res = predict_fair_value(payload.model_dump())
+    except OutOfBoundsError:
+        raise HTTPException(
+            status_code=400,
+            detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
+        )
+    pi = res.get("prediction_interval") or {}
+    return SimulateOut(
+        fair_value=res["fair_value"], zone=res["zone"],
+        diff=res["diff"], diff_pct=res["diff_pct"],
+        p25=pi.get("p25"), p50=pi.get("p50"), p75=pi.get("p75"),
+    )
 
 
 @router.post("/fairvalue/predict-venta", response_model=PredictVentaOut)

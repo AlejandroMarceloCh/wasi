@@ -296,7 +296,12 @@ const MarketRangeD3 = ({ p25, p50, p75, fair, announced, zone }) => {
       if (vals.length < 3) return;
       const W = el.clientWidth || 460, H = 104, m = { l: 14, r: 14 };
       const innerW = W - m.l - m.r;
-      const lo = Math.min(...vals) * 0.94, hi = Math.max(...vals) * 1.06;
+      // Dominio acotado a la banda del modelo (con aire). Un anuncio outlier
+      // (p.ej. 3× la referencia) se ancla al borde con flecha en vez de
+      // estirar el eje y aplastar la banda hasta volverla ilegible.
+      const center = typeof fair === 'number' ? fair : p50;
+      const lo = Math.min(p25 * 0.85, (typeof center === 'number' ? center : p25) * 0.95);
+      const hi = Math.max(p75 * 1.15, (typeof center === 'number' ? center : p75) * 1.05);
       const x = d3.scaleLinear().domain([lo, hi]).range([m.l, m.l + innerW]);
       const yMid = 52;
       const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
@@ -310,21 +315,34 @@ const MarketRangeD3 = ({ p25, p50, p75, fair, announced, zone }) => {
           .attr('width', 0).transition().duration(600).attr('width', Math.max(2, x(p75) - x(p25)));
       }
       // centro del modelo (justo)
-      const center = typeof fair === 'number' ? fair : p50;
       if (typeof center === 'number') {
         svg.append('line').attr('x1', x(center)).attr('x2', x(center)).attr('y1', yMid - 13).attr('y2', yMid + 13)
           .attr('stroke', 'var(--primary)').attr('stroke-width', 2.5);
         svg.append('text').attr('x', x(center)).attr('y', yMid - 20).attr('text-anchor', 'middle')
           .attr('class', 'd3-lbl').attr('fill', 'var(--primary)').text('Justo $' + Math.round(center).toLocaleString('en-US'));
       }
-      // precio anunciado (color de veredicto)
+      // precio anunciado (color de veredicto). Fuera del dominio: punto anclado
+      // al borde + flecha + label explícito "fuera de rango".
       if (typeof announced === 'number') {
         // Tonos -700: el label es texto pequeño sobre blanco y debe cumplir AA
         const col = zone === 'Ganga' ? '#15803d' : zone === 'Inflado' ? '#b91c1c' : '#b45309';
-        svg.append('circle').attr('cx', x(announced)).attr('cy', yMid).attr('r', 7.5)
+        const out = announced < lo ? 'left' : announced > hi ? 'right' : null;
+        const ax = out === 'left' ? m.l + 10 : out === 'right' ? m.l + innerW - 10 : x(announced);
+        svg.append('circle').attr('cx', ax).attr('cy', yMid).attr('r', 7.5)
           .attr('fill', col).attr('stroke', '#fff').attr('stroke-width', 2.5);
-        svg.append('text').attr('x', x(announced)).attr('y', yMid + 28).attr('text-anchor', 'middle')
-          .attr('class', 'd3-lbl').attr('fill', col).text('Tu precio $' + Math.round(announced).toLocaleString('en-US'));
+        if (out) {
+          const dir = out === 'right' ? 1 : -1;
+          svg.append('path')
+            .attr('d', `M ${ax + dir * 12},${yMid - 5} L ${ax + dir * 12},${yMid + 5} L ${ax + dir * 19},${yMid} Z`)
+            .attr('fill', col);
+        }
+        const pctOut = (typeof center === 'number' && center > 0)
+          ? Math.round((announced - center) / center * 100) : null;
+        const label = 'Tu precio $' + Math.round(announced).toLocaleString('en-US')
+          + (out && pctOut !== null ? ` · fuera de rango (${pctOut > 0 ? '+' : ''}${pctOut}%)` : '');
+        svg.append('text').attr('x', ax).attr('y', yMid + 28)
+          .attr('text-anchor', out === 'right' ? 'end' : out === 'left' ? 'start' : 'middle')
+          .attr('class', 'd3-lbl').attr('fill', col).text(label);
       }
     };
     draw();
@@ -380,11 +398,13 @@ const PoiInsightCard = () => {
     return () => { alive = false; };
   }, []);
   if (!data || data.length === 0) return null;
+  const totalPct = data.reduce((s, d) => s + (d.pct || 0), 0);
   return (
     <Card>
       <div className="section-h">Qué tipo de entorno pesa más en el precio</div>
       <p className="tiny muted" style={{ marginTop: -4, marginBottom: 8 }}>
-        Importancia agregada por categoría dentro del modelo, sobre {WASI_STATS.VARIABLES} variables.
+        El entorno aporta ~{totalPct.toFixed(1)}% del peso del modelo
+        ({WASI_STATS.VARIABLES} variables); así se reparte entre categorías:
       </p>
       <PoiImportanceD3 data={data}/>
     </Card>
@@ -811,6 +831,18 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
           </Card>
 
           <CounterfactualPanel cf={cf} loading={cfLoading} error={cfError} isSeller={isSeller}/>
+
+          {/* Contrafactuales interactivos: sliders sobre este inmueble. */}
+          {(typeof data.lat === 'number' && typeof data.lng === 'number') && (
+            <WhatIfSimulator
+              baseForm={{ lat: data.lat, lng: data.lng, area: data.area_m2,
+                          dormitorios: data.dormitorios, banos: data.banos,
+                          cocheras: data.cocheras || 0,
+                          antiguedad_anios: data.antiguedad_anios || 0,
+                          es_estudio: !!data.es_estudio, amenities: [],
+                          precio: data.price_usd }}
+              onAuthExpired={onAuthExpired}/>
+          )}
         </div>
       )}
 

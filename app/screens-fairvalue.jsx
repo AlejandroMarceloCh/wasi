@@ -108,9 +108,14 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
         amenities: f.amenities, precio,
       });
-      // Se pasa la respuesta viva: trae prediction_interval (los cuantiles no
-      // se persisten, GET /analysis/{id} no los puede reconstruir).
-      onSubmit && onSubmit(res.analysis_id, { lat: f.lat, lng: f.lng }, { predictData: res });
+      // Se pasa la respuesta viva (trae prediction_interval; los cuantiles no
+      // se persisten) y el form (alimenta el simulador what-if del resultado).
+      onSubmit && onSubmit(res.analysis_id, { lat: f.lat, lng: f.lng }, {
+        predictData: res,
+        form: { lat: f.lat, lng: f.lng, area: areaNum, dormitorios: f.dormitorios,
+                banos: f.banos, cocheras: f.cocheras, antiguedad_anios: f.antiguedad_anios,
+                es_estudio: f.es_estudio, amenities: f.amenities, precio },
+      });
     } catch (ex) {
       const msg = handleApiErr(ex, { setErr, onAuthExpired });
       if (typeof onError === 'function') onError(msg);
@@ -562,7 +567,165 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
 };
 
 /* ============== 5. FAIR VALUE RESULT ============== */
-const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onContext, onError, onAuthExpired }) => {
+/* ============== Simulador what-if (contrafactuales interactivos) ==============
+   El usuario mueve sliders (área, dormitorios, baños…) y el modelo re-predice
+   en vivo vía /fairvalue/simulate (sin persistir análisis). Las barras D3
+   animan la transición Hoy → Simulado en cada respuesta. */
+
+// Dos barras horizontales: "Hoy" (precio base, fija) vs "Simulado" (animada).
+const SimBarsD3 = ({ base, sim }) => {
+  const ref = useR(null);
+  const prev = useR({ base: 0, sim: 0 });
+  useE(() => {
+    const d3 = window.d3, el = ref.current;
+    if (!d3 || !el || !isFinite(base) || !isFinite(sim) || base <= 0) return;
+    const draw = () => {
+      d3.select(el).selectAll('*').remove();
+      const W = el.clientWidth || 420, H = 84, m = { l: 84, r: 74 };
+      const innerW = Math.max(60, W - m.l - m.r);
+      const maxV = Math.max(base, sim) * 1.08;
+      const bw = (v) => Math.max(3, v / maxV * innerW);
+      const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
+      const rows = [
+        { v: base, from: prev.current.base || 0, y: 12, color: 'var(--ink-3)', label: 'Hoy' },
+        { v: sim,  from: prev.current.sim  || 0, y: 48, color: 'var(--primary)', label: 'Simulado' },
+      ];
+      rows.forEach(r => {
+        svg.append('text').attr('x', m.l - 10).attr('y', r.y + 12).attr('text-anchor', 'end')
+          .attr('class', 'd3-cat').text(r.label);
+        svg.append('rect').attr('x', m.l).attr('y', r.y).attr('height', 18).attr('rx', 9)
+          .attr('fill', r.color).attr('opacity', .85)
+          .attr('width', bw(r.from)).transition().duration(450).attr('width', bw(r.v));
+        svg.append('text').attr('y', r.y + 13).attr('class', 'd3-val')
+          .attr('x', m.l + bw(r.from) + 8).transition().duration(450).attr('x', m.l + bw(r.v) + 8)
+          .text('$' + Math.round(r.v).toLocaleString('en-US'));
+      });
+      prev.current = { base, sim };
+    };
+    draw();
+    let ro;
+    if (window.ResizeObserver) { ro = new ResizeObserver(draw); ro.observe(el); }
+    return () => { if (ro) ro.disconnect(); };
+  }, [base, sim]);
+  return <div ref={ref} className="d3-simbars" style={{ width: '100%' }}/>;
+};
+
+const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
+  // Características editables por slider; lat/lng/amenities/precio quedan fijos.
+  const [f, setF] = useS(() => ({
+    area: Math.round(baseForm.area),
+    dormitorios: baseForm.dormitorios, banos: baseForm.banos,
+    cocheras: baseForm.cocheras || 0, antiguedad_anios: baseForm.antiguedad_anios || 0,
+  }));
+  const [baseFair, setBaseFair] = useS(null);   // referencia del form original
+  const [sim, setSim] = useS(null);             // última simulación
+  const [busy, setBusy] = useS(false);
+  const [err, setErr] = useS('');
+  const tRef = useR(null);
+  const reqId = useR(0);
+
+  const payload = (nf) => ({
+    lat: baseForm.lat, lng: baseForm.lng,
+    es_estudio: !!baseForm.es_estudio,
+    amenities: Array.isArray(baseForm.amenities) ? baseForm.amenities : [],
+    precio: Number(baseForm.precio) > 0 ? Number(baseForm.precio) : 1,
+    area: nf.area, dormitorios: nf.dormitorios,
+    banos: baseForm.es_estudio ? nf.banos : Math.max(1, nf.banos),
+    cocheras: nf.cocheras, antiguedad_anios: nf.antiguedad_anios,
+  });
+
+  // Primera llamada: fija la referencia "Hoy" con el form original.
+  useE(() => {
+    let alive = true;
+    Api.simulate(payload(f))
+      .then(r => { if (alive) { setBaseFair(r.fair_value); setSim(r); } })
+      .catch(ex => {
+        if (!alive) return;
+        if (ex && ex.status === 401 && onAuthExpired) return onAuthExpired();
+        setErr('El simulador no está disponible en este momento.');
+      });
+    return () => { alive = false; clearTimeout(tRef.current); };
+  }, []);
+
+  const run = (nf) => {
+    clearTimeout(tRef.current);
+    tRef.current = setTimeout(() => {
+      const id = ++reqId.current;
+      setBusy(true);
+      Api.simulate(payload(nf))
+        .then(r => { if (id === reqId.current) { setSim(r); setBusy(false); setErr(''); } })
+        .catch(ex => {
+          if (id !== reqId.current) return;
+          setBusy(false);
+          if (ex && ex.status === 401 && onAuthExpired) return onAuthExpired();
+          setErr('No se pudo recalcular; intenta de nuevo.');
+        });
+    }, 350);
+  };
+  const set = (k, v) => { const nf = { ...f, [k]: Number(v) }; setF(nf); run(nf); };
+  const reset = () => {
+    const nf = {
+      area: Math.round(baseForm.area), dormitorios: baseForm.dormitorios,
+      banos: baseForm.banos, cocheras: baseForm.cocheras || 0,
+      antiguedad_anios: baseForm.antiguedad_anios || 0,
+    };
+    setF(nf); run(nf);
+  };
+
+  if (err && baseFair === null) return null;   // simulador caído: no estorbar
+  const simFair = sim ? sim.fair_value : baseFair;
+  const delta = (simFair != null && baseFair != null) ? simFair - baseFair : 0;
+  const deltaPct = baseFair ? (delta / baseFair * 100) : 0;
+  const deltaColor = delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--danger)' : 'var(--ink-3)';
+  const SLIDERS = [
+    { k: 'area', label: 'Área (m²)', min: 20, max: Math.max(300, Math.round(baseForm.area * 1.5)), step: 5 },
+    { k: 'dormitorios', label: 'Dormitorios', min: 0, max: 6, step: 1 },
+    { k: 'banos', label: 'Baños', min: baseForm.es_estudio ? 0 : 1, max: 5, step: 1 },
+    { k: 'cocheras', label: 'Cocheras', min: 0, max: 4, step: 1 },
+    { k: 'antiguedad_anios', label: 'Antigüedad (años)', min: 0, max: 50, step: 1 },
+  ];
+  return (
+    <Card>
+      <div className="row" style={{justifyContent:'space-between'}}>
+        <div className="section-h" style={{margin:0}}>Simula tu inmueble</div>
+        <Tag variant="accent">Modelo en vivo</Tag>
+      </div>
+      <p className="tiny muted" style={{marginTop:4, marginBottom:10}}>
+        Mueve las barras y el modelo recalcula el precio de referencia al instante.
+      </p>
+      {baseFair === null ? (
+        <div className="tiny muted">Cargando simulador…</div>
+      ) : (
+        <>
+          <SimBarsD3 base={baseFair} sim={simFair}/>
+          <div className="row" style={{justifyContent:'space-between', marginTop:6}}>
+            <span className="tiny muted">{busy ? 'Recalculando…' : err ? err : 'Diferencia vs tu inmueble actual:'}</span>
+            <span className="numeric small" style={{fontWeight:700, color:deltaColor}}>
+              {delta >= 0 ? '+' : '−'}${Math.round(Math.abs(delta)).toLocaleString('en-US')}
+              {' '}({deltaPct >= 0 ? '+' : '−'}{Math.abs(deltaPct) >= 10 ? Math.round(Math.abs(deltaPct)) : Math.abs(deltaPct).toFixed(1)}%)
+            </span>
+          </div>
+          <div style={{marginTop:8}}>
+            {SLIDERS.map(s => (
+              <div key={s.k} className="whatif-row">
+                <label className="small" htmlFor={`wif-${s.k}`}>{s.label}</label>
+                <input id={`wif-${s.k}`} type="range" min={s.min} max={s.max} step={s.step}
+                       value={f[s.k]} onChange={(e)=>set(s.k, e.target.value)}
+                       aria-label={s.label}/>
+                <span className="whatif-val numeric small">{f[s.k]}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:12, textAlign:'right'}}>
+            <Btn variant="outline" size="sm" onClick={reset}>Restablecer</Btn>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+};
+
+const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBack, onContext, onError, onAuthExpired }) => {
   // Venta v1: el modelo no devuelve analysis_id, llega el data directo desde el
   // form. Delegamos a un componente propio ANTES de cualquier hook, dejando el
   // path de alquiler (debajo) idéntico. La rama es estable por render (depende
@@ -710,6 +873,10 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
                 : (data.confidence || '').includes('Baja') ? 'danger'
                 : 'warning';
   const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+  // Formato único de dinero/porcentaje en toda la pantalla: $2,313 (sin
+  // decimales) y +194% (centésimas solo cuando el valor es chico).
+  const usd0 = (v) => '$' + Math.round(v).toLocaleString('en-US');
+  const pctFmt = (v) => (Math.abs(v) >= 10 ? Math.round(Math.abs(v)) : Math.abs(v).toFixed(1)) + '%';
 
   // Confidence gating: la banda heurística [min, max] (= fair ± MAPE) se
   // ensancha cuando hay pocos comparables. Usa data.confidence (single source
@@ -790,8 +957,41 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
               Estimación de {data.confidence === 'Baja' ? 'baja' : 'media'} confianza · {data.n_comparables} avisos comparables cerca. Tómalo como referencia, no como precio exacto.
             </div>
           )}
+
+          {/* Hero del comprador: veredicto + los dos números arriba del gauge.
+              (Reemplaza a la card "Comparativa": el veredicto vivía repetido
+              en tres lugares y competían dos números grandes por la atención.) */}
+          {!isSeller && (
+            <>
+              <div className={`verdict verdict-${isInflado?'inflado':isGanga?'ganga':'justo'}`} style={{marginTop:14}}>
+                <span className="dot"/>
+                <div className="grow">
+                  <div className="lbl">Veredicto: {isInflado ? '↑ ' : isGanga ? '↓ ' : '= '}{zona}</div>
+                  <div className="numeric val">
+                    {diff >= 0 ? '+' : '−'}{usd0(Math.abs(diff))} <span className="pct">({diff >= 0 ? '+' : '−'}{pctFmt(pct)})</span>
+                  </div>
+                </div>
+                <Tag variant={isInflado ? 'danger' : isGanga ? 'success' : 'warning'}>
+                  {isInflado ? 'Negociable' : isGanga ? 'Oportunidad' : 'Precio alineado'}
+                </Tag>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginTop:14}}>
+                <div>
+                  <div className="small muted">Precio anunciado</div>
+                  <div className="numeric" style={{fontSize:28, fontWeight:700}}>{usd0(anuncio)}</div>
+                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
+                </div>
+                <div>
+                  <div className="small muted">Precio de referencia</div>
+                  <div className="numeric" style={{fontSize:28, fontWeight:700, color:'var(--primary)'}}>{usd0(fair)}</div>
+                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
+                </div>
+              </div>
+            </>
+          )}
+
           <div style={{marginTop:18}}>
-            <GaugeChart fairValue={fair} diffPct={pct} zone={zona} seller={isSeller} sellerPos={sellerPos}/>
+            <GaugeChart fairValue={fair} diffPct={pct} zone={zona} seller={isSeller} sellerPos={sellerPos} chip={isSeller}/>
           </div>
 
           {/* Rango P25-P75 del modelo de cuantiles (Sprint 3.1). Solo cuando
@@ -812,14 +1012,10 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
             </div>
           )}
 
-          <div style={{display:'flex', justifyContent:'center', gap:8, marginTop:14, flexWrap:'wrap'}}>
-            {data.predicted_in_seconds > 0 && (
-              <Tag variant="accent">Predicción en {data.predicted_in_seconds}s</Tag>
-            )}
-          </div>
           <div style={{marginTop:14, padding:'10px 12px', background:'var(--bg-tint)', borderRadius:10, fontSize:12, color:'var(--ink-2)', lineHeight:1.55}}>
             <Icon name="info" size={13} stroke="var(--primary)"/> Basado en precios de <b>avisos</b> del
             mercado, no en precios de cierre reales. Error medio del modelo: ±{data.mae_pct}%.
+            {data.predicted_in_seconds > 0 && <span className="muted"> · Predicción en {data.predicted_in_seconds}s</span>}
           </div>
         </Card>
 
@@ -834,12 +1030,12 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginTop:14}}>
                 <div>
                   <div className="small muted">Tu precio en mente</div>
-                  <div className="numeric" style={{fontSize:28, fontWeight:700}}>${anuncio}</div>
+                  <div className="numeric" style={{fontSize:28, fontWeight:700}}>{usd0(anuncio)}</div>
                   <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
                 </div>
                 <div>
                   <div className="small muted">Precio sugerido</div>
-                  <div className="numeric" style={{fontSize:28, fontWeight:700, color:'var(--primary)'}}>${fair}</div>
+                  <div className="numeric" style={{fontSize:28, fontWeight:700, color:'var(--primary)'}}>{usd0(fair)}</div>
                   <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
                 </div>
               </div>
@@ -851,7 +1047,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
                   <div style={{position:'absolute', left:`${barPct(anuncio)}%`, top:-5, width:3, height:18, background:'var(--ink)', borderRadius:2, transform:'translateX(-50%)'}} title="Tu precio"/>
                 </div>
                 <div className="tiny muted" style={{marginTop:6}}>
-                  Rango sugerido ${Math.round(bandMin)}–${Math.round(bandMax)}/mes · la barra negra es tu precio, la azul el sugerido
+                  Rango sugerido {usd0(bandMin)}–{usd0(bandMax)}/mes · la barra negra es tu precio, la azul el sugerido
                 </div>
               </div>
               {sellerPos && (
@@ -860,35 +1056,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
                 </div>
               )}
             </Card>
-          ) : (
-            <Card accent={accentVar}>
-              <div className="section-h" style={{margin:0}}>Comparativa con tu anuncio</div>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 16, marginTop:14}}>
-                <div>
-                  <div className="small muted">Precio anunciado</div>
-                  <div className="numeric" style={{fontSize: 28, fontWeight:700}}>${anuncio}</div>
-                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
-                </div>
-                <div>
-                  <div className="small muted">Precio de referencia</div>
-                  <div className="numeric" style={{fontSize: 28, fontWeight:700, color:'var(--primary)'}}>${fair}</div>
-                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
-                </div>
-              </div>
-              <div className={`verdict verdict-${isInflado?'inflado':isGanga?'ganga':'justo'}`}>
-                <span className="dot"/>
-                <div className="grow">
-                  <div className="lbl">Veredicto: {isInflado ? '↑ ' : isGanga ? '↓ ' : '= '}{zona}</div>
-                  <div className="numeric val">
-                    {diff >= 0 ? '+' : '−'}${Math.abs(diff).toLocaleString('en-US')} <span className="pct">({pct}%)</span>
-                  </div>
-                </div>
-                <Tag variant={isInflado ? 'danger' : isGanga ? 'success' : 'warning'}>
-                  {isInflado ? 'Negociable' : isGanga ? 'Oportunidad' : 'Precio alineado'}
-                </Tag>
-              </div>
-            </Card>
-          )}
+          ) : null}
 
           <PoiInsightCard/>
 
@@ -1003,22 +1171,36 @@ const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onCont
                 Sensibilidad del precio a un cambio chico en cada característica.
               </div>
               <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                {data.counterfactuals.map((cf, i) => {
-                  const positive = cf.pct_change > 0;
-                  const arrow = positive ? '↑' : '↓';
-                  const color = positive ? 'var(--success)' : 'var(--danger)';
-                  return (
-                    <div key={i} className="row" style={{justifyContent:'space-between', padding:'8px 12px', background:'var(--bg-tint)', borderRadius:10}}>
-                      <span className="small">{cf.label}</span>
-                      <span className="numeric" style={{fontWeight:600, color}}>
-                        ${cf.new_price.toFixed(0)} <span className="tiny" style={{marginLeft:6, opacity:.8}}>{arrow} {Math.abs(cf.pct_change)}%</span>
-                      </span>
-                    </div>
-                  );
-                })}
+                {(() => {
+                  // Mini-bar de magnitud relativa: de un vistazo se ve qué palanca pesa más.
+                  const maxAbs = Math.max(...data.counterfactuals.map(c => Math.abs(c.pct_change)), 0.1);
+                  return data.counterfactuals.map((cf, i) => {
+                    const positive = cf.pct_change > 0;
+                    const arrow = positive ? '↑' : '↓';
+                    const color = positive ? 'var(--success)' : 'var(--danger)';
+                    const w = Math.max(6, Math.abs(cf.pct_change) / maxAbs * 100);
+                    return (
+                      <div key={i} style={{padding:'8px 12px', background:'var(--bg-tint)', borderRadius:10}}>
+                        <div className="row" style={{justifyContent:'space-between'}}>
+                          <span className="small">{cf.label}</span>
+                          <span className="numeric" style={{fontWeight:600, color}}>
+                            {usd0(cf.new_price)} <span className="tiny" style={{marginLeft:6, opacity:.8}}>{arrow} {pctFmt(cf.pct_change)}</span>
+                          </span>
+                        </div>
+                        <div style={{height:3, borderRadius:2, background:'var(--line-2)', marginTop:6}}>
+                          <div style={{height:'100%', width:`${w}%`, borderRadius:2, background:color, opacity:.55}}/>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </Card>
           )}
+
+          {/* Contrafactuales interactivos: solo cuando llegamos del wizard
+              (el historial no guarda el form que generó el análisis). */}
+          {simForm && <WhatIfSimulator baseForm={simForm} onAuthExpired={onAuthExpired}/>}
         </div>
       </div>
 

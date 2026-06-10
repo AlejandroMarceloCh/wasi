@@ -114,6 +114,9 @@
     // Fair Value — payload: {lat,lng,area,dormitorios,banos,es_estudio,
     //                         cocheras,antiguedad_anios,amenities[],precio}
     predict: (payload) => request('/fairvalue/predict', { method: 'POST', body: payload }),
+    // Simulador what-if — mismo payload que predict; corre el modelo en vivo
+    // SIN persistir análisis (pensado para sliders con debounce).
+    simulate: (payload) => request('/fairvalue/simulate', { method: 'POST', body: payload }),
     // Venta — modelo v1 de compra/venta. payload: {lat,lng,area,dormitorios,banos,
     //   cocheras,antiguedad_anios,precio} (precio = venta anunciada en USD; SIN
     //   amenities ni es_estudio). Devuelve fair_value + veredicto + banda, sin

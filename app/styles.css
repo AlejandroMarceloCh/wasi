@@ -2339,3 +2339,10 @@
   @media (prefers-reduced-motion: reduce){
     .cf-row, .cf-bar{ animation:none; }
   }
+
+/* ===== Simulador what-if (contrafactuales interactivos) ===== */
+.whatif-row{ display:grid; grid-template-columns: 130px 1fr 48px; gap:10px; align-items:center; margin-top:10px; }
+.whatif-row input[type=range]{ width:100%; accent-color: var(--primary); height:4px; cursor:pointer; }
+.whatif-val{ text-align:right; }
+.d3-simbars .d3-cat{ font-size:12.5px; fill:var(--ink-2); }
+.d3-simbars .d3-val{ font-size:12.5px; font-weight:600; fill:var(--ink); }

@@ -283,7 +283,7 @@ const useAnimatedNumber = (target, dur = 1100, trigger = true) => {
    coinciden con el corte del backend (ZONE_BAND_PCT = ±8 %):
    Ganga p[0, 1/3] · Justo p[1/3, 2/3] · Inflado p[2/3, 1].
    La aguja apunta a la posición del precio anunciado según diffPct. */
-const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false, sellerPos = null, unitLabel = '/ mes', perMes = true }) => {
+const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false, sellerPos = null, unitLabel = '/ mes', perMes = true, chip = true }) => {
   const SCALE = 24;                                        // ± % que abarca el arco
   const markP = Math.max(0, Math.min(1, (diffPct + SCALE) / (2 * SCALE)));
   const animP = useAnimatedNumber(markP, 1100);
@@ -311,10 +311,12 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false
                   : 'var(--warning)';
   const tip = polar(animP);
   const sign = diffPct > 0 ? '+' : '';
+  // % redondeado para display: +194%, no +193.98% (centésimas solo bajo 10).
+  const diffLabel = Math.abs(diffPct) >= 10 ? Math.round(diffPct) : Math.round(diffPct * 10) / 10;
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <svg viewBox="0 0 260 182" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }} role="img" aria-label={`Indicador de precio: ${zone}. Precio de referencia $${fairValue}. Diferencia ${diffPct > 0 ? '+' : ''}${diffPct}%.`}>
+      <svg viewBox="0 0 260 182" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }} role="img" aria-label={`Indicador de precio: ${zone}. Precio de referencia $${Math.round(fairValue).toLocaleString('en-US')}. Diferencia ${sign}${diffLabel}%.`}>
         <defs>
           {/* Degradado continuo verde → naranja → rojo a lo largo del arco.
              Los stops están a 1/3 y 2/3 para coincidir con los cortes
@@ -349,12 +351,12 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false
           ${Math.round(animVal).toLocaleString('en-US')}
         </div>
         <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: -2 }}>Precio de referencia {unitLabel}</div>
-        {(seller ? sellerPos : true) && (
+        {chip && (seller ? sellerPos : true) && (
           <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 7,
                         background: 'var(--line-2)', padding: '6px 13px', borderRadius: 999,
                         fontSize: 12, fontWeight: 700, color: zoneColor }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: zoneColor }}/>
-            {seller ? `Tu precio: ${sellerPos}` : `Tu anuncio: ${zone} (${sign}${diffPct}%)`}
+            {seller ? `Tu precio: ${sellerPos}` : `Tu anuncio: ${zone} (${sign}${diffLabel}%)`}
           </div>
         )}
       </div>

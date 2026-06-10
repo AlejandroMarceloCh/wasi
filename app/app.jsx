@@ -73,19 +73,22 @@ function App() {
   // FairValueForm dispara esto al terminar. Alquiler: llega analysis_id (flujo
   // original). Venta: extra = { operacion:'venta', ventaData } con el resultado
   // directo (no hay analysis_id).
-  // Respuesta viva del último /predict de alquiler: incluye prediction_interval
-  // (no se persiste en BD). Solo aplica viniendo del wizard; el historial
-  // re-consulta el análisis guardado.
+  // Respuesta viva del último /predict de alquiler (incluye prediction_interval,
+  // que no se persiste en BD) + el form que la generó (alimenta el simulador
+  // what-if). Solo aplican viniendo del wizard; el historial re-consulta.
   const [fvLive, setFvLive] = uS(null);
+  const [fvForm, setFvForm] = uS(null);
 
   const onSubmitForm = (analysisId, ctx, extra) => {
     if (extra && extra.operacion === 'venta') {
       setVentaResult(extra.ventaData || null);
       setCurrentAnalysisId(null);
       setFvLive(null);
+      setFvForm(null);
     } else {
       setVentaResult(null);
       setFvLive((extra && extra.predictData) || null);
+      setFvForm((extra && extra.form) || null);
       if (analysisId) setCurrentAnalysisId(analysisId);
     }
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
@@ -95,6 +98,7 @@ function App() {
   const onOpenAnalysis = (id, ctx) => {
     setVentaResult(null);
     setFvLive(null);
+    setFvForm(null);
     setCurrentAnalysisId(id);
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
     setScreen('fairvalue-result');
@@ -190,6 +194,7 @@ function App() {
             analysisId={currentAnalysisId}
             ventaData={ventaResult}
             liveData={fvLive}
+            simForm={fvForm}
             role={userRole}
             onBack={() => setScreen('fairvalue-form')}
             onContext={() => setScreen('entorno-map')}

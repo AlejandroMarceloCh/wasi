@@ -119,6 +119,17 @@ class PredictIn(BaseModel):
         return self
 
 
+class SimulateOut(BaseModel):
+    """Salida del simulador what-if: solo la predicción, sin persistir nada."""
+    fair_value: float
+    zone: str
+    diff: float
+    diff_pct: float
+    p25: Optional[float] = None
+    p50: Optional[float] = None
+    p75: Optional[float] = None
+
+
 class Factor(BaseModel):
     label: str
     score: int
