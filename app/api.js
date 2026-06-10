@@ -1,6 +1,10 @@
 /* Wasi — cliente API (frontend) */
 (function(){
-  const BASE = (window.WASI_API_BASE || 'http://localhost:8000') + '/api';
+  // En producción (Vercel) apunta al backend de Render; en local usa :8000.
+  // window.WASI_API_BASE (si se define) tiene prioridad sobre ambos.
+  const PROD_BACKEND = 'https://wasi-backend.onrender.com';
+  const BASE = (window.WASI_API_BASE
+    || (location.hostname === 'localhost' ? 'http://localhost:8000' : PROD_BACKEND)) + '/api';
   const TOKEN_KEY = 'wasi.token';
   const USER_KEY = 'wasi.user';
 

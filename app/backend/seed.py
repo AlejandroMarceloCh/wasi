@@ -13,8 +13,9 @@ from auth import hash_password
 from database import SessionLocal
 from models import District, Lead, Listing, User
 
-DATASET = (Path(__file__).resolve().parent.parent.parent
-           / "pipeline" / "data" / "processed" / "inmuebles_clean_v1.csv")
+# Dataset incluido en el repo (mismo que usa seed_listings_bulk): el conteo de
+# distritos es reproducible desde un clone, sin depender de pipeline/.
+DATASET = Path(__file__).resolve().parent / "data" / "inmuebles_alquiler_clean.csv"
 
 DEMO_EMAIL = "ana@wasi.pe"
 DEMO_PASSWORD = "demo1234"
