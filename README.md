@@ -163,6 +163,43 @@ Ver `routers/fairvalue.py · _groq_chat()` y los helpers de narrativa.
     └── 11_analisis_residuos.ipynb
 ```
 
+### Estructura objetivo (próxima iteración)
+
+La estructura actual prioriza un solo deploy: el código ML vive dentro del
+backend para que serving y entrenamiento compartan las mismas features sin
+duplicación. La reorganización planificada lo separa según la convención
+cookiecutter-data-science — `src/` es ciencia reutilizable, `app/` es el
+producto que la consume, `notebooks/` exploran sobre `src/`:
+
+```
+.
+├── config/
+│   └── config.yaml            · hiperparámetros, rutas, thresholds (±8 %)
+├── data/                      · gitignored — nunca sube al repo
+│   ├── raw/                   · scrapes originales inmutables
+│   ├── external/              · INEI NSE, MININTER, OSM POIs, comisarías
+│   ├── interim/               · limpieza intermedia
+│   └── processed/             · datasets listos para modelar
+├── models/
+│   └── v2/                    · .joblib + manifest + golden predictions
+├── notebooks/                 · 01-05 + residuos (consumen src/)
+├── src/                       · módulo ML importable
+│   ├── data/make_dataset.py   · raw → processed
+│   ├── features/              · build_features (101), geo_index, distrito
+│   ├── models/                · train (GroupKFold espacial), predict (SHAP),
+│   │                            counterfactuals
+│   └── visualization/         · figuras de evaluación → reports/
+├── reports/figures/           · métricas, residuos, calibración
+├── app/
+│   ├── frontend/              · React + D3
+│   └── backend/               · FastAPI (importa src/, no lo duplica)
+└── tests/
+```
+
+Migración directa: `ml_v2.py → src/features/build_features.py`,
+`model_service.py → src/models/predict.py`, `geo_index.py → src/features/`,
+y `data/` + `models/` suben a la raíz. Los 126 tests validan la equivalencia.
+
 ## Endpoints
 
 Documentacion interactiva (Swagger UI) en http://localhost:8000/docs cuando
