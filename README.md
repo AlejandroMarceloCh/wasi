@@ -131,74 +131,103 @@ Ver `routers/fairvalue.py · _groq_chat()` y los helpers de narrativa.
 ```
 .
 ├── README.md
-├── Makefile                · make backend / make frontend / make test
-├── .env.example            · template de variables de entorno
-├── app/                    · webapp end-to-end
-│   ├── index.html          · entry del frontend (carga los módulos en orden)
-│   ├── styles.css          · hoja de estilos (tokens OKLCH + componentes)
-│   ├── app.jsx             · router por rol
-│   ├── screens-*.jsx       · pantallas por dominio (core, public, fairvalue,
-│   │                         profile, listings, seller, home)
-│   ├── components.jsx      · UI compartida
-│   ├── api.js              · cliente fetch + JWT
-│   ├── stats.js            · números oficiales del modelo (fuente única)
-│   └── backend/
-│       ├── main.py         · entry FastAPI + lifespan (valida modelo)
-│       ├── model_service.py · aislamiento del .joblib
-│       ├── ml.py           · build_features + counterfactuals + interval
-│       ├── ml_v2.py        · 101 features del modelo v2
-│       ├── geo_index.py    · KD-tree esfera + IDW haversine
-│       ├── osm_lookup.py   · POIs por categoria
-│       ├── distrito_features.py · NSE manzana + denuncias distrito
-│       ├── routers/        · auth, dashboard, fairvalue, entorno, health
-│       ├── models/v2/      · .joblib del modelo XGBoost + quantile
-│       ├── data/external/  · POIs, denuncias, comisarias
-│       └── tests/          · 126 pytest tests
-└── notebooks/              · proceso de ML reproducible
-    ├── 01_limpieza.ipynb
-    ├── 02_eda.ipynb
-    ├── 03_feature_engineering.ipynb
-    ├── 04_entrenamiento_modelos.ipynb
-    ├── 05_evaluacion_seleccion.ipynb
-    └── 11_analisis_residuos.ipynb
+├── Makefile                       · make backend / make frontend / make test
+├── .env.example                   · template de variables de entorno
+├── LICENSE
+├── render.yaml                    · deploy del backend (Render)
+├── vercel.json                    · deploy del frontend (Vercel)
+│
+├── notebooks/                     · proceso de ML reproducible, en orden
+│   ├── 01_limpieza.ipynb          · scrapes crudos → dedup, outliers de
+│   │                                precio/m², imputación → 3,348 avisos limpios
+│   ├── 02_eda.ipynb               · distribuciones, precio/m² por distrito,
+│   │                                correlaciones, sesgo geográfico del stock
+│   ├── 03_feature_engineering.ipynb · construcción de las 101 features:
+│   │                                físicas, POIs por KD-tree, NSE, denuncias,
+│   │                                target encoding del distrito
+│   ├── 04_entrenamiento_modelos.ipynb · 5 candidatos (Linear, Ridge, Lasso,
+│   │                                Random Forest, XGBoost) con GroupKFold espacial
+│   ├── 05_evaluacion_seleccion.ipynb · comparación de métricas, selección de
+│   │                                XGBoost, serialización de artefactos
+│   └── 11_analisis_residuos.ipynb · residuos por distrito y rango de precio
+│
+├── ventas_model/                  · pipeline del modelo de VENTA (MAPE 15.8 %)
+│   ├── scrape_infocasas.py        · scraper InfoCasas (avisos con coordenadas)
+│   ├── scrape_babilonia.py        · scraper Babilonia
+│   ├── clean_ventas.py            · limpieza y filtros de outliers
+│   ├── build_features_venta.py    · features de venta
+│   ├── train_venta.py             · GroupKFold espacial (celdas ~111 m) +
+│   │                                target encoding re-ajustado por fold
+│   ├── models/xgb_venta.joblib    · modelo final (6,271 avisos)
+│   └── RESULTADOS.md              · métricas y decisiones del entrenamiento
+│
+└── app/                           · producto end-to-end
+    ├── index.html                 · entry del frontend (carga los módulos en orden)
+    ├── styles.css                 · hoja de estilos (tokens OKLCH + componentes)
+    ├── app.jsx                    · router por rol
+    ├── screens-*.jsx              · pantallas por dominio (core, public,
+    │                                fairvalue, profile, listings, seller, home)
+    ├── components.jsx             · UI compartida
+    ├── api.js                     · cliente fetch + JWT
+    ├── stats.js                   · números oficiales del modelo (fuente única)
+    └── backend/
+        ├── main.py                · entry FastAPI + lifespan (valida modelo)
+        ├── model_service.py       · aislamiento del .joblib: carga, fail-fast,
+        │                            predicción, TreeSHAP, quantiles
+        ├── ml_v2.py               · las 101 features (réplica del notebook 03)
+        ├── ml.py                  · counterfactuals + intervalo de predicción
+        ├── geo_index.py           · cKDTree sobre esfera + IDW haversine
+        ├── osm_lookup.py          · POIs por categoría y tier
+        ├── distrito_features.py   · NSE por manzana + denuncias por distrito
+        ├── venta_service.py       · serving del modelo de venta
+        ├── auth.py / database.py / models.py / schemas.py · capa web
+        ├── seed.py                · siembra usuarios demo + catálogo (3.3k avisos)
+        ├── routers/               · auth, dashboard, fairvalue, entorno,
+        │                            listings, health
+        ├── models/v2/             · artefactos versionados: los 5 candidatos,
+        │                            XGBoost final, quantiles P25/P50/P75,
+        │                            target encoder, scaler, caps de outliers,
+        │                            manifest (SHA-256), golden predictions,
+        │                            calibración por distrito
+        ├── data/                  · dataset limpio + geo_index
+        │   └── external/          · POIs OSM (malls, colegios, clínicas, bancos,
+        │                            farmacias, parques, estaciones…), denuncias
+        │                            MININTER, comisarías, serenazgo
+        ├── scripts/               · auditorías y gates: calibración por distrito,
+        │                            validación de artefactos, cobertura quantile,
+        │                            selección de modelo, build del geo-index
+        └── tests/                 · 126 tests pytest en 17 archivos: API, ML,
+                                     counterfactuals, quantile, geo, schemas,
+                                     startup fail-fast, robustez del pipeline
 ```
 
 ### Estructura objetivo (próxima iteración)
 
-La estructura actual prioriza un solo deploy: el código ML vive dentro del
-backend para que serving y entrenamiento compartan las mismas features sin
-duplicación. La reorganización planificada lo separa según la convención
-cookiecutter-data-science — `src/` es ciencia reutilizable, `app/` es el
-producto que la consume, `notebooks/` exploran sobre `src/`:
+La estructura actual prioriza que serving y entrenamiento compartan el mismo
+código de features sin duplicarlo. La migración a la convención
+cookiecutter-data-science separa la ciencia (`src/`) del producto (`app/`) —
+cada destino mapea un archivo que ya existe:
 
 ```
 .
-├── config/
-│   └── config.yaml            · hiperparámetros, rutas, thresholds (±8 %)
-├── data/                      · gitignored — nunca sube al repo
-│   ├── raw/                   · scrapes originales inmutables
-│   ├── external/              · INEI NSE, MININTER, OSM POIs, comisarías
-│   ├── interim/               · limpieza intermedia
-│   └── processed/             · datasets listos para modelar
-├── models/
-│   └── v2/                    · .joblib + manifest + golden predictions
-├── notebooks/                 · 01-05 + residuos (consumen src/)
-├── src/                       · módulo ML importable
-│   ├── data/make_dataset.py   · raw → processed
-│   ├── features/              · build_features (101), geo_index, distrito
-│   ├── models/                · train (GroupKFold espacial), predict (SHAP),
-│   │                            counterfactuals
-│   └── visualization/         · figuras de evaluación → reports/
-├── reports/figures/           · métricas, residuos, calibración
-├── app/
-│   ├── frontend/              · React + D3
-│   └── backend/               · FastAPI (importa src/, no lo duplica)
-└── tests/
+├── data/
+│   ├── external/                   ← app/backend/data/external/ (POIs, denuncias…)
+│   └── processed/                  ← app/backend/data/inmuebles_alquiler_clean.csv
+├── models/v2/                      ← app/backend/models/v2/ (sube a la raíz)
+├── notebooks/                      · igual, consumen src/ en vez de duplicar
+├── src/
+│   ├── data/scrapers/              ← ventas_model/scrape_infocasas.py, scrape_babilonia.py
+│   ├── data/make_dataset.py        ← ventas_model/clean_ventas.py + notebook 01
+│   ├── features/build_features.py  ← app/backend/ml_v2.py
+│   ├── features/geo_index.py       ← app/backend/geo_index.py
+│   ├── features/distrito.py        ← app/backend/distrito_features.py
+│   ├── models/train.py             ← ventas_model/train_venta.py + notebook 04
+│   ├── models/predict.py           ← app/backend/model_service.py
+│   └── models/counterfactuals.py   ← app/backend/ml.py
+├── app/                            · frontend + FastAPI importando src/
+└── tests/                          ← app/backend/tests/ (126 tests validan
+                                      la equivalencia tras mover)
 ```
-
-Migración directa: `ml_v2.py → src/features/build_features.py`,
-`model_service.py → src/models/predict.py`, `geo_index.py → src/features/`,
-y `data/` + `models/` suben a la raíz. Los 126 tests validan la equivalencia.
 
 ## Endpoints
 
