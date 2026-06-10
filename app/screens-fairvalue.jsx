@@ -108,7 +108,9 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
         amenities: f.amenities, precio,
       });
-      onSubmit && onSubmit(res.analysis_id, { lat: f.lat, lng: f.lng });
+      // Se pasa la respuesta viva: trae prediction_interval (los cuantiles no
+      // se persisten, GET /analysis/{id} no los puede reconstruir).
+      onSubmit && onSubmit(res.analysis_id, { lat: f.lat, lng: f.lng }, { predictData: res });
     } catch (ex) {
       const msg = handleApiErr(ex, { setErr, onAuthExpired });
       if (typeof onError === 'function') onError(msg);
@@ -560,7 +562,7 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
 };
 
 /* ============== 5. FAIR VALUE RESULT ============== */
-const FairValueResult = ({ analysisId, ventaData, role, onBack, onContext, onError, onAuthExpired }) => {
+const FairValueResult = ({ analysisId, ventaData, liveData, role, onBack, onContext, onError, onAuthExpired }) => {
   // Venta v1: el modelo no devuelve analysis_id, llega el data directo desde el
   // form. Delegamos a un componente propio ANTES de cualquier hook, dejando el
   // path de alquiler (debajo) idéntico. La rama es estable por render (depende
@@ -604,14 +606,22 @@ const FairValueResult = ({ analysisId, ventaData, role, onBack, onContext, onErr
     setDetailErr('');
     setDetailLoading(false);
     setDetailOpen(false);
-    Api.getAnalysis(analysisId)
-      .then(r => { if (!cancel) { setData(r); setLoading(false); } })
-      .catch(ex => {
-        if (cancel) return;
-        const msg = handleApiErr(ex, { setErr, onAuthExpired });
-        if (typeof onError === 'function') onError(msg);
-        setLoading(false);
-      });
+    // Viniendo del wizard llega la respuesta viva de /predict, que incluye
+    // prediction_interval (no se persiste, así que el GET no lo trae). Desde
+    // el historial no hay data viva y se consulta el análisis guardado.
+    if (liveData && liveData.analysis_id === analysisId) {
+      setData(liveData);
+      setLoading(false);
+    } else {
+      Api.getAnalysis(analysisId)
+        .then(r => { if (!cancel) { setData(r); setLoading(false); } })
+        .catch(ex => {
+          if (cancel) return;
+          const msg = handleApiErr(ex, { setErr, onAuthExpired });
+          if (typeof onError === 'function') onError(msg);
+          setLoading(false);
+        });
+    }
     // SHAP — si falla (ej. modelo v1), el panel muestra "no disponible".
     setExplainFailed(false);
     Api.explain(analysisId)
