@@ -193,7 +193,7 @@ extremos de precio, además de habilitar TreeSHAP exacto para la explicabilidad.
  
 > **Nota de trazabilidad.** Los notebooks didácticos exploran los cinco modelos
 > en detalle; el modelo **desplegado en producción** es XGBoost (artefactos en
-> `app/backend/models/v2/`). El criterio de decisión fue el MAPE espacial y la
+> `models/v2/`). El criterio de decisión fue el MAPE espacial y la
 > robustez en los extremos, consistente con `gate6`.
  
 ### 4.3 Hiperparámetros y tuning
@@ -233,13 +233,20 @@ perturbada).
 Frontend (React 18 + Leaflet, sin build, vía CDN)
         │  fetch + JWT
         ▼
-Backend (FastAPI + SQLAlchemy + SQLite)
+Backend HTTP (app/backend/ — FastAPI + SQLAlchemy + SQLite)
+        │  importa el paquete instalable `wasi` (pip install -e .)
+        ▼
+Núcleo ML (src/wasi/ — paquete Python independiente del backend)
         │
-        ├─ geo_index.py      : distrito + POIs (cKDTree + haversine)
-        ├─ ml_v2.py          : 101 features (réplica exacta del notebook 03)
-        ├─ model_service.py  : XGBoost central + quantiles + TreeSHAP
-        └─ venta_service.py  : modelo de venta (extensión)
+        ├─ features/geo_index.py    : distrito + POIs (cKDTree + haversine)
+        ├─ models/ml_v2.py          : 101 features (réplica exacta del notebook 03)
+        ├─ models/model_service.py  : XGBoost central + quantiles + TreeSHAP
+        └─ models/venta_service.py  : modelo de venta (extensión)
 ```
+
+El núcleo de datos/ML vive en `src/wasi/` como paquete instalable, desacoplado
+del servidor HTTP (`app/backend/`). Los artefactos del modelo (`models/`) y los
+datasets (`data/`) están en la raíz del repositorio, no anidados en el backend.
  
 ### 5.2 Paridad entrenamiento–serving
  
@@ -339,7 +346,7 @@ notebooks/11_analisis_residuos.ipynb     : diagnóstico de errores
  
 Todos los datos necesarios para replicar (datasets de train/test, POIs,
 denuncias, comisarías, metadata) están versionados en
-`app/backend/data/` y `ventas_model/data/`.
+`data/` (raíz del repositorio) y `ventas_model/data/`.
  
 ---
  
@@ -365,5 +372,3 @@ denuncias, comisarías, metadata) están versionados en
   ubicación, fotos del inmueble).
 - Calibrar los intervalos con conformal prediction.
 - Evaluar los perfiles de agente e inversionista (no cubiertos en esta ronda).
-- Migrar a la convención cookiecutter-data-science (separar `src/` de `app/`)
-  sin duplicar el código de features.
