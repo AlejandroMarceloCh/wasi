@@ -12,12 +12,10 @@ from wasi.features.geo_index import get_index
 from wasi.models.ml import _LEAK_WARNING, TRAIN_PROXIMITY_KM, predict_fair_value
 from wasi.models.model_service import model_service
 
-
 @pytest.fixture(scope="module", autouse=True)
 def _load():
     if not model_service.is_loaded:
         model_service.load()
-
 
 def _form(**kw):
     d = dict(lat=-12.121, lng=-77.030, area=85, dormitorios=2, banos=2,
@@ -26,20 +24,17 @@ def _form(**kw):
     d.update(kw)
     return d
 
-
 def _listing_coords():
     """Coordenadas exactas de un listing real del índice (= set de training)."""
     idx = get_index()
     row = idx.df.iloc[0]
     return float(row["latitud"]), float(row["longitud"])
 
-
 def test_from_catalog_baja_confianza_y_warning():
     """flag explícito del catálogo → confianza Baja + warning de leak."""
     res = predict_fair_value(_form(from_catalog=True))
     assert res["confidence"] == "Baja"
     assert _LEAK_WARNING in res["warnings"]
-
 
 def test_pin_sobre_listing_dispara_aunque_no_haya_flag():
     """Pin pegado a un listing real (< 50 m) → Baja + warning, sin from_catalog.
@@ -52,18 +47,12 @@ def test_pin_sobre_listing_dispara_aunque_no_haya_flag():
     assert res["confidence"] == "Baja"
     assert _LEAK_WARNING in res["warnings"]
 
-
-# Pin de control: lejos de cualquier listing (>50 m) y SIN fallback geográfico,
-# para aislar el efecto del leak de otras razones que fuerzan "Baja". Verificado:
-# dist_nearest_km≈0.233 km, fallback_reason=None.
 _PIN_LEJANO = dict(lat=-12.30, lng=-76.85)
-
 
 def test_pin_manual_lejano_no_marca_leak():
     """Control: un pin manual lejos de cualquier listing NO lleva el warning de leak."""
     geo = get_index().lookup(**_PIN_LEJANO)
-    # Pre-condición del fixture: el punto debe estar realmente lejos y sin fallback,
-    # si no, el test no estaría aislando el leak (falla ruidosa, no falso-verde).
+
     assert geo["dist_nearest_km"] >= TRAIN_PROXIMITY_KM
     assert geo["fallback_reason"] is None
 

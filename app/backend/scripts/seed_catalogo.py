@@ -27,7 +27,7 @@ from sqlalchemy import delete, func, select
 
 from auth import hash_password
 from database import SessionLocal, Base, engine
-import models  # noqa: F401 — registra tablas
+import models
 from models import Listing, User
 from model_service import model_service
 from ml import predict_fair_value
@@ -36,14 +36,12 @@ CSV = BACKEND.parent.parent / "pipeline" / "data" / "processed" / "inmuebles_cle
 XTEST = BACKEND.parent.parent / "pipeline" / "data" / "processed" / "X_test.csv"
 CATALOGO_EMAIL = "catalogo@wasi.pe"
 
-# Distritos a poblar y cuántos de cada uno (variedad de zona).
 DISTRITOS = {
     "Miraflores": 6, "San Isidro": 6, "Santiago de Surco": 5, "Barranco": 4,
     "San Borja": 4, "Jesus Maria": 4, "Magdalena del Mar": 3, "La Molina": 4,
     "San Miguel": 3, "Pueblo Libre": 3, "Surquillo": 3, "Lince": 3,
 }
 
-# tiene_<col CSV>  ->  nombre canónico de amenity que el modelo entiende
 AMENITY_MAP = {
     "tiene_ascensores": "ascensor", "tiene_seguridad": "seguridad",
     "tiene_cocina": "cocina", "tiene_amueblado_a": "amoblado",
@@ -51,8 +49,6 @@ AMENITY_MAP = {
     "tiene_walk_in_closet": "walk_in_closet", "tiene_exteriores": "exteriores",
 }
 
-# Pool de fotos demo (Unsplash, departamentos). ~60% de los listings llevan foto;
-# el resto usa el placeholder de marca. Variedad visual estilo Zillow.
 FOTOS = [
     "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80",
     "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80",
@@ -64,12 +60,10 @@ FOTOS = [
     "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80",
 ]
 
-
 def _amenities_csv(row) -> str:
     out = [name for col, name in AMENITY_MAP.items()
            if col in row and float(row.get(col, 0) or 0) == 1.0]
     return ",".join(out)
-
 
 def _form(row) -> dict:
     return dict(
@@ -81,16 +75,13 @@ def _form(row) -> dict:
         precio=float(row["precio_usd"]),
     )
 
-
 def main():
     Base.metadata.create_all(bind=engine)
-    model_service.load()           # el script carga el modelo explícitamente
-    random.seed(42)                # muestreo reproducible
+    model_service.load()
+    random.seed(42)
 
     df = pd.read_csv(CSV)
-    # Solo inmuebles del HOLDOUT (test set): el modelo NO los vio en training, así
-    # el veredicto es genuino — la diferencia precio-aviso vs fair_value es error
-    # real del modelo, no memorización. Cruce por coordenada exacta.
+
     xt = pd.read_csv(XTEST, usecols=["latitud", "longitud"])
     test_coords = set(zip(xt["latitud"].round(6), xt["longitud"].round(6)))
     df = df[[(round(la, 6), round(lo, 6)) in test_coords
@@ -109,7 +100,6 @@ def main():
                          plan="pro", role="Propietario")
             db.add(owner); db.flush()
 
-        # idempotente: limpiar catálogo previo
         db.execute(delete(Listing).where(Listing.owner_id == owner.id))
         db.flush()
 
@@ -125,11 +115,11 @@ def main():
                 except Exception:
                     fallidos += 1
                     continue
-                # precio REAL del aviso (el inmueble ya trae su precio publicado)
+
                 precio = round(float(row["precio_usd"]))
                 tipo = str(row.get("tipo_propiedad", "Departamento")).strip() or "Departamento"
                 dorm = int(float(row["dormitorios"]))
-                foto = FOTOS[fi % len(FOTOS)] if (fi % 5 != 2) else None  # ~60% con foto
+                foto = FOTOS[fi % len(FOTOS)] if (fi % 5 != 2) else None
                 fi += 1
                 db.add(Listing(
                     owner_id=owner.id, district=distrito,
@@ -149,7 +139,7 @@ def main():
                 creados += 1
         db.commit()
         print(f"[catalogo] {creados} listings creados, {fallidos} descartados (fuera de cobertura)")
-        # distribución de veredictos
+
         from routers.listings import _zone_from_price
         rows = db.execute(select(Listing).where(Listing.owner_id == owner.id)).scalars().all()
         from collections import Counter
@@ -157,7 +147,6 @@ def main():
         print(f"[catalogo] veredictos: {dict(c)}")
     finally:
         db.close()
-
 
 if __name__ == "__main__":
     main()

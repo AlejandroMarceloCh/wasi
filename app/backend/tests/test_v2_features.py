@@ -15,53 +15,44 @@ from pathlib import Path
 
 import pandas as pd
 
-# Garantizar ruta del backend
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
 from wasi.models.model_service import USE_V2, model_service
 
-
-# Skip todos los tests v2 si no está activo
 pytestmark = pytest.mark.skipif(
     not USE_V2,
     reason="v2 no activo (DPD_FORCE_V1 o modelo_final_v2.joblib ausente)"
 )
-
 
 @pytest.fixture(scope="module", autouse=True)
 def _load_model():
     if not model_service.is_loaded:
         model_service.load()
 
-
-# ─── osm_lookup ─────────────────────────────────────────────────────────────
-
 def test_osm_lookup_miraflores_centrico():
     """Miraflores céntrico debe tener varios supermercados y bancos en 1km."""
     from wasi.features.osm_lookup import get_osm
     out = get_osm().lookup(-12.1185, -77.0290)
-    # Miraflores es zona comercial densa — debe haber al menos 1 supermercado en 1km
+
     assert out['count_1km_osm_supermercados'] >= 1
     assert out['count_1km_osm_bancos'] >= 3
     assert out['count_1km_osm_farmacias'] >= 5
-    # dist_nearest no puede ser negativa
+
     for k, v in out.items():
         if k.startswith('dist_nearest_'):
             assert v >= 0
         if k.startswith('count_'):
             assert v >= 0 and v == int(v)
 
-
 def test_osm_lookup_zona_residencial_remota():
     """Punta Hermosa (balneario) debe tener cobertura POI MUCHO más baja."""
     from wasi.features.osm_lookup import get_osm
     out = get_osm().lookup(-12.3340, -76.7900)
-    # Punta Hermosa: pocos POIs vs Miraflores
-    assert out['count_1km_osm_supermercados'] <= 2
-    # El dist_nearest a estación de Metro debe ser GRANDE (no hay Metro al sur)
-    assert out['dist_nearest_m_osm_estaciones'] > 5000
 
+    assert out['count_1km_osm_supermercados'] <= 2
+
+    assert out['dist_nearest_m_osm_estaciones'] > 5000
 
 def test_osm_lookup_devuelve_33_features():
     """7 cats × 3 metricas (21) + 6 tier (Sprint 3.2) + 6 premium (Sprint 3.6) = 33."""
@@ -75,14 +66,11 @@ def test_osm_lookup_devuelve_33_features():
                   'bancos_premium', 'bancos_mass',
                   'farmacias_cadena', 'farmacias_indep'):
         assert f'count_1km_osm_{tname}' in out
-    # Sprint 3.6 — 3 categorias premium (colegios_top, clinicas_premium, restaurantes_premium)
+
     for cat in PREMIUM_CATEGORIES:
         assert f'count_1km_osm_{cat}' in out
         assert f'dist_nearest_m_osm_{cat}' in out
     assert len(out) == len(OSM_CATEGORIES) * 3 + 6 + len(PREMIUM_CATEGORIES) * 2
-
-
-# ─── distrito_features ──────────────────────────────────────────────────────
 
 def test_distrito_features_premium_vs_popular():
     """Miraflores debe tener estrato alto, SJL bajo."""
@@ -94,9 +82,8 @@ def test_distrito_features_premium_vs_popular():
     assert sjl['estrato_nse'] <= 2
     assert mira['categoria_distrito'] == 'establecido'
     assert sjl['categoria_distrito'] == 'popular'
-    # SJL debe tener MUCHAS más denuncias violentas que Miraflores (es real)
-    assert sjl['denuncias_violentas_distrito'] > mira['denuncias_violentas_distrito']
 
+    assert sjl['denuncias_violentas_distrito'] > mira['denuncias_violentas_distrito']
 
 def test_distrito_features_fallback_para_no_existente():
     """Distrito desconocido cae a defaults (estrato=2, popular)."""
@@ -105,9 +92,6 @@ def test_distrito_features_fallback_para_no_existente():
     fake = df.lookup('Distrito Que No Existe XYZ')
     assert fake['estrato_nse'] == 2
     assert fake['categoria_distrito'] == 'popular'
-
-
-# ─── attach_features (tabla manual cubre dataset) ──────────────────────────
 
 def test_attach_features_cobertura_dataset_real():
     """La tabla manual debe cubrir todos los distritos del dataset (no devolver
@@ -121,11 +105,8 @@ def test_attach_features_cobertura_dataset_real():
     assert 'estrato_nse' in out.columns
     assert 'categoria_distrito' in out.columns
     assert out['estrato_nse'].notna().all()
-    # Como mínimo 3 valores únicos de estrato (1..5) deben aparecer
+
     assert out['estrato_nse'].nunique() >= 3
-
-
-# ─── build_features_v2 ─────────────────────────────────────────────────────
 
 def _form(**kw):
     base = dict(lat=-12.121, lng=-77.030, area=85, dormitorios=2, banos=2,
@@ -134,26 +115,23 @@ def _form(**kw):
     base.update(kw)
     return base
 
-
 def _geo(lat=-12.121, lng=-77.030):
     from wasi.features.geo_index import geo_lookup
     return geo_lookup(lat, lng)
-
 
 def test_build_features_v2_shape_y_columnas_clave():
     from wasi.models.ml_v2 import build_features_v2
     X = build_features_v2(_form(), _geo())
     assert X.shape[0] == 1
     assert X.shape[1] == len(model_service.feature_order)
-    # Las features nuevas deben estar y tener valores razonables
+
     for col in ['estrato_nse', 'n_comisarias_distrito',
                 'count_1km_osm_supermercados', 'dist_nearest_m_osm_estaciones',
                 'denuncias_violentas_distrito']:
         assert col in X.columns, f'{col} ausente del feature_order del modelo cargado'
-    # estrato_nse debe ser entero 1-5
+
     e = float(X['estrato_nse'].iloc[0])
     assert 1 <= e <= 5
-
 
 def test_build_features_v2_sin_nan_ni_inf():
     """Una predicción nunca debería producir NaN/Inf — eso sí rompe el modelo."""
@@ -162,9 +140,6 @@ def test_build_features_v2_sin_nan_ni_inf():
     X = build_features_v2(_form(), _geo())
     assert not X.isnull().any().any(), 'NaN en features v2'
     assert not np.isinf(X.values).any(), 'Inf en features v2'
-
-
-# ─── predict_fair_value end-to-end ─────────────────────────────────────────
 
 def test_predict_miraflores_es_zona_cara():
     """Para depto Miraflores 80m² 3 dorm, fair_value debe estar > $800
@@ -175,8 +150,7 @@ def test_predict_miraflores_es_zona_cara():
     ))
     assert res['fair_value'] > 800
     assert res['distrito'] == 'Miraflores'
-    assert res['confidence'] == 'Alta'   # Miraflores tiene 134+ comparables
-
+    assert res['confidence'] == 'Alta'
 
 def test_predict_smp_es_zona_barata():
     """SMP 80m² 3 dorm debe predecir < $700."""
@@ -187,7 +161,6 @@ def test_predict_smp_es_zona_barata():
     assert res['fair_value'] < 700
     assert res['distrito'] == 'San Martin de Porres'
 
-
 def test_predict_low_coverage_marca_confianza_baja():
     """Un punto en zona premium SIN comparables (La Planicie, La Molina)
     debe devolver confidence=Baja y disparar el banner del frontend."""
@@ -197,20 +170,15 @@ def test_predict_low_coverage_marca_confianza_baja():
     ))
     assert res['distrito'] == 'La Molina'
     assert res['confidence'] == 'Baja'
-    # El umbral real de "Baja" es CONF_MEDIA_MIN=27 (confidence_thresholds.json);
-    # este punto premium queda muy por debajo, sanity check del caso escaso.
-    assert res['n_comparables'] < 27
 
+    assert res['n_comparables'] < 27
 
 def test_predict_no_lima_lanza_400():
     """Un pin fuera de Lima (ej. Cusco) debe lanzar OutOfBoundsError."""
     from wasi.models.ml import predict_fair_value
     from wasi.features.geo_index import OutOfBoundsError
     with pytest.raises(OutOfBoundsError):
-        predict_fair_value(_form(lat=-13.5170, lng=-71.9785))  # Cusco
-
-
-# ─── poi_importance: peso relativo del entorno (S4) ─────────────────────────
+        predict_fair_value(_form(lat=-13.5170, lng=-71.9785))
 
 def test_poi_importance_incluye_peso_relativo():
     """Cada categoría trae pct (del modelo) y pct_of_env_total (dentro del

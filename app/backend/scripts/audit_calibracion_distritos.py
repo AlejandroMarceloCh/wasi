@@ -26,17 +26,14 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-MAX_POR_DISTRITO = 40   # muestra determinista (ORDER BY id) por distrito
-MIN_POR_DISTRITO = 15   # debajo de esto el sesgo no es estable: se omite
+MAX_POR_DISTRITO = 40
+MIN_POR_DISTRITO = 15
 
-# Premium / medio / bajo — para ver el gradiente de compresión completo.
-# Los nombres deben coincidir con la columna listings.district (sin tildes).
 DISTRITOS = [
     "Miraflores", "San Isidro", "Barranco", "Santiago de Surco", "La Molina",
     "Jesus Maria", "Lince", "Pueblo Libre", "Magdalena del Mar", "Surquillo",
     "San Miguel", "Cercado de Lima", "Chorrillos", "San Martin de Porres", "Ate",
 ]
-
 
 def main() -> int:
     from sqlalchemy import select
@@ -45,7 +42,6 @@ def main() -> int:
     from ml import predict_fair_value
     from model_service import model_service
 
-    # Carga explícita: fuera del lifespan del servidor nadie inicializa el modelo.
     model_service.load()
 
     db = SessionLocal()
@@ -111,7 +107,6 @@ def main() -> int:
     path.write_text(json.dumps(out, indent=2, ensure_ascii=False))
     print(f"\nEscrito {path.relative_to(BACKEND)} · {len(resultado)} distritos")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

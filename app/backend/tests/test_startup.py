@@ -10,7 +10,6 @@ import pytest
 
 from wasi.models.model_service import MODELS, USE_V2, ModelService
 
-
 def test_startup_exito():
     """Camino feliz: el modelo carga (v1 con 74 features o v2 con ~95)."""
     ms = ModelService()
@@ -19,13 +18,12 @@ def test_startup_exito():
     assert ms.version != "unloaded"
     if USE_V2:
         assert ms.mode == "v2"
-        assert len(ms.feature_order) >= 80   # v2 tiene ~95 features
+        assert len(ms.feature_order) >= 80
         assert "estrato_nse" in ms.feature_order
         assert "n_comisarias_distrito" in ms.feature_order
     else:
         assert ms.mode == "v1"
         assert len(ms.feature_order) == 74
-
 
 @pytest.mark.skipif(USE_V2, reason="manifest.json no se valida en modo v2")
 def test_startup_falla_manifest_adulterado():
@@ -41,7 +39,6 @@ def test_startup_falla_manifest_adulterado():
             ModelService().load()
     finally:
         path.write_text(backup)
-
 
 @pytest.mark.skipif(USE_V2, reason="golden_prediction.json no se valida en modo v2")
 def test_startup_falla_golden_incorrecto():

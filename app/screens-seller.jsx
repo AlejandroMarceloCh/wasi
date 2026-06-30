@@ -1,25 +1,24 @@
-/* Wasi — vendedor: publicar, mis propiedades, leads, guardados + exports.
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
+
+
 const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpired }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   const [submitting, setSubmitting] = useS(false);
   const [calculating, setCalculating] = useS(false);
-  // El usuario ya escribió su propio precio → no lo pisamos con el sugerido (P-04).
+  
   const [priceUserTyped, setPriceUserTyped] = useS(
     !!(prefill && prefill.price_usd != null));
-  // Destino del buscador de dirección → MapPicker vuela el pin (S4).
+  
   const [flyTo, setFlyTo] = useS(null);
   const [fairRef, setFairRef] = useS(prefill && prefill.fair_value ? prefill.fair_value : null);
   const [err, setErr] = useS('');
   const [distritos, setDistritos] = useS([]);
-  // Contrafactuales del simulador: se cargan junto al precio sugerido. Solo se
-  // muestran tras calcular (fairRef != null). Reusa CounterfactualPanel.
+  
+  
   const [cf, setCf] = useS(null);
   const [cfLoading, setCfLoading] = useS(false);
   const [cfError, setCfError] = useS(false);
-  // Vista previa del aviso antes de publicar (FR-14): reusa ListingCard tal cual
-  // se verá en el catálogo, para que el propietario valide antes de lanzar.
+  
+  
   const [previewOpen, setPreviewOpen] = useS(false);
   const [f, setF] = useS({
     district: (prefill && prefill.district) || '',
@@ -62,8 +61,8 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
     && f.contact_name.trim().length >= 2 && f.contact_phone.trim().length >= 6
     && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim());
 
-  // Lista legible de lo que falta para publicar — alimenta el aviso del submit
-  // (P-03): antes el botón quedaba mudo y el usuario no sabía qué corregir.
+  
+  
   const camposFaltantes = () => {
     const m = [];
     if (!pinOk) m.push('ubica el pin dentro de Lima');
@@ -77,8 +76,8 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
     return m;
   };
 
-  // Reusa el contrato congelado: precio gt=0 obligatorio aunque el usuario aún
-  // no fije el precio publicado, por eso el fallback a 1.
+  
+  
   const calcular = async () => {
     if (!areaOk || !pinOk || calculating) return;
     setErr(''); setCalculating(true);
@@ -91,11 +90,11 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
       });
       const fv = res.fair_value;
       setFairRef(fv);
-      // Solo pre-rellena si el usuario aún no escribió su propio precio (P-04):
-      // si ya puso uno, se respeta y la referencia se muestra aparte en el Tag.
+      
+      
       if (fv != null && !priceUserTyped) set('price_usd', String(Math.round(fv)));
-      // Simulador de palancas: mismo form SIN `precio` (re-serving del modelo
-      // congelado). Error silencioso: el panel maneja su propio estado.
+      
+      
       setCf(null); setCfError(false); setCfLoading(true);
       Api.counterfactual({
         lat: f.lat, lng: f.lng, area: areaNum,
@@ -115,7 +114,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
 
   const submit = async () => {
     if (submitting) return;
-    // P-03: en vez de no hacer nada, decir qué falta.
+    
     if (!formOk) {
       const faltan = camposFaltantes();
       setErr('Para publicar, completa: ' + faltan.join(' · '));
@@ -205,7 +204,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         <ToggleRow label="Es un estudio (monoambiente)" checked={f.es_estudio}
           onChange={(v)=>setF(p=>({
             ...p, es_estudio:v,
-            dormitorios: v ? 0 : Math.max(1, p.dormitorios),   // no-estudio nunca 0 dorm (P-07)
+            dormitorios: v ? 0 : Math.max(1, p.dormitorios),   
             banos: v ? p.banos : Math.max(1, p.banos),
           }))}/>
         <div className="grid-2" style={{marginTop:12, gap:14}}>
@@ -288,9 +287,9 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         )}
       </Card>
 
-      {/* Simulador de precio — palancas para subir el precio sugerido. Solo
-          aparece tras calcular el precio (fairRef != null). Reusa el componente
-          y el copy de vendedor de ListingDetailScreen. */}
+      {
+
+}
       {fairRef != null && (
         <div style={{marginTop:16}}>
           <CounterfactualPanel cf={cf} loading={cfLoading} error={cfError} isSeller/>
@@ -327,7 +326,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         </div>
       </Card>
 
-      {/* FR-14: vista previa del aviso tal como se verá en el catálogo. */}
+      {}
       <Modal open={previewOpen} onClose={()=>setPreviewOpen(false)}
         title="Vista previa del aviso"
         subtitle="Así se verá tu publicación en el catálogo. Cierra para seguir editando.">
@@ -354,13 +353,6 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
   );
 };
 
-/* ===== MyListingsScreen (propietario/agente) — cierra el flywheel =====
-   Lista los inmuebles del usuario (Api.myListings) y, por cada uno, las
-   consultas (leads) recibidas (Api.listLeads). Solo tiene sentido para sellers.
-   Reusa el patrón de fetch del resto de pantallas: handleApiErr + onAuthExpired,
-   estados loading/error/empty independientes por sección. */
-
-// Formatea un created_at ISO a fecha legible en es-PE. Tolera valores inválidos.
 const fmtLeadDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -373,8 +365,6 @@ const fmtLeadDate = (iso) => {
   }
 };
 
-// Tarjeta de un inmueble con sus leads. Carga los leads de forma diferida (lazy)
-// la primera vez que se expande, para no disparar N peticiones de golpe.
 const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpired }) => {
   const [open, setOpen] = useS(false);
   const [leads, setLeads] = useS(null);
@@ -383,8 +373,8 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
   const [loaded, setLoaded] = useS(false);
   const [deleting, setDeleting] = useS(false);
 
-  // Borrar publicación (P-14). confirm nativo: el cascade del backend limpia
-  // leads/favoritos. Tras borrar, el padre recarga la lista vía onDeleted.
+  
+  
   const del = (e) => {
     e.stopPropagation();
     if (deleting) return;
@@ -627,14 +617,8 @@ const MyListingsScreen = ({ onBack, onOpenListing, onPublish, onError, onAuthExp
   );
 };
 
-/* ===== LeadsScreen (vendedor) — bandeja unificada de TODAS las consultas
-   recibidas a través de todos los inmuebles del usuario. Reúne myListings +
-   listLeads por inmueble y los aplana en un inbox cronológico (más reciente
-   primero). Complementa a "Mis propiedades" (que muestra leads anidados por
-   inmueble): aquí se ve el flujo completo de demanda de un vistazo. Mismo patrón
-   de fetch del resto de pantallas. */
 const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
-  const [items, setItems] = useS(null);   // [{ lead, listing }]
+  const [items, setItems] = useS(null);   
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
 
@@ -644,8 +628,8 @@ const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
       .then((listings) => {
         const arr = Array.isArray(listings) ? listings : [];
         if (arr.length === 0) return [];
-        // Un fetch de leads por inmueble, en paralelo. Un fallo individual no
-        // tumba la bandeja: ese inmueble simplemente aporta 0 consultas.
+        
+        
         return Promise.all(arr.map((l) =>
           Api.listLeads(l.id)
             .then((leads) => (Array.isArray(leads) ? leads : []).map((lead) => ({ lead, listing: l })))
@@ -653,8 +637,8 @@ const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
         )).then((groups) => groups.flat());
       })
       .then((flat) => {
-        // ts() normaliza fecha ausente o inválida a 0 → esos leads caen al final
-        // del orden descendente (más reciente primero), sin ambigüedad.
+        
+        
         const ts = (v) => {
           if (!v) return 0;
           const t = new Date(v).getTime();
@@ -769,10 +753,6 @@ const Loading = ({ label = 'Calculando precio de referencia…' }) => (
   </div>
 );
 
-/* ===== SavedScreen (Guardados) — inmuebles que el usuario marcó con el corazón.
-   Lista Api.favorites() en un grid de ListingCard. El corazón sigue activo y al
-   quitarlo se remueve la card de inmediato (optimista). Mismo patrón de fetch
-   que el resto de pantallas. */
 const SavedScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
   const [data, setData] = useS(null);
   const [loading, setLoading] = useS(true);
@@ -789,13 +769,13 @@ const SavedScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
       });
   }, []);
 
-  // En Guardados, todas las cards están guardadas. Quitar = DELETE + remover de
-  // la lista local de inmediato; si la API falla, se restaura la card.
-  const onToggleFav = (id /*, next siempre false aquí */) => {
+  
+  
+  const onToggleFav = (id ) => {
     const prev = data;
     setData(d => (d || []).filter(l => l.id !== id));
     Api.removeFavorite(id).catch(ex => {
-      setData(prev);                                 // restaurar si falla
+      setData(prev);                                 
       const msg = handleApiErr(ex, { setErr, onAuthExpired });
       if (typeof onError === 'function') onError(msg);
     });

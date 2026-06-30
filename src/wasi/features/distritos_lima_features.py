@@ -27,53 +27,51 @@ from __future__ import annotations
 import pandas as pd
 import unicodedata
 
-# Tabla maestra — 50 distritos de Lima Metropolitana + Callao
-# Ordenada por nivel socioeconómico aproximado para revisión visual.
 DISTRITOS_LIMA = [
-    # === Establecidos premium (estrato 5 Alto) ===
+
     ('San Isidro',                5, 'establecido'),
     ('Miraflores',                5, 'establecido'),
-    ('La Molina',                 4, 'establecido'),  # heterogéneo, baja a 4 promedio
+    ('La Molina',                 4, 'establecido'),
     ('San Borja',                 5, 'establecido'),
-    ('Santiago de Surco',         4, 'establecido'),  # heterogéneo Casuarinas vs Surco viejo
-    ('Surco',                     4, 'establecido'),  # alias usado en algunos portales
+    ('Santiago de Surco',         4, 'establecido'),
+    ('Surco',                     4, 'establecido'),
     ('Barranco',                  4, 'establecido'),
-    # === Emergentes / clase media activa ===
+
     ('Magdalena del Mar',         3, 'emergente'),
     ('Jesus Maria',               3, 'emergente'),
     ('Pueblo Libre',              3, 'emergente'),
     ('San Miguel',                3, 'emergente'),
     ('Lince',                     3, 'emergente'),
     ('Surquillo',                 3, 'emergente'),
-    ('La Punta',                  4, 'emergente'),    # Callao
-    ('San Bartolo',               3, 'emergente'),    # balneario
-    # === Populares / medios bajos ===
-    ('Chorrillos',                3, 'popular'),       # heterogéneo, Casuarinas eleva
+    ('La Punta',                  4, 'emergente'),
+    ('San Bartolo',               3, 'emergente'),
+
+    ('Chorrillos',                3, 'popular'),
     ('La Victoria',               2, 'popular'),
-    ('Cercado de Lima',           2, 'popular'),       # alias INEI: Lima
+    ('Cercado de Lima',           2, 'popular'),
     ('Lima',                      2, 'popular'),
     ('Breña',                     2, 'popular'),
     ('San Luis',                  2, 'popular'),
     ('San Martin de Porres',      2, 'popular'),
     ('Los Olivos',                2, 'popular'),
     ('Callao',                    2, 'popular'),
-    ('Bellavista',                3, 'popular'),       # Callao, parte alta
+    ('Bellavista',                3, 'popular'),
     ('La Perla',                  2, 'popular'),
     ('Carmen de la Legua Reynoso',2, 'popular'),
-    ('Cieneguilla',               3, 'popular'),       # heterogéneo, quintas elevan
-    ('Punta Hermosa',             3, 'popular'),       # balneario
-    ('Punta Negra',               3, 'popular'),       # balneario
-    ('Pachacamac',                2, 'popular'),       # mix urbano + agrícola
+    ('Cieneguilla',               3, 'popular'),
+    ('Punta Hermosa',             3, 'popular'),
+    ('Punta Negra',               3, 'popular'),
+    ('Pachacamac',                2, 'popular'),
     ('Lurin',                     2, 'popular'),
     ('Santa Rosa',                2, 'popular'),
     ('Pucusana',                  2, 'popular'),
-    ('Santa Maria del Mar',       3, 'popular'),       # balneario premium
+    ('Santa Maria del Mar',       3, 'popular'),
     ('Ate',                       2, 'popular'),
     ('Santa Anita',               2, 'popular'),
     ('Chaclacayo',                3, 'popular'),
     ('Mi Peru',                   1, 'popular'),
     ('Ventanilla',                1, 'popular'),
-    # === Bajos (estrato 1 Bajo) ===
+
     ('Comas',                     2, 'popular'),
     ('Independencia',             2, 'popular'),
     ('Carabayllo',                1, 'popular'),
@@ -88,7 +86,6 @@ DISTRITOS_LIMA = [
     ('Villa el Salvador',         1, 'popular'),
 ]
 
-
 def _norm(s: str) -> str:
     """Normaliza un nombre de distrito para matching robusto."""
     if pd.isna(s):
@@ -96,13 +93,11 @@ def _norm(s: str) -> str:
     s = unicodedata.normalize('NFKD', str(s)).encode('ascii', 'ignore').decode()
     return s.upper().strip()
 
-
 def get_district_table() -> pd.DataFrame:
     """Devuelve la tabla maestra como DataFrame con columna `nombre_norm` para join."""
     df = pd.DataFrame(DISTRITOS_LIMA, columns=['distrito_oficial', 'estrato_nse', 'categoria_distrito'])
     df['nombre_norm'] = df['distrito_oficial'].apply(_norm)
     return df
-
 
 def attach_features(df_listings: pd.DataFrame,
                     col_distrito: str = 'distrito_oficial') -> pd.DataFrame:
@@ -127,7 +122,6 @@ def attach_features(df_listings: pd.DataFrame,
         out['estrato_nse'] = out['estrato_nse'].astype(int)
     return out.drop(columns=['_join', 'nombre_norm'])
 
-
 if __name__ == '__main__':
     table = get_district_table()
     print(f'Tabla maestra: {len(table)} distritos')
@@ -136,7 +130,7 @@ if __name__ == '__main__':
     print('Categorías:')
     print(table['categoria_distrito'].value_counts().to_string())
     print()
-    # Sanity check sobre el dataset del proyecto
+
     df = pd.read_csv('../data/processed/inmuebles_clean_v1.csv')
     enriched = attach_features(df)
     print('=== Listings con estrato/categoría ===')

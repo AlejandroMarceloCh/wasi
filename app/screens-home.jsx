@@ -1,12 +1,5 @@
-/* Wasi — Home/Dashboard legacy (hoy fuera de la nav por rol).
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
-/* ============== 2.5 HOME — landing del producto ============== */
 
-/* Mini-gauge usado dentro del hero-mock y del card de Analizar precio del Home.
-   La aguja apunta arriba en su forma base (de (CX,CY) a (CX,CY-R)) y se
-   rota según pct: pct=0 → -90° (Ganga, izquierda), pct=0.5 → 0° (Justo),
-   pct=1 → +90° (Inflado, derecha). La transición CSS hace la animación. */
+
 const HomeMiniGauge = ({ pct = 0.78 }) => {
   const CX = 90, CY = 78, R = 60;
   const polar = (p, r = R) => {
@@ -46,9 +39,6 @@ const HomeMiniGauge = ({ pct = 0.78 }) => {
   );
 };
 
-/* Diccionario rotativo del hero. 10 entradas mezclando Ganga / Justo / Inflado
-   para que el hero muestre la diversidad del producto. La zona se calcula en
-   runtime con el mismo ZONE_BAND_PCT=8 que usa el backend (ml.py). */
 const HERO_LISTINGS = [
   { addr: 'Av. Pardo 245',           dist: 'Miraflores',   area: 60, dorm: 2, piso: 4,  fair: 700,  anuncio: 900  },
   { addr: 'Calle Berlín 980',        dist: 'Miraflores',   area: 45, dorm: 1, piso: 7,  fair: 650,  anuncio: 560  },
@@ -61,10 +51,10 @@ const HERO_LISTINGS = [
   { addr: 'Av. Petit Thouars 4520',  dist: 'Lince',        area: 65, dorm: 2, piso: 8,  fair: 600,  anuncio: 540  },
   { addr: 'Calle Tutumo 220',        dist: 'San Borja',    area: 75, dorm: 2, piso: 4,  fair: 920,  anuncio: 1090 },
 ];
-const HERO_ZONE_BAND_PCT  = 8;    // == backend ml.ZONE_BAND_PCT
-const HERO_GAUGE_RANGE    = 35;   // ±35% → mapea a [0,1] del gauge (rango
-                                  // visual; permite diferenciar inflados
-                                  // fuertes entre sí sin saturarse en +90°)
+const HERO_ZONE_BAND_PCT  = 8;    
+const HERO_GAUGE_RANGE    = 35;   
+                                  
+                                  
 const heroZoneOf = (diffPct) => {
   if (Math.abs(diffPct) <= HERO_ZONE_BAND_PCT) return 'justo';
   return diffPct > 0 ? 'inflado' : 'ganga';
@@ -76,15 +66,12 @@ const HERO_ZONE_COPY  = {
   inflado: 'sobre el justo',
 };
 
-/* Histograma bell-curve para la sección "El problema". Recibe el listing
-   actual y deriva: rango del eje X centrado en `fair`, en qué barra cae
-   `anuncio`, y los badges flotantes FAIR / ANUNCIO con sus posiciones x. */
 const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
   const PAD_X = 30, BAR_W = 36, GAP = 6;
   const Y_BASE = 200, Y_MAX = 150;
   const SVG_W  = 600;
 
-  // Rango simétrico alrededor de fair, redondeado a $50.
+  
   const xMin = Math.max(50, Math.round((fair * 0.55) / 50) * 50);
   const xMax = 2 * fair - xMin;
   const span = xMax - xMin;
@@ -95,8 +82,8 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
     return PAD_X + BAR_W / 2 + t * 12 * (BAR_W + GAP);
   };
 
-  const fairBar = priceToBar(fair);                              // ~6
-  const annBar  = Math.max(0, Math.min(12, priceToBar(anuncio))); // clamp
+  const fairBar = priceToBar(fair);                              
+  const annBar  = Math.max(0, Math.min(12, priceToBar(anuncio))); 
   const diffPct = (anuncio / fair - 1) * 100;
   const annZone = Math.abs(diffPct) <= HERO_ZONE_BAND_PCT
     ? 'justo' : (diffPct > 0 ? 'inflado' : 'ganga');
@@ -117,7 +104,7 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
     return { i, h, color, opacity };
   });
 
-  // 5 ticks equidistantes en el eje X, redondeados a $50.
+  
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => {
     const price = Math.round((xMin + t * span) / 50) * 50;
     return { price, x: xOfPrice(price) };
@@ -126,13 +113,13 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
   const fmt$ = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
   const annLabel  = `ANUNCIO · ${fmt$(anuncio)}`;
   const fairLabel = `FAIR · ${fmt$(fair)}`;
-  // Ancho dinámico del rect según largo del label (caracteres × ancho aprox).
+  
   const labelW = (s) => Math.max(80, s.length * 7.2 + 18);
 
-  // Dos motivos para reemplazar el triangle por leader line dashed:
-  //   1. overlap horizontal entre badges (precios cercanos → ANUNCIO sube).
-  //   2. la barra del anuncio es chica (cola de la distribución) y el triangle
-  //      flotaría en el aire antes de llegar a ella.
+  
+  
+  
+  
   const fairX = xOfPrice(fair);
   const annX  = xOfPrice(anuncio);
   const minSep  = (labelW(fairLabel) + labelW(annLabel)) / 2 + 10;
@@ -140,18 +127,18 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
 
   const annBarH = 100 * Math.exp(-Math.pow((annBar - 6) / 3.2, 2)) / 100 * Y_MAX;
   const annBarTopY = Y_BASE - annBarH;
-  // Distancia entre el tip del triangle (y=46 si está a nivel normal) y el top
-  // de la barra. Si supera ~30 px, el tip se ve "suelto" → mejor leader line.
+  
+  
   const ANN_Y_NORMAL  = 12;
   const ANN_Y_STACKED = -34;
   const gapToBar = annBarTopY - (ANN_Y_NORMAL + 34);
   const farFromBar = gapToBar > 30;
   const useLeader = overlap || farFromBar;
 
-  // ANUNCIO sube de nivel solo si hay overlap; si solo es "lejos de la barra",
-  // se queda al nivel normal pero con leader line en vez de triangle.
+  
+  
   const annY = overlap ? ANN_Y_STACKED : ANN_Y_NORMAL;
-  const leaderY2 = annBarTopY - 4 - annY;   // en coords locales del <g>
+  const leaderY2 = annBarTopY - 4 - annY;   
 
   const viewBox = overlap ? `0 -40 ${SVG_W} 320` : `0 0 ${SVG_W} 280`;
 
@@ -187,7 +174,7 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
         <text x="9" y="4" fontSize="11" fontWeight="700" fill="var(--danger)"
               fontFamily="Space Grotesk" letterSpacing=".07em">INFLADO</text>
       </g>
-      {/* Badge FAIR — siempre primary, siempre en nivel normal con triangle */}
+      {}
       <g transform={`translate(${fairX.toFixed(1)}, 12)`}>
         <rect x={-labelW(fairLabel)/2} y="0" width={labelW(fairLabel)} height="26"
               rx="13" fill="var(--primary)"/>
@@ -195,7 +182,7 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
               fontWeight="700" fontFamily="Space Grotesk">{fairLabel}</text>
         <polygon points="-6,26 6,26 0,34" fill="var(--primary)"/>
       </g>
-      {/* Badge ANUNCIO — sube un nivel cuando hay overlap y conecta con leader line */}
+      {}
       <g transform={`translate(${annX.toFixed(1)}, ${annY})`}>
         <rect x={-labelW(annLabel)/2} y="0" width={labelW(annLabel)} height="26"
               rx="13" fill={annFill}/>
@@ -213,9 +200,6 @@ const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
   );
 };
 
-/* Mini-mapa Leaflet (read-only) sobre Miraflores con un pin pulsante y los
-   overlays de score + POI chips encima. Reemplaza al mock CSS que se veía mal.
-   Se monta una sola vez, queda quieto (todos los gestos desactivados). */
 const HomeOSMMock = () => {
   const elRef = useR(null);
   const mapRef = useR(null);
@@ -226,9 +210,9 @@ const HomeOSMMock = () => {
       doubleClickZoom: false, boxZoom: false, keyboard: false,
       zoomControl: false, attributionControl: false,
     }).setView([-12.1180, -77.0300], 15);
-    // Carto Positron: tiles construidos sobre el mismo dato de OSM pero con
-    // styling minimalista (blanco / gris / azul muy suave). Mejor combina con
-    // la estética editorial del Home que el tile raw de osm.org.
+    
+    
+    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19, subdomains: 'abcd',
     }).addTo(map);
@@ -250,9 +234,6 @@ const HomeOSMMock = () => {
   );
 };
 
-/* DistrictMap — mapa de Lima con semáforo ganga/justo/inflado por distrito.
-   Círculos Leaflet, tamaño proporcional a N avisos, tooltip con precio mediano.
-   No requiere auth: consume /api/distritos-zona público. */
 const ZONA_COLOR = { ganga: '#22c55e', justo: '#f59e0b', inflado: '#ef4444' };
 const ZONA_LABEL = { ganga: 'Precio bajo', justo: 'Precio justo', inflado: 'Precio alto' };
 
@@ -260,13 +241,13 @@ const DistrictMap = ({ onGo }) => {
   const elRef = useR(null), mapRef = useR(null), markersRef = useR({});
   const flyTimerRef = useR(null), lastFocusRef = useR(null);
   const [distritos, setDistritos] = useS([]);
-  const [active, setActive] = useS(null); // distrito enfocado (hover en mapa o lista)
+  const [active, setActive] = useS(null); 
 
   useE(() => {
     Api.distritosZona().then(setDistritos).catch(() => {});
   }, []);
 
-  // Radio del marcador: dots sólidos y crispy (no burbujas translúcidas), tamaño ∝ avisos.
+  
   const markerR = (d, maxN) => 5 + (d.n / maxN) * 9;
 
   useE(() => {
@@ -296,8 +277,8 @@ const DistrictMap = ({ onGo }) => {
       markersRef.current[d.distrito] = { circle, baseR: markerR(d, maxN) };
     });
     mapRef.current = map;
-    // Leaflet en contenedor flex: invalidateSize al montar y en cada reflow/resize
-    // (evita tiles grises al pasar de 2-columnas a apilado por flexWrap).
+    
+    
     requestAnimationFrame(() => map.invalidateSize());
     let ro = null;
     if (window.ResizeObserver) {
@@ -311,15 +292,15 @@ const DistrictMap = ({ onGo }) => {
     };
   }, [distritos]);
 
-  // Resalta un dot de forma idempotente (no depende de que el mouseleave dispare).
+  
   const setDotStyle = (distrito, on) => {
     const m = markersRef.current[distrito];
-    if (!m || !m.circle._map) return;   // guard: el layer puede haber sido removido
+    if (!m || !m.circle._map) return;   
     if (on) m.circle.setStyle({ weight: 4, radius: m.baseR + 4 }).bringToFront();
     else m.circle.setStyle({ weight: 2, radius: m.baseR });
   };
 
-  // Hover en una fila → vuela al distrito (debounce) y resalta su dot.
+  
   const focusDistrito = (d) => {
     setActive(d);
     if (lastFocusRef.current && lastFocusRef.current !== d.distrito) setDotStyle(lastFocusRef.current, false);
@@ -328,7 +309,7 @@ const DistrictMap = ({ onGo }) => {
     if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
     flyTimerRef.current = setTimeout(() => {
       if (mapRef.current) mapRef.current.flyTo([d.lat, d.lng], 13, { duration: 0.5 });
-    }, 130);   // solo vuela al distrito donde el cursor se detiene
+    }, 130);   
   };
   const blurDistrito = (d) => {
     setActive(null);
@@ -339,7 +320,7 @@ const DistrictMap = ({ onGo }) => {
 
   const counts = { ganga: 0, justo: 0, inflado: 0 };
   distritos.forEach(d => { if (counts[d.zona] !== undefined) counts[d.zona]++; });
-  // Ranking accionable: del más barato al más caro por $/m² (dónde conviene alquilar).
+  
   const ranked = [...distritos].sort((a, b) => a.precio_m2 - b.precio_m2);
 
   return (
@@ -359,7 +340,7 @@ const DistrictMap = ({ onGo }) => {
         </div>
       </div>
 
-      {/* Mapa (protagonista) + ranking accionable al lado. Herramienta de decisión. */}
+      {}
       <div style={{ display:'flex', flexWrap:'wrap', borderRadius:20, overflow:'hidden', border:'1px solid var(--line)', boxShadow:'var(--shadow-md)', background:'var(--surface)' }}>
         <div style={{ position:'relative', flex:'1 1 460px', minWidth:0 }}>
           <div ref={elRef} style={{ height:480 }}/>
@@ -425,14 +406,13 @@ const DistrictMap = ({ onGo }) => {
 
 const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
-  /* Rotación del hero-mock: cada 5,5 s salta al siguiente listing.
-     animatedPct arranca en 0 y al primer paint salta al pct real → la
-     transición CSS del SVG hace la animación de entrada de la aguja. */
+  
+
   const [heroIdx, setHeroIdx] = useS(0);
   const [animatedPct, setAnimatedPct] = useS(0);
   const [poiData, setPoiData] = useS(null);
-  // Las mejores gangas ahora: top-3 inmuebles por mejor oportunidad de precio.
-  const [gangas, setGangas] = useS(null);          // null = cargando, [] = sin resultados
+  
+  const [gangas, setGangas] = useS(null);          
 
   useE(() => {
     Api.listListings({ zone: 'Ganga', sort: 'ganga', limit: 3 })
@@ -467,7 +447,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
   return (
   <div className="container fade-in">
 
-    {/* HERO */}
+    {}
     <div className="home-hero">
       <div>
         <div className="home-eyebrow">
@@ -553,10 +533,10 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* MAPA DE LIMA — semáforo de precios por distrito */}
+    {}
     <DistrictMap onGo={onGo}/>
 
-    {/* EL PROBLEMA */}
+    {}
     <div className="home-section">
       <div className="home-split">
         <div>
@@ -590,7 +570,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* QUÉ HACEMOS */}
+    {}
     <div className="home-section">
       <div className="home-eyebrow">Qué hacemos</div>
       <h2 className="home-h2" style={{ fontSize: 38 }}>Dos módulos, una decisión informada.</h2>
@@ -646,7 +626,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* CÓMO FUNCIONA — full-bleed */}
+    {}
     <div className="home-howit">
       <div className="home-howit-inner">
         <div className="home-eyebrow">Cómo funciona</div>
@@ -684,7 +664,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* CÓMO NACIMOS */}
+    {}
     <div className="home-section">
       <div className="home-split">
         <div>
@@ -721,7 +701,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* MISIÓN Y OBJETIVOS — quote + grid 2x2 */}
+    {}
     <div className="home-section">
       <div className="home-eyebrow">Misión y objetivos</div>
       <div className="home-quote">
@@ -747,7 +727,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* LA DATA DETRÁS — sección full-bleed con fondo oscuro y números masivos */}
+    {}
     <div className="home-data-section">
       <div className="home-data-inner">
         <div className="home-eyebrow on-dark">La data detrás</div>
@@ -769,7 +749,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
           ))}
         </div>
 
-        {/* Honestidad sobre el desbalance del mercado limeño */}
+        {}
         <p style={{
           marginTop: 32, color: 'rgba(255,255,255,.65)',
           fontSize: 14, lineHeight: 1.65, maxWidth: 880,
@@ -785,7 +765,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     </div>
 
-    {/* POI DIFERENCIAL — importancia de entorno por categoría */}
+    {}
     {poiData && poiData.length > 0 && (
       <div className="home-section">
         <div className="home-split" style={{ alignItems: 'flex-start', gap: 48 }}>
@@ -816,7 +796,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       </div>
     )}
 
-    {/* LAS MEJORES GANGAS AHORA — top-3 oportunidades reales del catálogo */}
+    {}
     <div className="home-section">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
           <div>
@@ -840,7 +820,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
       )}
     </div>
 
-    {/* CTA FINAL — gradiente azul oscuro grande */}
+    {}
     <div className="home-section" style={{ marginBottom: 12 }}>
       <div className="home-cta-final">
         <div>
@@ -865,8 +845,6 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
   );
 };
 
-/* ============== 3. DASHBOARD / OPERACIONES ============== */
-// Info de cada módulo para la isla flotante de confirmación
 const MODULE_INFO = {
   fairvalue: {
     screen: 'fairvalue-form',
@@ -900,7 +878,6 @@ const MODULE_INFO = {
   },
 };
 
-// Modal de "Análisis recientes": filtros y paginación
 const ANA_PER_PAGE = 8;
 const ANA_FILTERS = [
   { key: 'all',     label: 'Todos' },
@@ -914,9 +891,9 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
   const [data, setData] = useS(null);
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
-  const [confirm, setConfirm] = useS(null);   // 'fairvalue' | 'entorno' | null
-  const [covPage, setCovPage] = useS(0);      // página de cobertura por distrito
-  // Modal de análisis recientes
+  const [confirm, setConfirm] = useS(null);   
+  const [covPage, setCovPage] = useS(0);      
+  
   const [anaOpen, setAnaOpen]     = useS(false);
   const [anaAll, setAnaAll]       = useS([]);
   const [anaLoading, setAnaLoading] = useS(false);
@@ -954,7 +931,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
   const levelToVar = (lvl) => lvl === 'alta' ? 'success' : lvl === 'media' ? 'warning' : 'danger';
   const levelLabel = (lvl) => lvl === 'alta' ? 'Alta' : lvl === 'media' ? 'Media' : 'Baja';
 
-  // ----- Análisis recientes (modal) -----
+  
   const anaFiltered = anaFilter === 'all' ? anaAll : anaAll.filter(a => a.zone === anaFilter);
   const anaTotalPages = Math.max(1, Math.ceil(anaFiltered.length / ANA_PER_PAGE));
   const anaPageSafe = Math.min(anaPage, anaTotalPages - 1);
@@ -1039,7 +1016,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
             </div>
           </div>
 
-          {/* Entrada al modal de análisis recientes — reemplaza la tabla grande */}
+          {}
           <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal} onKeyDown={onKeyActivate(openAnalysesModal)}>
             <div className="ana-entry-ico"><Icon name="chart" size={22}/></div>
             <div className="ana-entry-body">
@@ -1057,7 +1034,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
           </div>
         </div>
 
-        {/* Sidebar */}
+        {}
         <div className="stack-24">
           <Card>
             <div className="section-h">Tu próximo paso</div>
@@ -1150,7 +1127,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
         </div>
       </div>
 
-      {/* ---- Isla flotante: confirmación antes de entrar al módulo ---- */}
+      {}
       {(() => {
         const info = confirm ? MODULE_INFO[confirm] : null;
         const isAccent = !!(info && info.iconVariant === 'accent');
@@ -1186,7 +1163,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
         );
       })()}
 
-      {/* ---- Modal: análisis recientes — filtros por zona + paginación 8/pág ---- */}
+      {}
       <Modal
         open={anaOpen}
         onClose={() => setAnaOpen(false)}
@@ -1200,7 +1177,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
           <div className="small muted text-center" style={{padding:'40px 0'}}>Cargando análisis…</div>
         ) : (
           <>
-            {/* Filtros por zona */}
+            {}
             <div className="row" style={{gap:8, flexWrap:'wrap'}}>
               {ANA_FILTERS.map(f => {
                 const count = f.key === 'all'
@@ -1221,7 +1198,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
               })}
             </div>
 
-            {/* Lista compacta */}
+            {}
             <div className="ana-list" style={{marginTop:14}}>
               {anaSlice.map(r => {
                 const neg = r.zone === 'Inflado';
@@ -1257,7 +1234,7 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
               )}
             </div>
 
-            {/* Paginador */}
+            {}
             {anaTotalPages > 1 && (
               <div className="pager" style={{marginTop:14}}>
                 <button

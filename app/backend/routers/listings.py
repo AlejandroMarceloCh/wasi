@@ -9,19 +9,17 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from wasi.models.ml import ZONE_BAND_PCT          # mismo umbral del veredicto que usa ml.predict_fair_value
+from wasi.models.ml import ZONE_BAND_PCT
 from models import Favorite, Lead, Listing, User
 from schemas import FavoriteIn, LeadIn, LeadOut, ListingIn, ListingOut
 
 router = APIRouter(prefix="/api", tags=["listings"])
 
-# Roles que pueden publicar. Mismo set de verdad que VALID_ROLES de routers/auth.py.
 SELLER_ROLES = {"Propietario", "Agente inmobiliario"}
 VALID_STATUS = {"activo", "pausado", "alquilado"}
 
 VALID_SORT = {"ganga", "precio_asc", "precio_desc", "reciente"}
 VALID_ZONE = {"Ganga", "Justo", "Inflado"}
-
 
 def _ganga_score(l: Listing) -> float:
     """Qué tan ganga es el listing: (precio - referencia) / referencia.
@@ -29,7 +27,6 @@ def _ganga_score(l: Listing) -> float:
     if not l.fair_value_ref or l.fair_value_ref <= 0:
         return float("inf")
     return (l.price_usd - l.fair_value_ref) / l.fair_value_ref
-
 
 def _fair_value_ref_server(db: Session, district: str, area_m2: float) -> Optional[float]:
     """Referencia de precio justo calculada SERVER-SIDE (no manipulable por el
@@ -52,7 +49,6 @@ def _fair_value_ref_server(db: Session, district: str, area_m2: float) -> Option
     med = ppm2[n // 2] if n % 2 else (ppm2[n // 2 - 1] + ppm2[n // 2]) / 2
     return round(med * area_m2, 0)
 
-
 def _zone_from_price(price: float, fair_ref: Optional[float]) -> Optional[str]:
     """Veredicto Wasi del precio publicado vs la referencia del modelo.
 
@@ -68,7 +64,6 @@ def _zone_from_price(price: float, fair_ref: Optional[float]) -> Optional[str]:
     if diff_pct > ZONE_BAND_PCT:
         return "Inflado"
     return "Justo"
-
 
 def _to_out(l: Listing, include_contact: bool = False) -> ListingOut:
     """Serializa un Listing. include_contact=True solo para el dueño (mis
@@ -88,7 +83,6 @@ def _to_out(l: Listing, include_contact: bool = False) -> ListingOut:
         zone=_zone_from_price(l.price_usd, l.fair_value_ref),
         created_at=l.created_at,
     )
-
 
 @router.get("/listings", response_model=List[ListingOut])
 def list_listings(
@@ -140,8 +134,6 @@ def list_listings(
     if dormitorios is not None:
         q = q.where(Listing.dormitorios >= dormitorios)
 
-    # Orden base en SQL solo cuando es traducible a columna. 'ganga' y el
-    # filtro por zone dependen del veredicto derivado, que vive en Python.
     if sort == "precio_asc":
         q = q.order_by(Listing.price_usd.asc())
     elif sort == "precio_desc":
@@ -151,11 +143,9 @@ def list_listings(
 
     rows = list(db.execute(q).scalars().all())
 
-    # Filtro por veredicto: zone se deriva (price vs fair_value_ref), no es columna.
     if zone is not None:
         rows = [l for l in rows if _zone_from_price(l.price_usd, l.fair_value_ref) == zone]
 
-    # 'ganga' reordena en Python: más ganga primero = ganga_score asc.
     if sort == "ganga":
         rows.sort(key=_ganga_score)
 
@@ -163,7 +153,6 @@ def list_listings(
         rows = rows[:limit]
 
     return [_to_out(l) for l in rows]
-
 
 @router.get("/listings/mine", response_model=List[ListingOut])
 def my_listings(db: Session = Depends(get_db), current: User = Depends(get_current_user)):
@@ -173,7 +162,6 @@ def my_listings(db: Session = Depends(get_db), current: User = Depends(get_curre
         .order_by(Listing.created_at.desc())
     ).scalars().all()
     return [_to_out(l, include_contact=True) for l in rows]
-
 
 @router.post("/listings", response_model=ListingOut, status_code=201)
 def create_listing(
@@ -187,8 +175,7 @@ def create_listing(
             detail="Solo propietarios o agentes pueden publicar inmuebles.")
     data = payload.model_dump()
     data["amenities"] = ",".join(data.get("amenities") or [])
-    # Referencia del veredicto: server-side desde la mediana del distrito. El
-    # cliente NO la envía (evita que un vendedor falsee su aviso como "Ganga").
+
     data["fair_value_ref"] = _fair_value_ref_server(db, payload.district, payload.area_m2)
     l = Listing(owner_id=current.id, **data)
     db.add(l)
@@ -197,7 +184,6 @@ def create_listing(
     db.refresh(l)
     return _to_out(l, include_contact=True)
 
-
 @router.get("/listings/{listing_id}", response_model=ListingOut)
 def get_listing(listing_id: int, db: Session = Depends(get_db),
                 current: User = Depends(get_current_user)):
@@ -205,7 +191,6 @@ def get_listing(listing_id: int, db: Session = Depends(get_db),
     if not l:
         raise HTTPException(status_code=404, detail="Inmueble no encontrado")
     return _to_out(l)
-
 
 @router.delete("/listings/{listing_id}", status_code=204)
 def delete_listing(listing_id: int, db: Session = Depends(get_db),
@@ -224,7 +209,6 @@ def delete_listing(listing_id: int, db: Session = Depends(get_db),
     db.commit()
     return None
 
-
 @router.post("/listings/{listing_id}/leads", response_model=LeadOut, status_code=201)
 def create_lead(listing_id: int, payload: LeadIn,
                 db: Session = Depends(get_db), current: User = Depends(get_current_user)):
@@ -238,7 +222,6 @@ def create_lead(listing_id: int, payload: LeadIn,
     db.commit()
     db.refresh(lead)
     return LeadOut.model_validate(lead)
-
 
 @router.get("/listings/{listing_id}/leads", response_model=List[LeadOut])
 def list_leads(listing_id: int, db: Session = Depends(get_db),
@@ -254,8 +237,6 @@ def list_leads(listing_id: int, db: Session = Depends(get_db),
     ).scalars().all()
     return [LeadOut.model_validate(x) for x in rows]
 
-
-# ── Favoritos (inmuebles guardados por el inquilino) ────────────────────────
 @router.post("/favorites", response_model=ListingOut, status_code=201)
 def add_favorite(
     payload: FavoriteIn,
@@ -285,11 +266,10 @@ def add_favorite(
     try:
         db.commit()
     except IntegrityError:
-        # Race: el UNIQUE(user_id, listing_id) atrapó un duplicado concurrente.
+
         db.rollback()
         response.status_code = 200
     return _to_out(l)
-
 
 @router.delete("/favorites/{listing_id}", status_code=204)
 def remove_favorite(
@@ -310,7 +290,6 @@ def remove_favorite(
         current.last_activity_at = datetime.now(timezone.utc)
         db.commit()
     return Response(status_code=204)
-
 
 @router.get("/favorites", response_model=List[ListingOut])
 def list_favorites(

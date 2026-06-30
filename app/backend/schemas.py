@@ -8,19 +8,15 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-
-# ---------- Auth ----------
 class RegisterIn(BaseModel):
     email: EmailStr
     name: str
     password: str = Field(min_length=6)
-    role: Optional[str] = "Inquilino"   # validado contra VALID_ROLES en el router
-
+    role: Optional[str] = "Inquilino"
 
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
-
 
 class UserOut(BaseModel):
     model_config = {"from_attributes": True}
@@ -31,11 +27,9 @@ class UserOut(BaseModel):
     plan: str
     role: str = "Inquilino"
 
-
 class AuthOut(BaseModel):
     token: str
     user: UserOut
-
 
 class ReportItem(BaseModel):
     id: int
@@ -44,12 +38,10 @@ class ReportItem(BaseModel):
     date: str
     status: str = "Activo"
 
-
 class UpdateMeIn(BaseModel):
     """Campos editables del perfil. Todos opcionales: se actualiza lo enviado."""
     name: Optional[str] = Field(default=None, min_length=2, max_length=120)
     role: Optional[str] = None
-
 
 class MeOut(BaseModel):
     user: UserOut
@@ -59,13 +51,10 @@ class MeOut(BaseModel):
     reports_count: int
     reports: List[ReportItem]
 
-
-# ---------- Dashboard ----------
 class DashStats(BaseModel):
     analyses_count: int
     reports_count: int
     avg_savings: float
-
 
 class RecentItem(BaseModel):
     id: int
@@ -77,18 +66,15 @@ class RecentItem(BaseModel):
     zone: str
     kind: str
 
-
 class CoverageItem(BaseModel):
     name: str
     listings: int
     level: str
 
-
 class NextStep(BaseModel):
     address: Optional[str] = None
     sobreprecio_amount: Optional[float] = None
     analysis_id: Optional[int] = None
-
 
 class DashboardOut(BaseModel):
     user: UserOut
@@ -96,24 +82,20 @@ class DashboardOut(BaseModel):
     recent: List[RecentItem]
     coverage: List[CoverageItem]
     next_step: NextStep
-    last_activity_at: str           # ya formateado tipo "hace 2h"
+    last_activity_at: str
 
-
-# ---------- FairValue  (CONTRATO CONGELADO — PLAN.md §9) ----------
 class PredictIn(BaseModel):
-    lat: float                                        # pin; bbox se valida en geo_lookup
+    lat: float
     lng: float
-    area: float = Field(ge=10, le=1000)               # m²
+    area: float = Field(ge=10, le=1000)
     dormitorios: int = Field(ge=0, le=20)
-    banos: int = Field(ge=0, le=20)                   # 0 solo si es_estudio
+    banos: int = Field(ge=0, le=20)
     es_estudio: bool = False
     cocheras: int = Field(ge=0, le=20)
     antiguedad_anios: int = Field(ge=0, le=100)
     amenities: List[str] = Field(default_factory=list)
     precio: float = Field(gt=0)
-    # El aviso analizado proviene del catálogo (= mismos listings del set de
-    # entrenamiento). Si es True, el veredicto "Justo" es trivial (el modelo ya
-    # vio ese precio): se baja la confianza y se avisa. Ver _confianza en ml.py.
+
     from_catalog: bool = False
 
     @model_validator(mode="after")
@@ -123,7 +105,6 @@ class PredictIn(BaseModel):
         if self.dormitorios == 0 and not self.es_estudio:
             raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
         return self
-
 
 class SimulateOut(BaseModel):
     """Salida del simulador what-if: solo la predicción, sin persistir nada."""
@@ -135,22 +116,19 @@ class SimulateOut(BaseModel):
     p50: Optional[float] = None
     p75: Optional[float] = None
 
-
 class Factor(BaseModel):
     label: str
     score: int
     positive: bool
 
-
 class Counterfactual(BaseModel):
     """¿Qué pasaría si...? — perturbación ±delta de una feature accionable."""
     feature: str
-    label: str           # legible: "+1 baño", "−5 años de antigüedad", "+10 m²"
-    delta: int           # +1 / −1 / +10 / etc.
-    new_value: int       # valor de la feature tras el clamp
+    label: str
+    delta: int
+    new_value: int
     new_price: float
-    pct_change: float    # vs base_prediction (fair_value actual, P50 cuando entre quantile)
-
+    pct_change: float
 
 class CounterfactualIn(BaseModel):
     """Form del contrafactual accionable (endpoint dedicado). Igual a PredictIn
@@ -172,23 +150,20 @@ class CounterfactualIn(BaseModel):
             raise ValueError("banos solo puede ser 0 si es_estudio = true")
         return self
 
-
 class CounterfactualItem(BaseModel):
     """Una palanca accionable re-servida contra el modelo congelado."""
-    label: str            # "Agregar 1 cochera", "+15 m²", "Amoblar", "Quitar piscina"
-    kind: str             # "estructura" | "amenity" | "informativo"
-    feature: str          # "cocheras", "amenity:piscina", "area"
-    delta: float          # USD vs base
+    label: str
+    kind: str
+    feature: str
+    delta: float
     delta_pct: float
-    direction: str        # "sube" | "baja" | "neutro"
+    direction: str
     new_price: float
-
 
 class CounterfactualOut(BaseModel):
     base_fair_value: float
     distrito: str
     items: List[CounterfactualItem] = Field(default_factory=list)
-
 
 class ComparableItem(BaseModel):
     """Aviso real cercano y similar, mostrado como evidencia del Fair Value (FR-03).
@@ -203,11 +178,9 @@ class ComparableItem(BaseModel):
     lng: float
     distancia_km: float
 
-
 class ComparablesOut(BaseModel):
     items: List[ComparableItem] = Field(default_factory=list)
-    total_dataset: int  # tamaño del universo de avisos comparables
-
+    total_dataset: int
 
 class PredictionInterval(BaseModel):
     """Intervalo de predicción P25/P50/P75 (XGBoost quantile, Sprint 3.1)."""
@@ -215,10 +188,8 @@ class PredictionInterval(BaseModel):
     p50: float
     p75: float
 
-
 class PredictOut(BaseModel):
-    # model_r2 / model_mae chocan con el namespace reservado "model_" de Pydantic;
-    # los nombres son del contrato congelado, así que se libera el namespace.
+
     model_config = {"protected_namespaces": ()}
 
     analysis_id: int
@@ -226,8 +197,8 @@ class PredictOut(BaseModel):
     announced_price: float
     diff: float
     diff_pct: float
-    zone: str                       # Ganga | Justo | Inflado
-    confidence: str                 # Alta | Media | Baja
+    zone: str
+    confidence: str
     n_comparables: int
     coverage_radius_km: float
     model_r2: float
@@ -243,13 +214,11 @@ class PredictOut(BaseModel):
     fallback_reason: Optional[str] = None
     version: str
     distrito: str
-    # Ubicación y tamaño del inmueble analizado — para pedir comparables (FR-03)
-    # sin re-ingresar el form. Opcionales para no romper respuestas viejas.
+
     lat: Optional[float] = None
     lng: Optional[float] = None
     area: Optional[float] = None
     dormitorios: Optional[int] = None
-
 
 class PredictVentaIn(BaseModel):
     """Form para estimar precio de VENTA. Mismo patron que PredictIn pero el
@@ -262,19 +231,18 @@ class PredictVentaIn(BaseModel):
     banos: int = Field(ge=1, le=20)
     cocheras: int = Field(default=0, ge=0, le=20)
     antiguedad_anios: int = Field(default=0, ge=0, le=100)
-    precio: float = Field(gt=0)            # precio de venta anunciado (USD)
-
+    precio: float = Field(gt=0)
 
 class PredictVentaOut(BaseModel):
     """Resultado de venta. Subconjunto de PredictOut con lo que el modelo de
     venta SI expone (sin SHAP/cuantiles/narrativa, que son fase 2)."""
     model_config = {"protected_namespaces": ()}
 
-    fair_value: float                      # precio de venta justo (USD total)
+    fair_value: float
     announced_price: float
     diff: float
     diff_pct: float
-    zone: str                              # Ganga | Justo | Inflado
+    zone: str
     n_comparables: int
     coverage_radius_km: float
     model_r2: float
@@ -286,12 +254,9 @@ class PredictVentaOut(BaseModel):
     distrito: str
     version: str = "venta-v1"
 
-
 class SaveOut(BaseModel):
     report_id: int
 
-
-# ---------- Listings / Leads (flywheel de oferta) ----------
 class ListingIn(BaseModel):
     district: str = Field(min_length=2, max_length=128)
     address: str = Field(min_length=3, max_length=255)
@@ -304,9 +269,7 @@ class ListingIn(BaseModel):
     antiguedad_anios: int = Field(default=0, ge=0, le=100)
     es_estudio: bool = False
     price_usd: float = Field(gt=0, le=50000)
-    # fair_value_ref NO se acepta del cliente: un vendedor podría enviar un valor
-    # bajo para que su aviso aparezca como "Ganga" y primero en el sort. Se deja
-    # null al crear (sin veredicto) hasta calcularlo server-side. Ver create_listing.
+
     description: Optional[str] = Field(default="", max_length=2000)
     image_url: Optional[str] = Field(default=None, max_length=512)
     amenities: List[str] = Field(default_factory=list)
@@ -334,7 +297,6 @@ class ListingIn(BaseModel):
             raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
         return self
 
-
 class ListingOut(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -353,30 +315,25 @@ class ListingOut(BaseModel):
     fair_value_ref: Optional[float] = None
     description: str
     image_url: Optional[str] = None
-    amenities: List[str] = Field(default_factory=list)   # se rearma desde el CSV en el router
+    amenities: List[str] = Field(default_factory=list)
     contact_name: str
-    # PII del vendedor: solo se exponen al dueño del listing (mis-propiedades).
-    # En el catálogo público van en None — el comprador contacta vía formulario
-    # de lead, nunca recibe el correo/teléfono directo. Ver _to_out(include_contact).
+
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
     status: str
-    zone: Optional[str] = None         # veredicto derivado: Ganga|Justo|Inflado|None
+    zone: Optional[str] = None
     created_at: datetime
-
 
 class FavoriteIn(BaseModel):
     """Guardar un inmueble en favoritos. Solo necesita el id del listing;
     el user sale del token."""
     listing_id: int = Field(gt=0)
 
-
 class LeadIn(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     phone: str = Field(min_length=6, max_length=32)
     email: EmailStr
     message: Optional[str] = Field(default="", max_length=1000)
-
 
 class LeadOut(BaseModel):
     model_config = {"from_attributes": True}
@@ -389,30 +346,25 @@ class LeadOut(BaseModel):
     message: str
     created_at: datetime
 
-
-# ---------- Explainability SHAP (TreeSHAP nativo XGBoost) ----------
 class ExplainDriver(BaseModel):
-    label: str                # driver legible: "Cercanía a supermercado"
-    value: str                # valor real de la propiedad: "a 230 m"
-    pct_effect: float         # efecto multiplicativo individual del driver
+    label: str
+    value: str
+    pct_effect: float
     positive: bool
-
 
 class ExplainGroup(BaseModel):
     label: str
     description: str
-    contribution_log: float   # aditivo en log-space (Σ = log1p(precio) − base)
-    pct_effect: float         # efecto multiplicativo sobre el precio: (exp(Σφ)−1)·100
+    contribution_log: float
+    pct_effect: float
     positive: bool
-    drivers: List[ExplainDriver] = Field(default_factory=list)  # top-3 concretos
-
+    drivers: List[ExplainDriver] = Field(default_factory=list)
 
 class ExplainOut(BaseModel):
-    base_price: float         # exp(base)−1, el precio base del modelo
-    predicted_price: float    # = fair_value central
+    base_price: float
+    predicted_price: float
     groups: List[ExplainGroup]
     distrito: str
-
 
 class NarrativeOut(BaseModel):
     narrative: str
@@ -420,22 +372,20 @@ class NarrativeOut(BaseModel):
     predicted_price: float
     groups: List[ExplainGroup]
 
-
 class PoiHighlight(BaseModel):
-    kind: str                       # categoría legible: 'Supermercado', 'Banco', ...
-    name: str                       # nombre real del POI (OSM)
-    dist_m: int                     # distancia en metros
-    tier: Optional[str] = None      # 'gama alta' | 'gama masiva' | 'cadena' | None
-
+    kind: str
+    name: str
+    dist_m: int
+    tier: Optional[str] = None
 
 class DetailedNarrativeOut(BaseModel):
     """Análisis extenso para el modal 'Análisis completo'. Reúne TODO el
     espectro disponible: SHAP + veredicto + confianza + entorno nombrado."""
-    narrative: str                  # informe estructurado en secciones markdown
+    narrative: str
     distrito: str
     fair_value: float
     announced_price: Optional[float] = None
-    zone: Optional[str] = None      # Ganga | Justo | Inflado
+    zone: Optional[str] = None
     diff_pct: Optional[float] = None
     confidence: Optional[str] = None
     n_comparables: int = 0
@@ -445,8 +395,6 @@ class DetailedNarrativeOut(BaseModel):
     groups: List[ExplainGroup]
     poi_highlights: List[PoiHighlight] = []
 
-
-# ---------- Entorno  (servido por geo_index.py, por pin) ----------
 class PoiContext(BaseModel):
     kind: str
     label: str
@@ -454,21 +402,18 @@ class PoiContext(BaseModel):
     count_1km: int
     dist_nearest_m: Optional[float] = None
 
-
 class EntornoPoiLayer(BaseModel):
     kind: str
     label: str
-    points: List[List[float]]   # [[lat, lng], ...]
-
+    points: List[List[float]]
 
 class EntornoPoisOut(BaseModel):
     layers: List[EntornoPoiLayer]
 
-
 class EntornoOut(BaseModel):
     distrito: str
     score: int
-    level: str                      # Excelente | Bueno | Regular | Riesgo
+    level: str
     security: int
     services: int
     pois: List[PoiContext]
@@ -477,14 +422,11 @@ class EntornoOut(BaseModel):
     n_comparables: int
     summary: str
     warnings: List[str] = Field(default_factory=list)
-    # Breakdown del score (Sprint 1.3) — para visualización expandible
+
     n_comisarias_distrito: int = 0
     denuncias_distrito_total: int = 0
-    denuncias_vs_lima_pct: float = 0.0   # 1.0 = igual al promedio Lima; 2.0 = doble; 0.5 = mitad
-    # Factor visual de serenazgo (Sprint 3.4) — NO entra al modelo ML.
-    # {serenos_total, serenos_por_km2, label} o None si el distrito no tiene datos.
+    denuncias_vs_lima_pct: float = 0.0
+
     serenazgo: Optional[dict] = None
-    # Sprint 3.6 — POIs premium del barrio (colegios top, clínicas premium, restaurantes
-    # fine dining). NO entran al modelo ML (cobertura muy chica genera overfitting).
-    # Cada key: {label, count_1km, dist_nearest_m}. None si no hay ninguno relevante.
+
     premium_nearby: Optional[dict] = None

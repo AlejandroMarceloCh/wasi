@@ -1,7 +1,5 @@
-/* Wasi — Perfil + configuracion + FAQ.
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
-/* ============== 7. PROFILE ============== */
+
+
 const PROFILE_ROLES = ['Inquilino', 'Propietario', 'Agente inmobiliario'];
 
 const PROFILE_FAQS = [
@@ -18,18 +16,18 @@ const PROFILE_FAQS = [
 ];
 
 const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSaved, onAuthExpired }) => {
-  // Datos rápidos desde localStorage
+  
   const cached = (window.Api && window.Api.getUser()) || {};
   const [me, setMe] = useS(null);
   const [err, setErr] = useS('');
-  const [modal, setModal] = useS(null);          // edit | config | help | lang | plans
+  const [modal, setModal] = useS(null);          
 
-  // form de edición de perfil
+  
   const [form, setForm] = useS({ name: '', role: 'Inquilino' });
   const [saving, setSaving] = useS(false);
   const [formErr, setFormErr] = useS('');
 
-  // preferencias locales (persisten en este navegador)
+  
   const [prefs, setPrefs] = useS(() => ({
     notif:   localStorage.getItem('wasi.pref.notif')   !== '0',
     gangas:  localStorage.getItem('wasi.pref.gangas')  !== '0',
@@ -200,7 +198,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
         </div>
       </div>
 
-      {/* ---- Modal: editar perfil ---- */}
+      {}
       <Modal
         open={modal === 'edit'}
         onClose={()=>setModal(null)}
@@ -235,7 +233,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
         </div>
       </Modal>
 
-      {/* ---- Modal: configuración ---- */}
+      {}
       <Modal
         open={modal === 'config'}
         onClose={()=>setModal(null)}
@@ -264,7 +262,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
         </div>
       </Modal>
 
-      {/* ---- Modal: ayuda y soporte ---- */}
+      {}
       <Modal
         open={modal === 'help'}
         onClose={()=>setModal(null)}
@@ -294,7 +292,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
         <div className="tiny muted text-center" style={{marginTop:14}}>Wasi · versión 2.0.0</div>
       </Modal>
 
-      {/* ---- Modal: idioma ---- */}
+      {}
       <Modal
         open={modal === 'lang'}
         onClose={()=>setModal(null)}
@@ -321,7 +319,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
         </div>
       </Modal>
 
-      {/* ---- Modal: planes ---- */}
+      {}
       <Modal
         open={modal === 'plans'}
         onClose={()=>setModal(null)}

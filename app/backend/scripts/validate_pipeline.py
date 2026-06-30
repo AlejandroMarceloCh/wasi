@@ -23,14 +23,13 @@ import pandas as pd
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-from geo_index import POI_TYPES                       # noqa: E402
-from ml import AMENITY_CHIPS, build_features          # noqa: E402
-from model_service import model_service               # noqa: E402
+from geo_index import POI_TYPES
+from ml import AMENITY_CHIPS, build_features
+from model_service import model_service
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 GATES = BACKEND.parent.parent / "gates"
 CHIP_FEATS = set(AMENITY_CHIPS.values())
-
 
 def main() -> int:
     model_service.load()
@@ -38,11 +37,10 @@ def main() -> int:
     raw = pd.read_csv(PIPELINE_DATA / "inmuebles_clean_v1.csv")
     feat_order = model_service.feature_order
 
-    # ── Check A — hash del orden canónico ───────────────────────────────
     fo = json.loads((BACKEND / "models" / "feature_order.json").read_text())
     canon = ",".join(f"{f['name']}:{f['dtype']}" for f in fo["features"])
     hash_esperado = hashlib.sha256(canon.encode()).hexdigest()
-    # hash reconstruido desde el orden que produce build_features
+
     canon_bf = ",".join(f"{n}:{dt}" for n, dt in
                         zip(feat_order, [f["dtype"] for f in fo["features"]]))
     hash_real = hashlib.sha256(canon_bf.encode()).hexdigest()
@@ -51,7 +49,6 @@ def main() -> int:
     print(f"Check A — orden/dtype:  hash {hash_real[:16]}…  "
           f"{'OK' if check_a else 'FALLA'}")
 
-    # ── Check B — equivalencia de valores ───────────────────────────────
     coord = (raw["latitud"].round(6).astype(str) + "," +
              raw["longitud"].round(6).astype(str))
     unicas = coord.value_counts()
@@ -143,7 +140,6 @@ con 0,00000 % de diferencia. {'Gate 4 cerrado.' if (check_a and check_b) else 'R
     (GATES / "gate4_resultado.md").write_text(md)
     print(f"Escrito: {GATES / 'gate4_resultado.md'}")
     return 0 if (check_a and check_b) else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

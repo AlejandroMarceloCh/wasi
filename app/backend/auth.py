@@ -11,20 +11,15 @@ from sqlalchemy.orm import Session
 from database import get_db, settings
 from models import User
 
-# Bcrypt para hashear contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Esquema Bearer: el frontend manda "Authorization: Bearer <token>"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
-
 
 def hash_password(plain: str) -> str:
     return pwd_context.hash(plain)
 
-
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
-
 
 def create_access_token(user_id: int, email: str) -> str:
     """Emite JWT con expiración configurable."""
@@ -32,13 +27,11 @@ def create_access_token(user_id: int, email: str) -> str:
     payload = {"sub": str(user_id), "email": email, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algo)
 
-
 def decode_token(token: str) -> Optional[dict]:
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algo])
     except JWTError:
         return None
-
 
 def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),

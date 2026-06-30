@@ -20,27 +20,19 @@ import pandas as pd
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-from geo_index import POI_TYPES          # noqa: E402
-from ml import AMENITY_CHIPS, build_features  # noqa: E402
-from model_service import model_service  # noqa: E402
+from geo_index import POI_TYPES
+from ml import AMENITY_CHIPS, build_features
+from model_service import model_service
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 
-# Columnas cuya divergencia es ESPERADA (build_features usa modo producción):
-#   - 29 amenities fuera de los 8 chips
-#   - amenities_count y area_x_amenities (dependen de las amenities)
-#   - OHE de fuente y mismatch (defaults de submission de usuario)
 CHIP_FEATS = set(AMENITY_CHIPS.values())
-
 
 def main() -> int:
     model_service.load()
     xtest = pd.read_csv(PIPELINE_DATA / "X_test.csv")
     raw = pd.read_csv(PIPELINE_DATA / "inmuebles_clean_v1.csv")
 
-    # Join por (lat,lng) — PERO varios deptos del mismo edificio comparten
-    # coordenadas. Solo se usan listings con coordenadas ÚNICAS en el dataset,
-    # así el join identifica al listing correcto sin ambigüedad.
     coord = raw["latitud"].round(6).astype(str) + "," + raw["longitud"].round(6).astype(str)
     unicas = coord.value_counts()
     raw_unico = {coord[i]: raw.iloc[i]
@@ -50,8 +42,7 @@ def main() -> int:
     feat_order = model_service.feature_order
     tiene_all = [f for f in feat_order if f.startswith("tiene_")]
     no_chip = [f for f in tiene_all if f not in CHIP_FEATS]
-    # Excluidas del match exacto: amenities fuera de los 8 chips + columnas
-    # que build_features fija con defaults de producción.
+
     excluidas = set(no_chip) | {"amenities_count", "area_x_amenities",
                                 "fuente_properati", "fuente_urbania",
                                 "mismatch_type_frontera", "mismatch_type_ninguno",
@@ -92,7 +83,6 @@ def main() -> int:
         }
         X = build_features(form, geo)
 
-        # comparar features intrínsecas
         for f in intrinsecas:
             pred, real = float(X[f].iloc[0]), float(fila_x[f])
             denom = abs(real) if abs(real) > 1e-9 else 1.0
@@ -103,7 +93,6 @@ def main() -> int:
                 if fallos <= 5:
                     print(f"  DIFF fila {i} · {f}: pred={pred:.6f} real={real:.6f} ({dif*100:.3f}%)")
 
-        # predicción: build_features vs fila real de X_test
         p_build = model_service.predict(X)
         p_real = model_service.predict(xtest.iloc[[i]])
         pred_difs.append(abs(p_build - p_real) / p_real)
@@ -116,7 +105,6 @@ def main() -> int:
     print(f"\nPredicción build_features vs X_test real (incluye reducción a 8 chips):")
     print(f"  diferencia mediana: {np.median(pred_difs):.3f}%   p95: {np.percentile(pred_difs,95):.3f}%   max: {pred_difs.max():.3f}%")
     return 0 if fallos == 0 else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

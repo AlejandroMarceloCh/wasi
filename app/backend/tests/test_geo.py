@@ -5,24 +5,20 @@ import pytest
 
 from wasi.features.geo_index import OutOfBoundsError, geo_lookup
 
-
 def test_zona_densa():
-    r = geo_lookup(-12.121, -77.030)            # Miraflores
+    r = geo_lookup(-12.121, -77.030)
     assert r["distrito"] == "Miraflores"
     assert r["n_comparables"] > 50
     assert r["fallback_reason"] is None
 
-
 def test_zona_escasa_dispara_fallback():
-    r = geo_lookup(-12.380, -76.790)            # borde sur, pocos listings
+    r = geo_lookup(-12.380, -76.790)
     assert r["fallback_reason"] in ("low_density", "no_coverage")
     assert r["warnings"]
-
 
 def test_fuera_de_bbox():
     with pytest.raises(OutOfBoundsError):
         geo_lookup(-13.5, -77.0)
-
 
 def test_sin_nan():
     r = geo_lookup(-12.10, -77.04)

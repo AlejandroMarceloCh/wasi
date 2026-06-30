@@ -11,6 +11,4 @@ from slowapi.util import get_remote_address
 
 _ENABLED = os.environ.get("WASI_RATELIMIT", "1") == "1"
 
-# key_func = IP del cliente. En Render detrás de proxy, X-Forwarded-For lo
-# resuelve get_remote_address vía el header estándar.
 limiter = Limiter(key_func=get_remote_address, enabled=_ENABLED)

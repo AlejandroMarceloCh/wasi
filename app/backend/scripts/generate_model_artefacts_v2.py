@@ -22,8 +22,6 @@ sys.path.insert(0, str(BACKEND))
 
 MODELS_V2 = BACKEND / "models" / "v2"
 
-# Artefactos que el backend CARGA en _load_v2 (los demás joblib del dir son
-# candidatos/experimentos no servidos y quedan fuera del manifest a propósito).
 ARTEFACTOS_V2 = [
     "modelo_final_v2.joblib",
     "feature_names_v2.joblib",
@@ -34,8 +32,6 @@ ARTEFACTOS_V2 = [
     "xgb_q75_v2.joblib",
 ]
 
-# 5 forms representativos: distritos de precio alto/medio/bajo, áreas y
-# antigüedades variadas. Coordenadas dentro de Lima (validadas por geo_lookup).
 GOLDEN_FORMS = [
     ("miraflores-alto",  {"lat": -12.1211, "lng": -77.0300, "area": 120, "dormitorios": 3,
                           "banos": 3, "cocheras": 2, "antiguedad_anios": 2,
@@ -54,7 +50,6 @@ GOLDEN_FORMS = [
                           "es_estudio": True, "amenities": []}),
 ]
 
-
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -62,11 +57,9 @@ def sha256(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-
 def main() -> int:
     print("Generando artefactos de validación v2\n")
 
-    # 1 — manifest_v2.json
     hashes = {}
     for nombre in ARTEFACTOS_V2:
         path = MODELS_V2 / nombre
@@ -80,9 +73,6 @@ def main() -> int:
         json.dumps(manifest, indent=2, ensure_ascii=False))
     print(f"  manifest_v2.json          — version {version} · {len(hashes)} artefactos")
 
-    # 2 — golden_prediction_v2.json
-    # Carga el servicio real y construye los vectores con el MISMO pipeline que
-    # producción (geo_lookup + build_features_v2) para congelar input+output.
     from model_service import model_service
     from geo_index import geo_lookup
     from ml_v2 import build_features_v2
@@ -114,7 +104,6 @@ def main() -> int:
     print(f"  golden_prediction_v2.json — {len(casos)} casos · tol 0.1%")
     print("\nListo. El startup v2 ahora puede validar manifest + n_features + golden.\n")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

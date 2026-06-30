@@ -19,13 +19,11 @@ SRC = BACKEND.parent.parent / "pipeline" / "data" / "processed" / "inmuebles_cle
 POI_TYPES = ["supermercados", "farmacias", "colegios", "hospitales",
              "bancos", "universidades", "parqueos"]
 
-# Columnas que el índice conserva: identidad + geo interpolable.
 COLS_GEO = (
     ["latitud", "longitud", "distrito_oficial", "dist_mar_km", "cantidad_denuncias"]
     + [f"count_1km_{t}" for t in POI_TYPES]
     + [f"dist_nearest_m_{t}" for t in POI_TYPES]
 )
-
 
 def main() -> int:
     if not SRC.exists():
@@ -38,7 +36,7 @@ def main() -> int:
         raise SystemExit(f"ABORT: faltan columnas en el dataset: {faltan}")
 
     geo = df[COLS_GEO].copy()
-    # Sanidad: sin nulos en lat/lng (el KD-tree no los tolera).
+
     if geo[["latitud", "longitud"]].isnull().any().any():
         raise SystemExit("ABORT: hay nulos en latitud/longitud")
 
@@ -50,7 +48,6 @@ def main() -> int:
     print(f"  bbox lng: [{geo.longitud.min():.4f}, {geo.longitud.max():.4f}]")
     print(f"  distritos: {geo.distrito_oficial.nunique()}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

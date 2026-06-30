@@ -12,21 +12,16 @@ from database import SessionLocal
 from models import District, Lead, Listing, User
 from wasi.paths import DATA_DIR
 
-# Dataset incluido en el repo (mismo que usa seed_listings_bulk): el conteo de
-# distritos es reproducible desde un clone, sin depender de pipeline/.
 DATASET = DATA_DIR / "inmuebles_alquiler_clean.csv"
 
 DEMO_EMAIL = "ana@wasi.pe"
 DEMO_PASSWORD = "demo1234"
-# Demo vendedor/propietario (vista Roberto). Mismo password, role explícito.
+
 SELLER_EMAIL = "roberto@wasi.pe"
 SELLER_PASSWORD = "demo1234"
-# Usuario "catálogo": dueño de los ~3.3k avisos sembrados desde el dataset.
-# Separar al catálogo de Roberto evita que "Mis Propiedades"/"Leads" del demo
-# real se llenen con miles de listings (ver seed_listings_bulk.py).
+
 CATALOG_EMAIL = "catalogo@wasi.pe"
 CATALOG_PASSWORD = "demo1234"
-
 
 def _coverage(n: int) -> str:
     if n >= 500:
@@ -34,7 +29,6 @@ def _coverage(n: int) -> str:
     if n >= 100:
         return "media"
     return "baja"
-
 
 def seed_if_empty(db=None) -> None:
     """Inserta distritos y usuario demo si aún no existen."""
@@ -73,10 +67,7 @@ def seed_if_empty(db=None) -> None:
                         plan="pro", role="Propietario"))
             print(f"[seed] usuario catálogo: {CATALOG_EMAIL}")
 
-        # Listings + lead demo de Roberto. Guarda INDEPENDIENTE del bloque de
-        # usuarios: si Roberto existe pero aún no tiene listings, se siembran.
-        # Así corre también en una BD ya poblada (no requiere borrar wasi.db).
-        db.flush()  # garantiza el id de los usuarios recién añadidos (autoflush OFF)
+        db.flush()
         roberto = db.execute(
             select(User).where(User.email == SELLER_EMAIL)).scalar_one_or_none()
         if roberto and db.scalar(
@@ -84,13 +75,13 @@ def seed_if_empty(db=None) -> None:
             demo = [
                 dict(district="Miraflores", address="Av. Larco 345", lat=-12.1215, lng=-77.0305,
                      area_m2=85, dormitorios=2, banos=2, cocheras=1, antiguedad_anios=6,
-                     price_usd=1250, fair_value_ref=1200, status="activo",   # +4.2% -> Justo
+                     price_usd=1250, fair_value_ref=1200, status="activo",
                      description="Departamento luminoso a pasos del Parque Kennedy.",
                      image_url="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
                      amenities="ascensor,seguridad,cocina"),
                 dict(district="San Isidro", address="Calle Las Begonias 210", lat=-12.0955, lng=-77.0270,
                      area_m2=120, dormitorios=3, banos=3, cocheras=2, antiguedad_anios=3,
-                     price_usd=2100, fair_value_ref=2350, status="activo",   # -10.6% -> Ganga
+                     price_usd=2100, fair_value_ref=2350, status="activo",
                      description="Amplio y moderno en zona financiera.",
                      amenities="ascensor,seguridad,piscina,terraza"),
             ]
@@ -110,9 +101,8 @@ def seed_if_empty(db=None) -> None:
         if propia:
             db.close()
 
-
 if __name__ == "__main__":
-    import models  # noqa: F401 — registra tablas
+    import models
     from database import Base, engine
     Base.metadata.create_all(bind=engine)
     seed_if_empty()

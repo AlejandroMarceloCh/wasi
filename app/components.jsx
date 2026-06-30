@@ -1,7 +1,6 @@
-/* Wasi — reusable components */
+
 const { useState, useEffect, useRef, useMemo } = React;
 
-/* ============ Icons ============ */
 const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fill = "none", ...rest }) => {
   const paths = {
     home: <><path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/></>,
@@ -49,7 +48,6 @@ const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fil
   );
 };
 
-/* ============ StatusBar ============ */
 const StatusBar = ({ dark = false }) => (
   <div className={`statusbar ${dark ? 'on-dark' : ''}`}>
     <div className="numeric">9:41</div>
@@ -61,7 +59,6 @@ const StatusBar = ({ dark = false }) => (
   </div>
 );
 
-/* ============ Header (back + title + actions) ============ */
 const Header = ({ title, subtitle, onBack, right }) => (
   <div className="topbar">
     {onBack && (
@@ -77,7 +74,6 @@ const Header = ({ title, subtitle, onBack, right }) => (
   </div>
 );
 
-/* ============ Logo ============ */
 const Logo = ({ size = "md" }) => (
   <div className="logo">
     <div className={`logo-mark ${size === 'lg' ? 'lg' : ''}`}>
@@ -91,7 +87,6 @@ const Logo = ({ size = "md" }) => (
   </div>
 );
 
-/* ============ Button ============ */
 const Btn = ({ variant = 'primary', children, onClick, block, size, type='button', disabled, ...rest }) => (
   <button
     type={type}
@@ -104,29 +99,20 @@ const Btn = ({ variant = 'primary', children, onClick, block, size, type='button
   </button>
 );
 
-/* ============ Card ============ */
 const Card = ({ children, accent, hover, className = '', style }) => (
   <div className={`card ${hover ? 'hover':''} ${accent ? `card-accent-left ${accent}`:''} ${className}`} style={style}>
     {children}
   </div>
 );
 
-/* ============ Tag ============ */
 const Tag = ({ variant = 'default', children, className = '', ...rest }) => (
   <span className={`tag tag-${variant} ${className}`} {...rest}>{children}</span>
 );
 
-/* ============ ListingCard ============
-   Card estilo Zillow para el grid de inmuebles: bloque visual arriba (foto si
-   hay image_url, si no placeholder de marca con gradiente), veredicto Wasi
-   (Ganga/Justo/Inflado) como badge flotante sobre el bloque, y debajo el precio
-   prominente + dirección + specs. El veredicto es la diferenciación del producto,
-   por eso va flotando sobre el media. Reusa .card.hover y los tags semánticos. */
 const ZONE_VARIANT = { Ganga: 'success', Justo: 'warning', Inflado: 'danger' };
-// Whitelist anti-XSS: solo aceptamos URLs http(s). Bloquea javascript:, data:,
-// vbscript:, etc. que podrían inyectarse vía image_url no confiable.
+
 const safeImageUrl = (url) =>
-  (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) ? url : null;
+  (typeof url === 'string' && /^https?:\/\
 
 const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   const z = listing.zone;
@@ -134,11 +120,11 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   const price = Math.round(listing.price_usd).toLocaleString('en-US');
   const specs = listing.es_estudio ? 'Estudio' : `${listing.dormitorios} dorm`;
   const imgSrc = safeImageUrl(listing.image_url);
-  // El corazón solo aparece si el padre cablea onToggleFav. Mantiene compatible
-  // todos los usos previos de ListingCard que no pasan estos props.
+  
+  
   const showFav = typeof onToggleFav === 'function';
   const toggleFav = (e) => {
-    e.stopPropagation();   // no abrir el detalle al tocar el corazón
+    e.stopPropagation();   
     onToggleFav(listing.id, !isFav);
   };
   return (
@@ -149,9 +135,9 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
           ? <img src={imgSrc} alt={listing.address} loading="lazy"
                  onError={(e)=>{ e.target.style.display='none'; }}/>
           : (
-            // Placeholder de marca tintado por veredicto: scanear la grid deja ver
-            // de un vistazo dónde hay gangas (verde) vs inflados (rojo). El distrito
-            // ya va en el cuerpo (.lcz-dist), no se duplica aquí.
+            
+            
+            
             <div className={`lcz-placeholder lcz-ph-${ZONE_VARIANT[z] || 'default'}`}>
               <Icon name="home" size={28} stroke="#fff"/>
             </div>
@@ -184,11 +170,6 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   );
 };
 
-/* ============ Glossary ============
-   Tooltip educativo para términos técnicos. Usa <abbr> nativo: lo lee el
-   screen reader, lo muestra el browser en hover (desktop) y al hacer tap
-   largo (mobile en iOS / Android moderno).
-*/
 const GLOSSARY = {
   'Error medio': 'En promedio, qué tan lejos cae la estimación del modelo respecto al precio real, expresado en %. Más bajo es mejor.',
   'Confianza Alta': 'Muchos avisos comparables cerca del pin: la predicción es más estable.',
@@ -197,8 +178,6 @@ const GLOSSARY = {
   'Veredicto': 'Comparación entre el precio anunciado y el precio de referencia del modelo: Inflado, Justo o Ganga.',
 };
 
-/* onKeyActivate — helper para divs con role="button". Hace que Enter y Space
-   disparen el handler igual que un <button> nativo (WCAG 2.1.1 Keyboard). */
 const onKeyActivate = (handler) => (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
@@ -219,7 +198,6 @@ const Glossary = ({ term, children, custom }) => {
   );
 };
 
-/* ============ Input ============ */
 const Input = ({ label, suffix, error, ...rest }) => (
   <div className="field">
     {label && <label>{label}</label>}
@@ -241,7 +219,6 @@ const Select = ({ label, options, value, onChange, placeholder }) => (
   </div>
 );
 
-/* ============ Switch ============ */
 const Switch = ({ checked, onChange, label }) => (
   <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}
        role="switch" aria-checked={checked} aria-label={label}
@@ -258,7 +235,6 @@ const ToggleRow = ({ label, icon, checked, onChange }) => (
   </div>
 );
 
-/* ============ useAnimatedNumber ============ */
 const useAnimatedNumber = (target, dur = 1100, trigger = true) => {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -278,20 +254,15 @@ const useAnimatedNumber = (target, dur = 1100, trigger = true) => {
   return val;
 };
 
-/* ============ GaugeChart — semicírculo: anunciado vs precio de referencia ============
-   El arco cubre ±24 % alrededor del precio de referencia, partido en 3 zonas que
-   coinciden con el corte del backend (ZONE_BAND_PCT = ±8 %):
-   Ganga p[0, 1/3] · Justo p[1/3, 2/3] · Inflado p[2/3, 1].
-   La aguja apunta a la posición del precio anunciado según diffPct. */
 const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false, sellerPos = null, unitLabel = '/ mes', perMes = true, chip = true }) => {
-  const SCALE = 24;                                        // ± % que abarca el arco
+  const SCALE = 24;                                        
   const markP = Math.max(0, Math.min(1, (diffPct + SCALE) / (2 * SCALE)));
   const animP = useAnimatedNumber(markP, 1100);
   const animVal = useAnimatedNumber(fairValue, 1200);
 
   const CX = 130, CY = 134, R = 100;
   const polar = (p, r = R) => {
-    const th = Math.PI * (1 - p);                          // p=0 → izquierda, p=1 → derecha
+    const th = Math.PI * (1 - p);                          
     return { x: CX + r * Math.cos(th), y: CY - r * Math.sin(th) };
   };
   const arc = (p1, p2) => {
@@ -300,27 +271,27 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false
     return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
   };
 
-  // En modo vendedor el marco es posicionamiento (Conservador/Competitivo/Agresivo),
-  // NO veredicto Ganga/Inflado. El arco y el chip se reetiquetan; la aguja es la misma.
+  
+  
   const posColor = sellerPos === 'Competitivo' ? 'var(--success)'
                  : sellerPos === 'Agresivo' ? 'var(--warning)'
-                 : 'var(--primary)';   // Conservador (o sin precio)
+                 : 'var(--primary)';   
   const zoneColor = seller ? posColor
                   : zone === 'Inflado' ? 'var(--danger)'
                   : zone === 'Ganga'  ? 'var(--success)'
                   : 'var(--warning)';
   const tip = polar(animP);
   const sign = diffPct > 0 ? '+' : '';
-  // % redondeado para display: +194%, no +193.98% (centésimas solo bajo 10).
+  
   const diffLabel = Math.abs(diffPct) >= 10 ? Math.round(diffPct) : Math.round(diffPct * 10) / 10;
 
   return (
     <div style={{ textAlign: 'center' }}>
       <svg viewBox="0 0 260 182" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }} role="img" aria-label={`Indicador de precio: ${zone}. Precio de referencia $${Math.round(fairValue).toLocaleString('en-US')}. Diferencia ${sign}${diffLabel}%.`}>
         <defs>
-          {/* Degradado continuo verde → naranja → rojo a lo largo del arco.
-             Los stops están a 1/3 y 2/3 para coincidir con los cortes
-             funcionales (Ganga/Justo/Inflado) que ya usa el backend. */}
+          {
+
+}
           <linearGradient id="gaugeArcGrad" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%"   stopColor="oklch(0.66 0.18 155)"/>
             <stop offset="22%"  stopColor="oklch(0.70 0.17 120)"/>
@@ -330,16 +301,16 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false
           </linearGradient>
         </defs>
 
-        {/* Arco como path único con gradient */}
+        {}
         <path d={arc(0, 1)} fill="none" stroke="url(#gaugeArcGrad)"
               strokeWidth="22" strokeLinecap="round"/>
 
-        {/* etiquetas del arco: posicionamiento (vendedor) o veredicto (comprador) */}
+        {}
         <text x="24"  y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--success)">{seller ? 'CONSERVADOR' : 'GANGA'}</text>
         <text x="130" y="17"  fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="oklch(0.48 0.13 60)" textAnchor="middle">{seller ? 'MERCADO' : 'JUSTO'}</text>
         <text x="236" y="172" fontSize="10" fontWeight="700" fontFamily="Space Grotesk" fill="var(--danger)" textAnchor="end">{seller ? 'AGRESIVO' : 'INFLADO'}</text>
 
-        {/* aguja → posición del precio anunciado */}
+        {}
         <line x1={CX} y1={CY} x2={tip.x} y2={tip.y} stroke="var(--ink)" strokeWidth="4" strokeLinecap="round"/>
         <circle cx={tip.x} cy={tip.y} r="7.5" fill="#fff" stroke={zoneColor} strokeWidth="3.5"/>
         <circle cx={CX} cy={CY} r="11" fill="var(--ink)"/>
@@ -364,7 +335,6 @@ const GaugeChart = ({ fairValue = 0, diffPct = 0, zone = 'Justo', seller = false
   );
 };
 
-/* ============ ScoreCircle ============ */
 const ScoreCircle = ({ value = 72, max = 100, size = 140, stroke = 12, label, sub, color }) => {
   const animV = useAnimatedNumber(value, 1200);
   const pct = Math.max(0, Math.min(1, animV/max));
@@ -393,10 +363,6 @@ const ScoreCircle = ({ value = 72, max = 100, size = 140, stroke = 12, label, su
   );
 };
 
-/* ============ AnimBar ============
-   Si recibe prop `tooltip`, el label se envuelve en <abbr> (hover desktop,
-   tap mobile, lectura screen reader) para explicar qué significa el factor.
-*/
 const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix = '', tooltip = '' }) => {
   const [w, setW] = useState(0);
   useEffect(() => {
@@ -420,11 +386,10 @@ const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix =
   );
 };
 
-/* ============ TopNav ============ */
 const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
-  // Navegación por rol: el comprador (Inquilino) explora y guarda; el vendedor
-  // (Propietario/Agente) gestiona sus inmuebles y sus leads. Analizar precio y Perfil
-  // son comunes. Entorno ya no es tab: vive como pestaña dentro del detalle.
+  
+  
+  
   const isSeller = user?.role === 'Propietario' || user?.role === 'Agente inmobiliario';
   const tabs = isSeller ? [
     { key: 'inicio', label: 'Inicio', icon: 'home' },
@@ -510,7 +475,7 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
         </div>
       </nav>
 
-      {/* Notificaciones — abierto desde la campana del nav */}
+      {}
       <Modal
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
@@ -534,9 +499,6 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
   );
 };
 
-/* ============ Modal / isla flotante ============
-   hero=true  → header con banner de gradiente (modal de confirmación)
-   hero=false → header simple con ícono cuadrado (modales utilitarios) */
 const Modal = ({ open, onClose, hero, accent, icon, iconVariant, title, subtitle, tag, children, footer, maxWidth }) => {
   useEffect(() => {
     if (!open) return;
@@ -561,8 +523,8 @@ const Modal = ({ open, onClose, hero, accent, icon, iconVariant, title, subtitle
     </button>
   );
 
-  // Portal a <body>: evita que un ancestro con transform/animation capture el
-  // position:fixed del overlay y lo descentre según el scroll.
+  
+  
   return ReactDOM.createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -609,7 +571,6 @@ const Modal = ({ open, onClose, hero, accent, icon, iconVariant, title, subtitle
   );
 };
 
-/* ============ PageHeader ============ */
 const PageHeader = ({ title, subtitle, onBack, actions, tag }) => (
   <div className="page-head">
     <div>

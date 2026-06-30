@@ -24,12 +24,10 @@ MODELS = BACKEND / "models"
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 GATES = BACKEND.parent.parent / "gates"
 
-UMBRAL_PP = 2.0  # delta máximo de MAPE aceptable por nivel
-
+UMBRAL_PP = 2.0
 
 def mape(real, pred) -> float:
     return float(np.mean(np.abs(pred - real) / real) * 100)
-
 
 def construir_reducido(xtest: pd.DataFrame, tiene_keep: list[str],
                        tiene_all: list[str]) -> pd.DataFrame:
@@ -37,14 +35,13 @@ def construir_reducido(xtest: pd.DataFrame, tiene_keep: list[str],
     X = xtest.copy()
     drop = [c for c in tiene_all if c not in tiene_keep]
     X[drop] = 0
-    # amenities_count (crudo) = suma de las tiene_* que quedan
+
     new_count = X[tiene_keep].sum(axis=1)
     X["amenities_count"] = new_count
-    # area_x_amenities estaba en log1p → reconstruir en crudo y re-log
-    area_raw = np.expm1(xtest["area_final_m2"])      # area está en features_log
+
+    area_raw = np.expm1(xtest["area_final_m2"])
     X["area_x_amenities"] = np.log1p(area_raw * new_count)
     return X
-
 
 def main() -> int:
     rf = joblib.load(MODELS / "04_random_forest.joblib")
@@ -60,7 +57,6 @@ def main() -> int:
     for i, c in enumerate(ranking[:15], 1):
         print(f"  {i:2d}. {c:42s} {imp[c]:.4f}")
 
-    # referencia: top-37 (todas) con amenities_count recalculado
     X_full = construir_reducido(xtest, ranking, tiene_all)
     mape_full = mape(real, np.expm1(rf.predict(X_full)))
     print(f"\nMAPE referencia (top-37, todas las amenities): {mape_full:.2f}%")
@@ -72,7 +68,6 @@ def main() -> int:
         resultados[n] = (m, m - mape_full)
         print(f"  top-{n:<2d}: MAPE {m:.2f}%   delta {m - mape_full:+.2f} pp")
 
-    # protocolo escalonado
     elegido = None
     for n in (8, 12, 15):
         if resultados[n][1] <= UMBRAL_PP:
@@ -85,7 +80,6 @@ def main() -> int:
     else:
         print(f"\nDECISIÓN: top-15 no cumple → escalar a discusión")
 
-    # ── escribir gate3_resultado.md ─────────────────────────────────────
     GATES.mkdir(exist_ok=True)
     tabla = "\n".join(
         f"| top-{n} | {resultados[n][0]:.2f}% | {resultados[n][1]:+.2f} pp | "
@@ -123,7 +117,6 @@ MAPE referencia (top-37, todas): **{mape_full:.2f}%**  ·  umbral: delta ≤ {UM
     (GATES / "gate3_resultado.md").write_text(md)
     print(f"\nEscrito: {GATES / 'gate3_resultado.md'}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

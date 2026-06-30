@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-import models  # noqa: F401 — registra las tablas en Base.metadata
+import models
 from ratelimit import limiter
 from database import Base, engine, ensure_schema
 from wasi.features.geo_index import get_index
@@ -21,7 +21,6 @@ from routers import fairvalue as fairvalue_router
 from routers import health as health_router
 from routers import listings as listings_router
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: crea tablas, carga y valida el modelo, calienta el índice geo.
@@ -30,10 +29,9 @@ async def lifespan(app: FastAPI):
     model_service.load() lanza RuntimeError y el backend NO arranca — fail-fast.
     """
     Base.metadata.create_all(bind=engine)
-    ensure_schema()                      # migración ligera (columnas nuevas)
-    seed_if_empty()                      # distritos + usuario demo (idempotente)
-    # Catálogo de Explorar (~3.3k avisos reales): solo siembra en el primer
-    # arranque (umbral idempotente). Los tests lo saltan con WASI_SKIP_BULK_SEED.
+    ensure_schema()
+    seed_if_empty()
+
     if not os.environ.get("WASI_SKIP_BULK_SEED"):
         try:
             from seed_listings_bulk import seed_bulk
@@ -42,23 +40,20 @@ async def lifespan(app: FastAPI):
             print(f"[Wasi] catálogo no sembrado: {e}")
     print("[Wasi] Base de datos lista.")
 
-    model_service.load()                 # 3 validaciones de startup; falla dura
+    model_service.load()
     try:
-        venta_service.load()             # modelo de venta (independiente; no falla el arranque)
+        venta_service.load()
     except Exception as e:
         print(f"[Wasi] venta_service no disponible: {e}")
-    get_index()                          # calienta el KD-tree geográfico
+    get_index()
     print("[Wasi] Índice geográfico cargado. Backend listo.")
     yield
 
-
 app = FastAPI(title="Wasi API", version="2.0.0", lifespan=lifespan)
 
-# Rate limiting (slowapi): protege /login y /register de fuerza bruta.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS abierto para dev (frontend desde index.html / file:// o vite)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -74,7 +69,6 @@ app.include_router(fairvalue_router.router)
 app.include_router(entorno_router.router)
 app.include_router(health_router.router)
 app.include_router(listings_router.router)
-
 
 @app.get("/")
 def root():

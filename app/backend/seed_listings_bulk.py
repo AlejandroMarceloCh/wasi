@@ -17,14 +17,10 @@ from database import SessionLocal
 from models import Listing, User
 from wasi.paths import DATA_DIR
 
-# Dataset incluido en el repo: el catálogo es reproducible desde un clone.
 CSV = DATA_DIR / "inmuebles_alquiler_clean.csv"
 
-# Los avisos del dataset pertenecen al usuario "catálogo", NO a Roberto: así el
-# propietario demo conserva solo sus 2 listings reales (Mis Propiedades/Leads sanos).
 CATALOG_EMAIL = "catalogo@wasi.pe"
-UMBRAL_YA_POBLADO = 500   # si ya hay este nro de listings, asumimos seed hecho
-
+UMBRAL_YA_POBLADO = 500
 
 def seed_bulk(db=None) -> None:
     propia = db is None
@@ -43,7 +39,7 @@ def seed_bulk(db=None) -> None:
             return
 
         df = pd.read_csv(CSV)
-        # Solo columnas que necesitamos, con tipos sanos.
+
         df = df[[
             "precio_usd", "area_final_m2", "dormitorios", "banos", "cocheras",
             "antiguedad_anios", "latitud", "longitud", "distrito_oficial",
@@ -52,11 +48,10 @@ def seed_bulk(db=None) -> None:
         df = df.dropna(subset=["precio_usd", "area_final_m2", "latitud", "longitud",
                                "distrito_oficial"])
         df = df[(df["precio_usd"] > 0) & (df["area_final_m2"] > 0)]
-        # Coords dentro de Lima Metropolitana (descarta geocodings basura).
+
         df = df[df["latitud"].between(-12.45, -11.85)
                 & df["longitud"].between(-77.20, -76.75)]
 
-        # Mediana USD/m² por distrito -> referencia de precio justo.
         df["ppm2"] = df["precio_usd"] / df["area_final_m2"]
         med = df.groupby("distrito_oficial")["ppm2"].median()
         global_med = float(df["ppm2"].median())
@@ -105,9 +100,8 @@ def seed_bulk(db=None) -> None:
         if propia:
             db.close()
 
-
 if __name__ == "__main__":
-    import models  # noqa: F401
+    import models
     from database import Base, engine
     Base.metadata.create_all(bind=engine)
     seed_bulk()

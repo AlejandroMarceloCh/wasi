@@ -22,10 +22,8 @@ import requests
 OUT_DIR = Path(__file__).resolve().parent.parent / "data" / "external" / "display"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-# bbox Lima Metropolitana (south, west, north, east) — igual que geo_index.
 BBOX = "-12.5,-77.2,-11.7,-76.7"
 
-# categoria -> filtro Overpass (sobre nodes, ways y relations)
 CATEGORIES = {
     "supermercados": '["shop"="supermarket"]',
     "conveniencia":  '["shop"="convenience"]',
@@ -35,7 +33,6 @@ CATEGORIES = {
 }
 
 HEADERS = {"User-Agent": "WasiDataProduct/1.0 (proyecto academico UTEC)"}
-
 
 def fetch(cat: str, filtro: str) -> dict:
     query = (
@@ -54,7 +51,6 @@ def fetch(cat: str, filtro: str) -> dict:
         time.sleep(20)
     raise RuntimeError(f"Overpass falló para {cat} tras 3 intentos")
 
-
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for cat, filtro in CATEGORIES.items():
@@ -64,9 +60,8 @@ def main() -> None:
         out = OUT_DIR / f"{cat}.json"
         out.write_text(json.dumps(data, ensure_ascii=False))
         print(f"  -> {n} POIs guardados en {out.relative_to(OUT_DIR.parent.parent.parent)}")
-        time.sleep(3)  # cortesía con el servidor público de Overpass
+        time.sleep(3)
     print("listo.")
-
 
 if __name__ == "__main__":
     main()

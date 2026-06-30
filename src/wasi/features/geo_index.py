@@ -22,48 +22,29 @@ from scipy.spatial import cKDTree
 
 from wasi.paths import DATA_DIR
 
-# --- bbox Lima Metropolitana ---------------------------------------------
-# Aproximación conservadora (rectángulo, no polígono exacto). Envuelve el
-# bbox real del dataset: lat [-12.39, -11.79], lng [-77.16, -76.77].
 LAT_MIN, LAT_MAX = -12.5, -11.7
 LNG_MIN, LNG_MAX = -77.2, -76.7
 
 EARTH_RADIUS_M = 6_371_000.0
 
-# Centro de Lima para dist_centro_km. Reverse-engineered (Nelder-Mead) sobre el
-# dataset de entrenamiento, que SÍ trae dist_centro_km — reproduce esos valores
-# con ~130 m de error medio. En inferencia se calcula con haversine (no se
-# interpola desde geo_index.csv, que no incluye la columna). Sin esto,
-# dist_centro_km caía a 0.0 en serving → train/serve skew + es_zona_premium muerto.
 CENTRO_LAT, CENTRO_LNG = -12.046711, -77.029016
 
-# Piso de distancia del peso IDW. DECISIÓN DE MODELO, no detalle técnico.
-# El test de sensibilidad (100 pins a 5-15 m de listings reales) mostró:
-#   floor 10 vs 50 m → mediana 0,7 %  pero  p95 16 % en el vector geo.
-# El floor controla el campo cercano: con un pin casi encima de un listing,
-# floor=10 m deja que ese listing domine la interpolación (sus POIs a 1 km
-# son casi idénticos 10 m más allá → es la mejor estimación). Un floor alto
-# sobre-suavizaría mezclando listings más lejanos. Se elige 10 m a propósito.
-# Validación final sobre fair_value (no solo el vector geo): Fase 2.
 IDW_FLOOR_M = 10.0
-RADIO_COMPARABLES_KM = 1.0  # radio para contar n_comparables
-RADIO_COBERTURA_KM = 5.0    # sin vecinos dentro de esto → fallback no_coverage
-DENSIDAD_MINIMA = 3         # < N comparables en 1 km → fallback low_density
+RADIO_COMPARABLES_KM = 1.0
+RADIO_COBERTURA_KM = 5.0
+DENSIDAD_MINIMA = 3
 
 POI_TYPES = ["supermercados", "farmacias", "colegios", "hospitales",
              "bancos", "universidades", "parqueos"]
 
-# Columnas geo que se interpolan por IDW.
 IDW_COLS = (
     ["dist_mar_km", "cantidad_denuncias"]
     + [f"count_1km_{t}" for t in POI_TYPES]
     + [f"dist_nearest_m_{t}" for t in POI_TYPES]
 )
 
-
 class OutOfBoundsError(Exception):
     """El pin cae fuera del bbox de Lima Metropolitana → HTTP 400."""
-
 
 def _to_unit_sphere(lat, lng) -> np.ndarray:
     """lat/lng en grados → coordenadas cartesianas en la esfera unitaria.
@@ -80,7 +61,6 @@ def _to_unit_sphere(lat, lng) -> np.ndarray:
         np.sin(lat_r),
     ])
 
-
 def _haversine_m(lat1, lng1, lat2, lng2):
     """Distancia haversine en metros. Acepta escalares o arrays en 2 y 3,4."""
     lat1, lng1 = np.radians(lat1), np.radians(lng1)
@@ -89,10 +69,8 @@ def _haversine_m(lat1, lng1, lat2, lng2):
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlng / 2) ** 2
     return 2 * EARTH_RADIUS_M * np.arcsin(np.sqrt(a))
 
-
 def in_bbox(lat: float, lng: float) -> bool:
     return LAT_MIN <= lat <= LAT_MAX and LNG_MIN <= lng <= LNG_MAX
-
 
 class GeoIndex:
     """Índice espacial cargado una sola vez al startup del backend."""
@@ -107,11 +85,11 @@ class GeoIndex:
         self._lng = self.df["longitud"].to_numpy(dtype=float)
         self._geo = {c: self.df[c].to_numpy(dtype=float) for c in IDW_COLS}
         self._tree = cKDTree(_to_unit_sphere(self._lat, self._lng))
-        # Medias por distrito y globales — fallback de baja densidad.
+
         self._dist_means = self.df.groupby("distrito_oficial")[IDW_COLS].mean()
         self._global_means = self.df[IDW_COLS].mean()
         self.n = len(self.df)
-        # Arrays para percentile rank en scoring de entorno (O(log n) por lookup).
+
         poi_sum = sum(self.df[f"count_1km_{t}"].to_numpy(dtype=float) for t in POI_TYPES)
         self._sorted_denuncias = np.sort(self.df["cantidad_denuncias"].to_numpy(dtype=float))
         self._sorted_total_poi = np.sort(poi_sum)
@@ -132,11 +110,9 @@ class GeoIndex:
         idx = np.atleast_1d(idx).ravel()
         d_knn = _haversine_m(lat, lng, self._lat[idx], self._lng[idx])
 
-        # distrito = vecino más cercano (sin ponderar)
         nearest = int(idx[int(np.argmin(d_knn))])
         distrito = str(self.df.iloc[nearest]["distrito_oficial"])
 
-        # densidad / cobertura sobre todo el índice
         d_all = _haversine_m(lat, lng, self._lat, self._lng)
         n_comparables = int(np.sum(d_all <= RADIO_COMPARABLES_KM * 1000))
         dist_nearest_km = float(np.min(d_all) / 1000)
@@ -155,7 +131,7 @@ class GeoIndex:
             geo = (self._dist_means.loc[distrito]
                    if distrito in self._dist_means.index else self._global_means)
         else:
-            # IDW normalizado con piso de distancia
+
             w = 1.0 / np.maximum(d_knn, floor_m)
             w = w / w.sum()
             geo = pd.Series({c: float(np.dot(w, self._geo[c][idx])) for c in IDW_COLS})
@@ -164,8 +140,7 @@ class GeoIndex:
             "latitud": float(lat),
             "longitud": float(lng),
             "distrito": distrito,
-            # Calculada en serving (no está en geo_index.csv) para que el modelo
-            # reciba el mismo dist_centro_km que vio en entrenamiento.
+
             "dist_centro_km": float(_haversine_m(lat, lng, CENTRO_LAT, CENTRO_LNG) / 1000.0),
             "n_comparables": n_comparables,
             "coverage_radius_km": round(coverage_radius_km, 3),
@@ -177,15 +152,11 @@ class GeoIndex:
             out[c] = float(geo[c])
         return out
 
-
     def _percentile_rank(self, sorted_arr: np.ndarray, val: float) -> float:
         """Fracción del dataset con valor ≤ val (0.0 → 1.0)."""
         return float(np.searchsorted(sorted_arr, val, side="right")) / len(sorted_arr)
 
-
-# --- singleton ------------------------------------------------------------
 _INDEX: GeoIndex | None = None
-
 
 def get_index() -> GeoIndex:
     """Devuelve el índice (lo construye en la primera llamada)."""
@@ -194,11 +165,9 @@ def get_index() -> GeoIndex:
         _INDEX = GeoIndex(DATA_DIR / "geo_index.csv")
     return _INDEX
 
-
 def geo_lookup(lat: float, lng: float, k: int = 8) -> dict:
     """Atajo: reconstruye las features geo para un pin."""
     return get_index().lookup(lat, lng, k=k)
-
 
 def scoring_entorno(denuncias: float, total_poi: float) -> tuple[int, int]:
     """Devuelve (security, services) normalizados por percentile rank del dataset.

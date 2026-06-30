@@ -1,16 +1,12 @@
-/* Wasi — screens (web app) */
+
 const { useState: useS, useEffect: useE, useRef: useR } = React;
 
-/* bbox de Lima Metropolitana (igual que el backend) */
 const LIMA_BBOX = { latMin:-12.5, latMax:-11.7, lngMin:-77.2, lngMax:-76.7 };
 const enLima = (lat,lng) =>
   lat>=LIMA_BBOX.latMin && lat<=LIMA_BBOX.latMax &&
   lng>=LIMA_BBOX.lngMin && lng<=LIMA_BBOX.lngMax;
-const LIMA_CENTRO = { lat:-12.0908, lng:-77.0270 };  // Lima centro aprox.
+const LIMA_CENTRO = { lat:-12.0908, lng:-77.0270 };  
 
-/* MapPicker — mapa Leaflet con pin arrastrable. El pin es la fuente de
-   verdad de lat/lng; onMove(lat,lng) se dispara al arrastrar o clickear.
-   flyTo={lat,lng} mueve el mapa + pin programáticamente (para geocoding). */
 const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => {
   const elRef = useR(null), mapRef = useR(null), cbRef = useR(onMove), poiLayerRef = useR(null);
   const markerRef = useR(null), radiusRef = useR(null);
@@ -18,19 +14,19 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
   useE(() => {
     if (!elRef.current || mapRef.current || !window.L) return;
     const map = L.map(elRef.current).setView([lat, lng], 14);
-    // Basemap Carto Voyager: limpio y premium (vs OSM crudo, saturado y ruidoso).
+    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
     }).addTo(map);
-    // Anillo de 1 km: el radio real que el modelo usa para contar servicios.
-    // Hace visible el concepto del producto en la pantalla de entorno.
+    
+    
     if (showRadius) {
       radiusRef.current = L.circle([lat, lng], {
         radius: 1000, color: '#2563eb', weight: 1.5, dashArray: '6 6',
         fill: true, fillColor: '#2563eb', fillOpacity: 0.04, interactive: false,
       }).addTo(map);
     }
-    poiLayerRef.current = L.layerGroup().addTo(map);   // capa de POIs (debajo del pin)
+    poiLayerRef.current = L.layerGroup().addTo(map);   
     const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
     markerRef.current = marker;
     const emit = () => {
@@ -41,11 +37,11 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
     marker.on('dragend', emit);
     map.on('click', (e) => { marker.setLatLng(e.latlng); emit(); });
     mapRef.current = map;
-    const t = setTimeout(() => map.invalidateSize(), 120);  // Leaflet necesita esto
+    const t = setTimeout(() => map.invalidateSize(), 120);  
     return () => { clearTimeout(t); map.remove(); mapRef.current = null; poiLayerRef.current = null; markerRef.current = null; radiusRef.current = null; };
   }, []);
 
-  // Vuela al punto cuando flyTo cambia (geocoding search).
+  
   useE(() => {
     if (!flyTo || !mapRef.current || !markerRef.current || !window.L) return;
     const ll = L.latLng(flyTo.lat, flyTo.lng);
@@ -55,7 +51,7 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
     if (cbRef.current) cbRef.current(flyTo.lat, flyTo.lng);
   }, [flyTo]);
 
-  // Resync si el padre cambia lat/lng por fuera del mapa (no re-emite onMove → sin loop).
+  
   useE(() => {
     const m = markerRef.current;
     if (!m || typeof lat !== 'number' || typeof lng !== 'number') return;
@@ -65,8 +61,8 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
     if (radiusRef.current) radiusRef.current.setLatLng([lat, lng]);
   }, [lat, lng]);
 
-  // Pinta/actualiza los POIs cuando cambia la prop. interactive:false → los
-  // puntos no roban el click al pin (clickear "a través" de ellos mueve el pin).
+  
+  
   useE(() => {
     const layer = poiLayerRef.current;
     if (!layer || !window.L) return;
@@ -82,11 +78,6 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
   return <div ref={elRef} className={className || 'map-box'} role="application" aria-label="Mapa interactivo. Haz clic o arrastra el pin para seleccionar la ubicación del inmueble."/>;
 };
 
-/* AddressSearch — buscador de dirección reusable (Photon/komoot) con autocomplete.
-   onPick(lat,lng) se dispara al elegir una sugerencia o submit. Pensado para ir
-   ARRIBA de un MapPicker: el padre guarda {lat,lng} en su estado flyTo y se lo pasa
-   al MapPicker, que vuela el pin y emite onMove. Es la misma lógica que el buscador
-   de EntornoMapScreen, extraída para los forms (lo pidieron Propietario 1 y 2). */
 const AddressSearch = ({ onPick, placeholder }) => {
   const [q, setQ] = useS('');
   const [loading, setLoading] = useS(false);
@@ -127,7 +118,7 @@ const AddressSearch = ({ onPick, placeholder }) => {
       .finally(() => setLoading(false));
   };
 
-  // Autocomplete con debounce 400 ms.
+  
   useE(() => {
     const query = q.trim();
     if (query.length < 3) { setSug([]); setOpen(false); return; }
@@ -186,7 +177,6 @@ const AddressSearch = ({ onPick, placeholder }) => {
   );
 };
 
-/* Stepper — control numérico +/− */
 const Stepper = ({ label, value, set, min = 0, max = 20, suffix }) => (
   <div className="stepper-field">
     <div className="sl">{label}</div>
@@ -198,7 +188,6 @@ const Stepper = ({ label, value, set, min = 0, max = 20, suffix }) => (
   </div>
 );
 
-/* Helper común: maneja 401 → forzar logout */
 const handleApiErr = (ex, { setErr, onAuthExpired }) => {
   const msg = (ex && ex.message) ? ex.message : 'Error de conexión con el servidor';
   if (ex && ex.status === 401 && typeof onAuthExpired === 'function') {

@@ -12,7 +12,7 @@ from wasi.models.comparables_service import get_comparables_service
 from database import get_db
 from wasi.features.geo_index import OutOfBoundsError, in_bbox
 from wasi.paths import MODELS_V2_DIR
-import wasi.models.ml as ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
+import wasi.models.ml as ml
 from wasi.models.ml import counterfactual_full, explain_fair_value, predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
@@ -26,12 +26,7 @@ from wasi.models.venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VEN
 
 router = APIRouter(prefix="/api", tags=["fairvalue"])
 
-# Cobertura REAL del intervalo intercuartil P25-P75, medida en el test set
-# (quantile_coverage.json). El teórico es 50%, pero XGBoost quantile sin
-# calibración conformal cubre ~43%. Se lee del artefacto para no hardcodear un
-# número que pueda divergir del modelo. Cacheado a nivel de módulo.
 _QUANTILE_COVERAGE_PCT: Optional[float] = None
-
 
 def _quantile_coverage_pct() -> float:
     """% real de comparables que caen en el rango P25-P75 (~43%). Honesto:
@@ -49,7 +44,6 @@ def _quantile_coverage_pct() -> float:
                 pass
         _QUANTILE_COVERAGE_PCT = round(cov * 100)
     return _QUANTILE_COVERAGE_PCT
-
 
 def _analysis_to_out(a: Analysis) -> PredictOut:
     """Reconstruye PredictOut desde un Analysis persistido (historial)."""
@@ -70,8 +64,8 @@ def _analysis_to_out(a: Analysis) -> PredictOut:
         confidence=a.confidence,
         n_comparables=a.n_comparables,
         coverage_radius_km=float(a.coverage_radius_km or 0),
-        model_r2=ml.MODEL_R2,           # lazy via ml.__getattr__
-        model_mae=ml.MODEL_MAE_USD,     # lazy via ml.__getattr__
+        model_r2=ml.MODEL_R2,
+        model_mae=ml.MODEL_MAE_USD,
         mae_pct=float(a.mae_pct),
         min=round(fair - delta, 2),
         max=round(fair + delta, 2),
@@ -88,14 +82,13 @@ def _analysis_to_out(a: Analysis) -> PredictOut:
         dormitorios=a.property.dormitorios,
     )
 
-
 @router.post("/fairvalue/predict", response_model=PredictOut)
 def predict(
     payload: PredictIn,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ):
-    # Inferencia. El pin fuera del bbox de Lima → 400.
+
     try:
         res = predict_fair_value(payload.model_dump())
     except OutOfBoundsError:
@@ -104,7 +97,6 @@ def predict(
             detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
         )
 
-    # Persistir el inmueble analizado.
     prop = Property(
         district=res["distrito"],
         lat=payload.lat, lng=payload.lng,
@@ -117,7 +109,6 @@ def predict(
     db.add(prop)
     db.flush()
 
-    # Persistir el análisis (la zona/diff las calcula ml.py, no la BD).
     analysis = Analysis(
         user_id=current.id, property_id=prop.id,
         announced_price=res["announced_price"],
@@ -137,7 +128,6 @@ def predict(
             analysis_id=analysis.id, label=f["label"],
             score=f["score"], positive=f["positive"], order_idx=idx))
 
-    # Marca de última actividad del usuario.
     current.last_activity_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -146,15 +136,12 @@ def predict(
     out = _analysis_to_out(analysis)
     out.predicted_in_seconds = res["predicted_in_seconds"]
     out.warnings = res["warnings"]
-    # Contrafactuales (Sprint 2.2): no se persisten en BD — son derivables del
-    # form + modelo, no histórico. Se calculan en cada predict.
+
     out.counterfactuals = [Counterfactual(**cf) for cf in res.get("counterfactuals", [])]
-    # Intervalo P25/P50/P75 (Sprint 3.1, solo v2). Si no hay quantile cargado,
-    # queda None y el frontend cae al precio único.
+
     pi = res.get("prediction_interval")
     out.prediction_interval = PredictionInterval(**pi) if pi else None
     return out
-
 
 @router.post("/fairvalue/simulate", response_model=SimulateOut)
 def simulate(
@@ -178,7 +165,6 @@ def simulate(
         diff=res["diff"], diff_pct=res["diff_pct"],
         p25=pi.get("p25"), p50=pi.get("p50"), p75=pi.get("p75"),
     )
-
 
 @router.post("/fairvalue/predict-venta", response_model=PredictVentaOut)
 def predict_venta(
@@ -212,8 +198,6 @@ def predict_venta(
         zone = "Justo"
     delta = fair * VENTA_MAE_PCT / 100.0
 
-    # db es la misma sesión que cargó a `current` (get_db se cachea por
-    # request); el commit persiste la marca de actividad.
     current.last_activity_at = datetime.now(timezone.utc)
     db.commit()
     return PredictVentaOut(
@@ -229,11 +213,10 @@ def predict_venta(
         distrito=res["distrito"], version="venta-v1",
     )
 
-
 @router.post("/fairvalue/counterfactual", response_model=CounterfactualOut)
 def counterfactual(
     payload: CounterfactualIn,
-    current: User = Depends(get_current_user),   # mismo gate que /predict
+    current: User = Depends(get_current_user),
 ):
     """Palancas accionables: re-sirve el modelo congelado variando una feature
     a la vez (numéricas plausibles + toggle de amenities). No persiste nada —
@@ -245,7 +228,6 @@ def counterfactual(
             status_code=400,
             detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
         )
-
 
 @router.get("/fairvalue/comparables", response_model=ComparablesOut)
 def comparables(
@@ -269,7 +251,6 @@ def comparables(
     svc = get_comparables_service()
     items = svc.nearby(lat, lng, area=area, dormitorios=dormitorios, k=6)
     return {"items": items, "total_dataset": svc.n}
-
 
 @router.get("/analyses", response_model=List[RecentItem])
 def list_analyses(
@@ -299,7 +280,6 @@ def list_analyses(
         for a, p in rows
     ]
 
-
 @router.get("/analyses/{analysis_id}", response_model=PredictOut)
 def get_analysis(
     analysis_id: int,
@@ -310,7 +290,6 @@ def get_analysis(
     if not a or a.user_id != current.id:
         raise HTTPException(status_code=404, detail="Análisis no encontrado")
     return _analysis_to_out(a)
-
 
 @router.get("/fairvalue/explain/{analysis_id}", response_model=ExplainOut)
 def explain(
@@ -341,7 +320,7 @@ def explain(
     try:
         res = explain_fair_value(form)
     except RuntimeError as e:
-        # v1 activo o modelo sin soporte SHAP → 503 (el front cae al estado previo).
+
         raise HTTPException(status_code=503, detail=str(e))
     return ExplainOut(
         base_price=res["base_price"],
@@ -350,8 +329,6 @@ def explain(
         groups=[ExplainGroup(**g) for g in res["groups"]],
     )
 
-
-# ── helpers de narrativa LLM ────────────────────────────────────────────────
 _POI_KIND_LABEL = {
     "supermercados": "Supermercado", "malls": "Centro comercial",
     "universidades": "Universidad", "parques": "Parque",
@@ -362,9 +339,8 @@ _POI_KIND_LABEL = {
 }
 _POI_TIER_LABEL = {"premium": "gama alta", "mass": "gama masiva",
                    "cadena": "cadena", "indep": "independiente"}
-# 2 POIs en super/bancos para mostrar el contraste de tier; 1 en el resto.
-_POI_PER_CAT = {"supermercados": 2, "bancos": 2}
 
+_POI_PER_CAT = {"supermercados": 2, "bancos": 2}
 
 def _form_from_property(p) -> dict:
     """Reconstruye el form de predicción desde un Property persistido."""
@@ -378,7 +354,6 @@ def _form_from_property(p) -> dict:
         "es_estudio": bool(p.es_estudio),
         "amenities": [c for c in (p.amenities or "").split(",") if c],
     }
-
 
 def _poi_highlights(lat: float, lng: float) -> List[PoiHighlight]:
     """POIs nombrados cercanos, curados para narrativa y display. Falla suave."""
@@ -400,7 +375,6 @@ def _poi_highlights(lat: float, lng: float) -> List[PoiHighlight]:
     out.sort(key=lambda h: h.dist_m)
     return out
 
-
 def _groq_chat(api_key: str, prompt: str, max_tokens: int, temperature: float) -> str:
     """Llamada única a Groq/Llama. Lanza HTTPException(502) si falla."""
     try:
@@ -414,15 +388,13 @@ def _groq_chat(api_key: str, prompt: str, max_tokens: int, temperature: float) -
         )
         content = (resp.choices[0].message.content or "").strip()
     except Exception as e:
-        # Detail genérico al cliente: el mensaje crudo del SDK puede filtrar
-        # hints de la API key o paths internos. El detalle queda en el log.
+
         logging.getLogger("wasi.groq").warning("Groq fallo: %s", e)
         raise HTTPException(status_code=502,
                             detail="El servicio de narrativa no está disponible en este momento.")
     if not content:
         raise HTTPException(status_code=502, detail="Respuesta vacía del modelo")
     return content
-
 
 @router.get("/fairvalue/narrative/{analysis_id}", response_model=NarrativeOut)
 def narrative(
@@ -436,7 +408,7 @@ def narrative(
     mode='buyer' (Ana, inquilina): juzga el aviso. mode='seller' (Roberto,
     propietario): cómo posicionar su precio y qué hace valioso su inmueble."""
     from database import settings
-    # 404 antes que 503: no revelar config (GROQ) antes de validar pertenencia.
+
     a = db.get(Analysis, analysis_id)
     if not a or a.user_id != current.id:
         raise HTTPException(status_code=404, detail="Análisis no encontrado")
@@ -453,7 +425,7 @@ def narrative(
     groups = res["groups"]
     distrito = res["distrito"]
     predicted_price = res["predicted_price"]
-    fair_value = float(a.fair_value)   # número persistido = el que ve el usuario en la tarjeta
+    fair_value = float(a.fair_value)
 
     top = [g for g in sorted(groups, key=lambda g: abs(g["pct_effect"]), reverse=True)
            if abs(g["pct_effect"]) >= 0.5][:3]
@@ -472,7 +444,7 @@ def narrative(
     announced = float(a.announced_price) if a.announced_price is not None else None
 
     if is_seller:
-        # Posicionamiento: el precio que el propietario piensa pedir vs la referencia.
+
         ctx_line = ""
         if announced:
             ctx_line = (f"El propietario piensa pedir ${announced:.0f}/mes; la referencia "
@@ -513,7 +485,6 @@ def narrative(
         groups=[ExplainGroup(**g) for g in groups],
     )
 
-
 @router.get("/fairvalue/narrative/{analysis_id}/detailed", response_model=DetailedNarrativeOut)
 def narrative_detailed(
     analysis_id: int,
@@ -527,7 +498,7 @@ def narrative_detailed(
     mode='buyer' audita el aviso (Ana). mode='seller' asesora al propietario
     (Roberto): cómo posicionar el precio y maximizar el valor del inmueble."""
     from database import settings
-    # 404 antes que 503: no revelar config (GROQ) antes de validar pertenencia.
+
     a = db.get(Analysis, analysis_id)
     if not a or a.user_id != current.id:
         raise HTTPException(status_code=404, detail="Análisis no encontrado")
@@ -547,7 +518,6 @@ def narrative_detailed(
     distrito = res["distrito"]
     base_price = res["base_price"]
 
-    # Métricas del análisis ya persistido (no se recalculan).
     fair_value = float(a.fair_value)
     announced = float(a.announced_price) if a.announced_price is not None else None
     zone = a.zone or None
@@ -560,7 +530,6 @@ def narrative_detailed(
 
     pois = _poi_highlights(float(p.lat), float(p.lng))
 
-    # ── espectro para el prompt ──────────────────────────────────────────
     sube = sorted([g for g in groups if g["positive"] and abs(g["pct_effect"]) >= 0.5],
                   key=lambda g: abs(g["pct_effect"]), reverse=True)
     baja = sorted([g for g in groups if not g["positive"] and abs(g["pct_effect"]) >= 0.5],
@@ -584,8 +553,7 @@ def narrative_detailed(
     ) or "- (sin POIs nombrados en el radio cercano)"
 
     amen = ", ".join(form["amenities"]) or "ninguno declarado"
-    # El sentido del signo se resuelve en Python (no se deja que el LLM lo infiera
-    # de un % firmado). Para vendedor el marco es POSICIONAMIENTO, no veredicto.
+
     if is_seller:
         if announced is not None:
             if announced < price_min:
@@ -698,7 +666,6 @@ def narrative_detailed(
         poi_highlights=pois,
     )
 
-
 @router.get("/fairvalue/poi-importance")
 def poi_importance():
     """Importancia de POIs agrupada por categoría (sin auth — dato estático).
@@ -710,7 +677,6 @@ def poi_importance():
     if not data:
         raise HTTPException(status_code=503, detail="Modelo v1 activo — sin datos POI")
     return {"data": data}
-
 
 @router.post("/analyses/{analysis_id}/save", response_model=SaveOut)
 def save_analysis(

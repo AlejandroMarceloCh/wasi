@@ -33,11 +33,8 @@ MODELS_V2 = MODELS_V2_DIR
 MODELO_PRINCIPAL = "04_random_forest.joblib"
 MODELO_PRINCIPAL_V2 = "modelo_final_v2.joblib"
 
-# v2 está activo si existe el artefacto principal en models/v2/.
-# Los tests legacy pueden forzar v1 con env var DPD_FORCE_V1=1.
 import os
 USE_V2 = (MODELS_V2 / MODELO_PRINCIPAL_V2).exists() and not os.environ.get("DPD_FORCE_V1")
-
 
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -45,7 +42,6 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
-
 
 class ModelService:
     """Encapsula el modelo: carga, validación de startup y predicción."""
@@ -60,7 +56,6 @@ class ModelService:
         self._model_name: str | None = None
         self._poi_importance_cache: list[dict] | None = None
 
-    # ─── carga + validación de startup ──────────────────────────────────
     def load(self) -> None:
         """Carga el modelo. Detecta v2 si los artefactos existen, sino v1.
 
@@ -71,11 +66,11 @@ class ModelService:
         if USE_V2:
             self._load_v2()
         else:
-            self._check_manifest()                       # 1 — hashes
+            self._check_manifest()
             self._model = joblib.load(MODELS / MODELO_PRINCIPAL)
             self._load_artefactos()
-            self._check_n_features()                     # 2 — n_features_in_
-            self._check_golden_prediction()              # 3 — golden
+            self._check_n_features()
+            self._check_golden_prediction()
             print(f"[model_service] modelo v1 cargado y validado · version {self.version}")
 
     def _load_v2(self) -> None:
@@ -85,13 +80,13 @@ class ModelService:
         v2 (manifest_v2.json / golden_prediction_v2.json, generados por
         scripts/generate_model_artefacts_v2.py).
         """
-        self._check_manifest_v2()                        # 1 — hashes
+        self._check_manifest_v2()
         bundle = joblib.load(MODELS_V2 / MODELO_PRINCIPAL_V2)
         self._model = bundle["modelo"]
         self._model_name = bundle["nombre"]
         self._feature_order = list(joblib.load(MODELS_V2 / "feature_names_v2.joblib"))
         enc = joblib.load(MODELS_V2 / "target_enc_distrito_v2.joblib")
-        # En v2, el encoder ya viene smoothed (k=30). Convertimos a Series-like dict.
+
         self._target_enc = {
             "map": enc["map"] if hasattr(enc["map"], "get") else dict(enc["map"]),
             "global_mean": float(enc["global_mean"]),
@@ -99,13 +94,11 @@ class ModelService:
         }
         self._log_features = list(joblib.load(MODELS_V2 / "features_log_transformed_v2.joblib"))
         self._mode = "v2"
-        self._check_n_features()                         # 2 — n_features/orden
+        self._check_n_features()
         metrics = bundle.get("metricas_test", {})
         print(f"[model_service] modelo v2 cargado · {self._model_name} · "
               f"R²={metrics.get('r2', '?')} MAPE={metrics.get('mape', '?')}%")
 
-        # Sprint 3.1: modelos quantile (P25/P50/P75). Carga opcional — si no
-        # están, predict_interval queda en None y el frontend cae al precio único.
         self._quantile_models: dict[str, object] = {}
         for q in ("q25", "q50", "q75"):
             p = MODELS_V2 / f"xgb_{q}_v2.joblib"
@@ -116,7 +109,7 @@ class ModelService:
             cov = json.loads(cov_path.read_text()) if cov_path.exists() else {}
             print(f"[model_service] quantile cargado · coverage P25-P75={cov.get('coverage_p25_p75', '?')} · "
                   f"MAPE P50={cov.get('mape_p50_pct', '?')}%")
-        self._check_golden_v2()                          # 3 — golden prediction
+        self._check_golden_v2()
         print("[model_service] v2 validado · manifest + n_features + golden OK")
 
     def _check_manifest_v2(self) -> None:
@@ -209,7 +202,6 @@ class ModelService:
                     f"obtenido ${pred:.2f}, dif {dif * 100:.4f}% > {tol * 100}%. "
                     f"Incompatibilidad de versión o modelo cambiado.")
 
-    # ─── predicción ─────────────────────────────────────────────────────
     def predict(self, X) -> float:
         """Predice el precio de referencia en USD para un caso.
 
@@ -219,7 +211,7 @@ class ModelService:
         if self._model is None:
             raise RuntimeError("model_service: modelo no cargado (llamar load())")
         if isinstance(X, pd.DataFrame):
-            X = X[self._feature_order]                # garantiza el orden
+            X = X[self._feature_order]
         else:
             X = pd.DataFrame([list(X)], columns=self._feature_order)
         pred_log = float(self._model.predict(X)[0])
@@ -243,9 +235,7 @@ class ModelService:
         for q, model in self._quantile_models.items():
             pred_log = float(model.predict(X)[0])
             out[q[1:] if q.startswith("q") else q] = round(float(np.expm1(pred_log)), 2)
-        # Los 3 cuantiles se entrenan por separado y pueden CRUZARSE (P25 > P50)
-        # en casos límite. Forzamos monotonía ordenando — fix estándar para
-        # quantile regression con modelos independientes.
+
         vals = [out.get("25"), out.get("50"), out.get("75")]
         if any(v is None for v in vals):
             return None
@@ -256,7 +246,6 @@ class ModelService:
     def has_quantile(self) -> bool:
         return bool(getattr(self, "_quantile_models", None))
 
-    # ─── explainability (SHAP) ──────────────────────────────────────────
     def shap_contributions(self, X) -> tuple[list[float], float]:
         """TreeSHAP exacto vía XGBoost nativo (booster.predict(pred_contribs=True)).
 
@@ -279,12 +268,11 @@ class ModelService:
             X = pd.DataFrame([list(X)], columns=self._feature_order)
         booster = self._model.get_booster() if hasattr(self._model, "get_booster") else self._model
         dm = xgb.DMatrix(X, feature_names=self._feature_order)
-        raw = booster.predict(dm, pred_contribs=True)[0]  # shape (n_features + 1,)
+        raw = booster.predict(dm, pred_contribs=True)[0]
         contribs = [float(v) for v in raw[:-1]]
         bias = float(raw[-1])
         return contribs, bias
 
-    # ─── accesores ──────────────────────────────────────────────────────
     @property
     def version(self) -> str:
         if self._mode == "v2":
@@ -353,16 +341,11 @@ class ModelService:
             pct = round(sum(float(imp[i]) for i in idxs) / total * 100, 2)
             result.append({"category": label, "pct": pct, "n_features": len(idxs)})
         result.sort(key=lambda x: -x["pct"])
-        # pct_of_env_total: peso RELATIVO dentro del entorno (suma 100% entre las
-        # categorías). Ayuda a dimensionar un 1.25% absoluto que el usuario no
-        # sabe leer (feedback Inquilino 5). NO se convierte a $/mes: la importancia
-        # es global del modelo, no el efecto SHAP en un inmueble puntual.
+
         env_total = sum(r["pct"] for r in result)
         for r in result:
             r["pct_of_env_total"] = round(r["pct"] / env_total * 100, 1) if env_total else 0.0
         self._poi_importance_cache = result
         return result
 
-
-# ─── singleton — se carga una vez en el startup del backend ─────────────────
 model_service = ModelService()

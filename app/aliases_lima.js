@@ -1,8 +1,7 @@
-/* Aliases Lima — acrónimos y nombres coloquiales → nombre oficial para Photon.
-   Lookup exacto (lowercase trim). Si el query hace match, se expande antes de
-   llamar a Photon. Actualizar con nuevos alias según feedback de usuarios. */
+
+
 const LIMA_ALIASES = {
-  /* --- Universidades --- */
+  
   "utec":   "universidad de ingenieria y tecnologia",
   "pucp":   "pontificia universidad católica del perú",
   "puc":    "pontificia universidad católica del perú",
@@ -29,7 +28,7 @@ const LIMA_ALIASES = {
   "cibertec":"cibertec lima",
   "isil":   "isil lima",
 
-  /* --- Centros comerciales --- */
+  
   "jockey": "jockey plaza lima",
   "larcomar":"larcomar miraflores",
   "larco mar":"larcomar miraflores",
@@ -56,7 +55,7 @@ const LIMA_ALIASES = {
   "cc risso":"centro comercial risso",
   "cc angamos":"open plaza angamos",
 
-  /* --- Supermercados (sedes principales) --- */
+  
   "wong miraflores":   "wong miraflores",
   "wong san isidro":   "wong san isidro",
   "metro san isidro":  "metro san isidro",
@@ -64,7 +63,7 @@ const LIMA_ALIASES = {
   "tottus san borja":  "tottus san borja",
   "plaza vea surco":   "plaza vea surco",
 
-  /* --- Hospitales y clínicas --- */
+  
   "rebagliati":   "hospital edgardo rebagliati martins",
   "almenara":     "hospital guillermo almenara irigoyen",
   "loayza":       "hospital arzobispo loayza",
@@ -87,7 +86,7 @@ const LIMA_ALIASES = {
   "clinica maison de sante":"clinica maison de sante lima",
   "maison de sante":"clinica maison de sante lima",
 
-  /* --- Aeropuerto y terminales --- */
+  
   "jia":          "aeropuerto internacional jorge chávez",
   "jorge chavez": "aeropuerto internacional jorge chávez",
   "aeropuerto":   "aeropuerto internacional jorge chávez",
@@ -95,7 +94,7 @@ const LIMA_ALIASES = {
   "terminal yerbateros":"terminal terrestre yerbateros",
   "terminal javier prado":"terminal terrestre javier prado",
 
-  /* --- Estadios y deportes --- */
+  
   "estadio nacional":"estadio nacional lima",
   "monumental":   "estadio monumental lima",
   "alejandro villanueva":"estadio alejandro villanueva",
@@ -104,7 +103,7 @@ const LIMA_ALIASES = {
   "complejo deportivo videna":"videna san luis",
   "videna":       "videna san luis",
 
-  /* --- Museos y cultura --- */
+  
   "mali":         "museo de arte de lima",
   "mam":          "museo de arte moderno lima",
   "larco":        "museo larco lima",
@@ -115,7 +114,7 @@ const LIMA_ALIASES = {
   "cine planet":  "cineplanet lima",
   "ccpb":         "centro cultural pucp lima",
 
-  /* --- Parques y espacios públicos --- */
+  
   "parque kennedy":"parque kennedy miraflores",
   "kennedy":      "parque kennedy miraflores",
   "circuito magico":"parque de la reserva lima",
@@ -133,7 +132,7 @@ const LIMA_ALIASES = {
   "bosque el olivar":"bosque el olivar san isidro",
   "el olivar":    "bosque el olivar san isidro",
 
-  /* --- Sitios arqueológicos --- */
+  
   "huaca pucllana":"huaca pucllana miraflores",
   "pucllana":     "huaca pucllana miraflores",
   "huaca huallamarca":"huaca huallamarca san isidro",
@@ -141,14 +140,14 @@ const LIMA_ALIASES = {
   "huaca mateo salado":"huaca mateo salado lima",
   "pachacamac":   "pachacamac lima",
 
-  /* --- Óvalos y intersecciones conocidas --- */
+  
   "ovalo gutierrez":"óvalo gutiérrez miraflores",
   "ovalo monitor":"óvalo monitor san isidro",
   "ovalo higuereta":"óvalo higuereta surco",
   "ovalo de la aviacion":"óvalo aviación san borja",
   "ovalo quiñones":"óvalo quiñones san borja",
 
-  /* --- Plazas centrales --- */
+  
   "plaza mayor":  "plaza mayor lima",
   "plaza de armas":"plaza mayor lima",
   "plaza san martin":"plaza san martín lima",
@@ -157,7 +156,7 @@ const LIMA_ALIASES = {
   "plaza grau":   "plaza grau lima",
   "plaza merino": "plaza merino lima",
 
-  /* --- Colegios conocidos --- */
+  
   "villa maria":  "colegio villa maria lima",
   "santa maria":  "colegio santa maria lima",
   "markham":      "colegio markham lima",
@@ -178,7 +177,7 @@ const LIMA_ALIASES = {
   "franco peruano":"colegio franco peruano lima",
   "san silvestre":"colegio san silvestre lima",
 
-  /* --- Instituciones del estado --- */
+  
   "congreso":     "congreso de la república lima",
   "palacio de gobierno":"palacio de gobierno lima",
   "municipalidad lima":"municipalidad metropolitana de lima",
@@ -191,7 +190,7 @@ const LIMA_ALIASES = {
   "reniec":       "reniec lima",
   "migraciones":  "superintendencia de migraciones lima",
 
-  /* --- Zonas y barrios coloquiales --- */
+  
   "surco":        "Santiago de Surco",
   "la molina":    "La Molina Lima",
   "ate":          "Ate Lima",
@@ -219,7 +218,7 @@ const LIMA_ALIASES = {
   "la perla":     "La Perla Callao",
   "mi peru":      "Mi Perú Callao",
 
-  /* --- Otros hitos urbanos --- */
+  
   "larco herrera":"hospital victor larco herrera magdalena",
   "larco herrera hospital":"hospital victor larco herrera magdalena",
   "la parada":    "mercado la parada lima",
@@ -235,6 +234,4 @@ const LIMA_ALIASES = {
   "chorrillos playa":"playa los yuyos chorrillos",
 };
 
-// resolveAlias (screens-fairvalue.jsx) lee el diccionario desde window; en un
-// script clásico el `const` de arriba no crea esa propiedad global por sí solo.
 window.LIMA_ALIASES = LIMA_ALIASES;

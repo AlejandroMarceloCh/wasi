@@ -1,7 +1,5 @@
-/* Wasi — pantallas publicas: Splash + Auth.
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
-/* ============== 1. SPLASH / LANDING ============== */
+
+
 const SplashScreen = ({ onStart, onLogin }) => (
   <div className="fade-in">
     <div className="splash">
@@ -82,11 +80,10 @@ const SplashScreen = ({ onStart, onLogin }) => (
   </div>
 );
 
-/* ============== 2. AUTH ============== */
 const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
   const [mode, setMode] = useS(initialMode);
   useE(() => setMode(initialMode), [initialMode]);
-  // Pre-rellena credenciales demo en login
+  
   const [form, setForm] = useS({ email:'ana@wasi.pe', password:'demo1234', name:'', role:'Inquilino' });
   const [submitting, setSubmitting] = useS(false);
   const [err, setErr] = useS('');
@@ -97,12 +94,12 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
     try {
       if (mode === 'login') await Api.login({ email: form.email, password: form.password });
       else await Api.register({ email: form.email, name: form.name, password: form.password, role: form.role });
-      // isNew=true tras registro → aterriza en la pantalla accionable según rol
-      // (onboarding FR-09), no en el landing de marketing.
+      
+      
       onAuth(mode === 'register');
     } catch (ex) {
       const msg = (ex && ex.message) || 'Error al autenticar';
-      setErr(msg);   // el banner local del form ya muestra el error
+      setErr(msg);   
     } finally {
       setSubmitting(false);
     }

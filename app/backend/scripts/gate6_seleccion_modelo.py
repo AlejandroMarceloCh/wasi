@@ -19,10 +19,8 @@ MODELS = BACKEND / "models"
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 GATES = BACKEND.parent.parent / "gates"
 
-
 def mape(real, pred) -> float:
     return float(np.mean(np.abs(pred - real) / real) * 100)
-
 
 def main() -> int:
     xtest = pd.read_csv(PIPELINE_DATA / "X_test.csv")
@@ -39,7 +37,6 @@ def main() -> int:
     mae_rf = float(np.mean(np.abs(pred_rf - real)))
     mae_xgb = float(np.mean(np.abs(pred_xgb - real)))
 
-    # desglose por rango de precio (6 rangos)
     bordes = [0, 400, 600, 800, 1100, 1600, np.inf]
     etiquetas = ["<400", "400-600", "600-800", "800-1100", "1100-1600", ">1600"]
     filas = []
@@ -60,7 +57,6 @@ def main() -> int:
     for et, n, mrf, mxgb in filas:
         print(f"{et:12s} {n:>4d} {mrf:>8.2f}% {mxgb:>8.2f}%")
 
-    # ── escribir gate6_resultado.md ──────────────────────────────────────
     GATES.mkdir(exist_ok=True)
     tabla = "\n".join(
         f"| {et} | {n} | {mrf:.2f}% | {mxgb:.2f}% |" for et, n, mrf, mxgb in filas)
@@ -101,7 +97,6 @@ en los rangos de precio. No pierde por > 3 pp en ningún tramo relevante.
     (GATES / "gate6_resultado.md").write_text(md)
     print(f"\nEscrito: {GATES / 'gate6_resultado.md'}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -14,7 +14,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
-
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -32,7 +31,6 @@ class User(Base):
     favorites = relationship(
         "Favorite", back_populates="user", cascade="all, delete-orphan")
 
-
 class District(Base):
     """Distrito de Lima. Solo para el widget de cobertura del dashboard;
     los datos geográficos reales los sirve geo_index.py."""
@@ -41,7 +39,6 @@ class District(Base):
     name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     listings_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     coverage_level: Mapped[str] = mapped_column(String(16), nullable=False, default="baja")
-
 
 class Property(Base):
     """Inmueble analizado. Refleja el form nuevo (pin + datos estructurales).
@@ -57,11 +54,10 @@ class Property(Base):
     cocheras: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     antiguedad_anios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     es_estudio: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")  # csv de chips
+    amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     analyses = relationship("Analysis", back_populates="property")
-
 
 class Analysis(Base):
     __tablename__ = "analyses"
@@ -88,7 +84,6 @@ class Analysis(Base):
         cascade="all, delete-orphan", order_by="AnalysisFactor.order_idx")
     report = relationship("Report", back_populates="analysis", uselist=False)
 
-
 class AnalysisFactor(Base):
     __tablename__ = "analysis_factors"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -101,7 +96,6 @@ class AnalysisFactor(Base):
 
     analysis = relationship("Analysis", back_populates="factors")
 
-
 class Report(Base):
     __tablename__ = "reports"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -112,7 +106,6 @@ class Report(Base):
 
     user = relationship("User", back_populates="reports")
     analysis = relationship("Analysis", back_populates="report")
-
 
 class Listing(Base):
     """Inmueble publicado por un propietario/agente para alquiler. Arranca el
@@ -130,15 +123,15 @@ class Listing(Base):
     cocheras: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     antiguedad_anios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     es_estudio: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    price_usd: Mapped[float] = mapped_column(Float, nullable=False)              # precio publicado USD/mes
-    fair_value_ref: Mapped[float] = mapped_column(Float, nullable=True)          # referencia del modelo al publicar (para veredicto)
+    price_usd: Mapped[float] = mapped_column(Float, nullable=False)
+    fair_value_ref: Mapped[float] = mapped_column(Float, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    image_url: Mapped[str] = mapped_column(String(512), nullable=True)  # URL de foto opcional; si null el front muestra placeholder de marca
-    amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")  # csv de chips
+    image_url: Mapped[str] = mapped_column(String(512), nullable=True)
+    amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     contact_name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_phone: Mapped[str] = mapped_column(String(32), nullable=False)
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="activo")  # activo|pausado|alquilado
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="activo")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     owner = relationship("User", back_populates="listings")
@@ -146,7 +139,6 @@ class Listing(Base):
                          cascade="all, delete-orphan", order_by="Lead.created_at.desc()")
     favorites = relationship(
         "Favorite", back_populates="listing", cascade="all, delete-orphan")
-
 
 class Lead(Base):
     """Contacto generado por un inquilino sobre un Listing (Capa 2 del negocio)."""
@@ -161,7 +153,6 @@ class Lead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     listing = relationship("Listing", back_populates="leads")
-
 
 class Favorite(Base):
     """Inmueble guardado por un inquilino. Tabla NUEVA (aditiva): create_all la

@@ -20,7 +20,6 @@ from wasi.paths import DATA_DIR
 
 _EARTH_M = 6_371_000.0
 
-
 def _to_unit_sphere(lat, lng) -> np.ndarray:
     lat_r = np.radians(np.asarray(lat, dtype=float))
     lng_r = np.radians(np.asarray(lng, dtype=float))
@@ -30,14 +29,12 @@ def _to_unit_sphere(lat, lng) -> np.ndarray:
         np.sin(lat_r),
     ])
 
-
 def _haversine_m(lat1, lng1, lat2, lng2) -> np.ndarray:
     lat1, lng1, lat2, lng2 = map(np.radians, (lat1, lng1, lat2, lng2))
     dlat = lat2 - lat1
     dlng = lng2 - lng1
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlng / 2) ** 2
     return 2 * _EARTH_M * np.arcsin(np.sqrt(a))
-
 
 class ComparablesService:
     """Índice espacial de avisos reales para mostrar comparables al usuario."""
@@ -69,8 +66,6 @@ class ComparablesService:
         rows = self.df.iloc[idx].copy()
         rows["_dist_km"] = dist_m / 1000.0
 
-        # Score de similitud: distancia normalizada + penalización por diferencia
-        # de área (relativa) y de dormitorios. Menor score = mejor comparable.
         score = rows["_dist_km"] / max(rows["_dist_km"].max(), 0.1)
         if area:
             score = score + (rows["area_m2"] - area).abs() / max(float(area), 1.0)
@@ -94,9 +89,7 @@ class ComparablesService:
             })
         return out
 
-
 _SERVICE: ComparablesService | None = None
-
 
 def get_comparables_service() -> ComparablesService:
     global _SERVICE

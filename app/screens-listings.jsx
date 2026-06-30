@@ -1,11 +1,5 @@
-/* Wasi — Explorar: split-map Zillow, D3, detalle de inmueble.
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
-/* ============== Loading Overlay ============== */
-/* ============== EXPLORAR / LISTINGS (flywheel de oferta) ============== */
 
-/* ContactModal — el inquilino contacta al propietario de un inmueble.
-   Crea un Lead (Capa 2). Form name/phone/email/message dentro de <Modal>. */
+
 const ContactModal = ({ open, onClose, listingId, onError, onAuthExpired }) => {
   const [f, setF] = useS({ name: '', phone: '', email: '', message: '' });
   const [submitting, setSubmitting] = useS(false);
@@ -13,7 +7,7 @@ const ContactModal = ({ open, onClose, listingId, onError, onAuthExpired }) => {
   const [err, setErr] = useS('');
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
 
-  // Reinicia el estado cada vez que se abre el modal (otro inmueble, reintento).
+  
   useE(() => {
     if (open) { setF({ name: '', phone: '', email: '', message: '' }); setSent(false); setErr(''); }
   }, [open]);
@@ -94,18 +88,13 @@ const ContactModal = ({ open, onClose, listingId, onError, onAuthExpired }) => {
   );
 };
 
-/* ===== Split-view estilo Zillow (mapa con price-pins + grid de cards) ===== */
-
-// Veredicto Wasi -> clase de color del pin (mismos hex que ZONA_COLOR / ZONE_VARIANT).
 const VERDICT_PIN = { Ganga: 'price-pin-ganga', Justo: 'price-pin-justo', Inflado: 'price-pin-inflado' };
 
-// divIcon con el precio (en miles) y color por veredicto. active=true lo agranda.
-// Réplica del patrón divIcon que ya usa el repo (home-osm-pin) — markers, no circles.
 const priceIcon = (listing, active) => {
-  // price_usd se castea a Number antes de interpolar en el HTML del divIcon: así
-  // un valor no numérico nunca puede inyectar markup (anti-XSS).
-  // Label estilo Zillow: < $1000 muestra el monto exacto ("$650"); >= $1000 en
-  // miles con una decimal y sin ceros sobrantes ("$1.2K", "$2K").
+  
+  
+  
+  
   const p = Number(listing.price_usd);
   let label = '$0';
   if (Number.isFinite(p)) {
@@ -120,17 +109,13 @@ const priceIcon = (listing, active) => {
   });
 };
 
-/* ListingsSplitMap — clona el ciclo de vida de DistrictMap pero con marker+divIcon.
-   Montaje ÚNICO del mapa (useE []) + repintado de markers en un layerGroup
-   persistente cuando cambian los listings (filtros NO re-montan el mapa).
-   Hover card<->pin sincronizado vía estado React `active`. */
 const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
   const elRef = useR(null), mapRef = useR(null), layerRef = useR(null), markersRef = useR({});
   const [active, setActive] = useS(null);
-  // Zillow-style: bounds visibles del mapa. La grid se refiltra a este viewport.
+  
   const [bounds, setBounds] = useS(null);
 
-  // 1) montaje único del mapa
+  
   useE(() => {
     if (!elRef.current || mapRef.current || !window.L) return;
     const map = L.map(elRef.current, {
@@ -140,13 +125,13 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19, subdomains: 'abcd',
     }).addTo(map);
-    // Zillow-style: clustering nativo. A zoom alejado agrupa en burbujas con
-    // conteo; al acercarte (o al click en una burbuja) se rompen y aparecen los
-    // pins individuales. Maneja miles de markers sin colgar el DOM.
+    
+    
+    
     layerRef.current = (L.markerClusterGroup
       ? L.markerClusterGroup({
-          // Radio en función del zoom: lejos agrupa fuerte, cerca disuelve rápido
-          // en price-pins individuales (revelación progresiva estilo Zillow).
+          
+          
           maxClusterRadius: (zoom) => (zoom >= 15 ? 18 : zoom >= 14 ? 30 : zoom >= 13 ? 44 : 60),
           showCoverageOnHover: false,
           spiderfyOnMaxZoom: false,
@@ -155,7 +140,7 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
           iconCreateFunction: (cluster) => {
             const n = cluster.getChildCount();
             const label = n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '') + 'K' : String(n);
-            // Tier por densidad → color (teal→azul→índigo) + tamaño graduado.
+            
             const tier = n >= 250 ? 'xl' : n >= 50 ? 'lg' : n >= 10 ? 'md' : 'sm';
             const size = tier === 'xl' ? 58 : tier === 'lg' ? 50 : tier === 'md' ? 42 : 36;
             return L.divIcon({
@@ -167,11 +152,11 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
         })
       : L.layerGroup()).addTo(map);
     mapRef.current = map;
-    // invalidateSize: el panel de cards cambia el ancho del mapa (filtros / responsive)
-    // → sin esto salen tiles grises. Igual que DistrictMap.
+    
+    
     requestAnimationFrame(() => { map.invalidateSize(); setBounds(map.getBounds()); });
-    // Zillow: al terminar un zoom/pan, capturamos el recuadro visible y la grid
-    // se reduce a lo que cae dentro. moveend cubre zoom + arrastre.
+    
+    
     const syncBounds = () => { if (mapRef.current) setBounds(mapRef.current.getBounds()); };
     map.on('moveend', syncBounds);
     let ro = null;
@@ -186,9 +171,9 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
     };
   }, []);
 
-  // 2) repintar markers cuando cambian listings (carga/filtros). Se agregan TODOS
-  // al cluster group; el plugin decide qué mostrar como burbuja vs pin individual
-  // según el zoom. Encuadra todo el conjunto al terminar.
+  
+  
+  
   useE(() => {
     if (!mapRef.current || !layerRef.current) return;
     layerRef.current.clearLayers(); markersRef.current = {};
@@ -204,20 +189,20 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
       ms.push(m);
       pts.push([l.lat, l.lng]);
     }
-    if (layerRef.current.addLayers) layerRef.current.addLayers(ms);  // bulk = rápido
+    if (layerRef.current.addLayers) layerRef.current.addLayers(ms);  
     else ms.forEach(m => layerRef.current.addLayer(m));
     if (pts.length) mapRef.current.fitBounds(pts, { padding: [40, 40], maxZoom: 14 });
     else setBounds(mapRef.current.getBounds());
   }, [listings]);
 
-  // 3) hover card<->pin: re-emite el icono activo (divIcon no tiene setStyle).
+  
   const setPinActive = (id, on) => {
     const e = markersRef.current[id];
-    if (!e || !e.marker._map) return;   // guard: el layer puede haber sido removido
+    if (!e || !e.marker._map) return;   
     e.marker.setIcon(priceIcon(e.listing, on));
     e.marker.setZIndexOffset(on ? 1000 : 0);
   };
-  // Hover: solo toca el pin previo y el nuevo (no recorre los miles de markers).
+  
   const prevActiveRef = useR(null);
   useE(() => {
     const prev = prevActiveRef.current;
@@ -226,8 +211,8 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
     prevActiveRef.current = active;
   }, [active]);
 
-  // Zillow: la grid muestra solo lo que cae dentro del recuadro visible. Un aviso
-  // sin coordenadas no se puede ubicar → se mantiene siempre visible (no se oculta).
+  
+  
   const GRID_CAP = 60;
   const all = listings || [];
   const inView = (l) => {
@@ -242,8 +227,8 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
     <div className="listings-split">
       <div className="ls-map">
         <div ref={elRef}/>
-        {/* Leyenda flotante. height:auto evita heredar el 640px de `.ls-map > div`.
-            bottom-left para no chocar con los controles +/- (top-left de Leaflet). */}
+        {
+}
         <div style={{position:'absolute', bottom:14, left:14, zIndex:500, height:'auto',
                      width:'auto', maxWidth:'calc(100% - 28px)',
                      background:'rgba(255,255,255,.94)', backdropFilter:'blur(6px)',
@@ -297,57 +282,48 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
   );
 };
 
-/* ===================================================================
-   Visualizaciones D3 (todas defensivas: si falta window.d3 o no hay
-   data, devuelven el contenedor vacío sin romper el render). Patrón:
-   un <div ref> donde d3 construye el SVG en useE; ResizeObserver
-   redibuja en cambios de ancho (responsive / layout tardío).
-   =================================================================== */
-
-// Rango de mercado: banda P25–P75 + "justo" (centro del modelo) + el precio
-// anunciado marcado por color de veredicto. Reemplaza el badge de texto plano.
 const MarketRangeD3 = ({ p25, p50, p75, fair, announced, zone }) => {
   const ref = useR(null);
   useE(() => {
     const d3 = window.d3, el = ref.current;
     if (!d3 || !el) return;
     const draw = () => {
-      // remove() ANTES del guard: si los datos pasan de válidos a inválidos no
-      // debe quedar el gráfico viejo (stale) colgado.
+      
+      
       d3.select(el).selectAll('*').remove();
       const vals = [p25, p50, p75, fair, announced].filter(v => typeof v === 'number' && isFinite(v));
       if (vals.length < 3) return;
       const W = el.clientWidth || 460, H = 104, m = { l: 14, r: 14 };
       const innerW = W - m.l - m.r;
-      // Dominio acotado a la banda del modelo (con aire). Un anuncio outlier
-      // (p.ej. 3× la referencia) se ancla al borde con flecha en vez de
-      // estirar el eje y aplastar la banda hasta volverla ilegible.
+      
+      
+      
       const center = typeof fair === 'number' ? fair : p50;
       const lo = Math.min(p25 * 0.85, (typeof center === 'number' ? center : p25) * 0.95);
       const hi = Math.max(p75 * 1.15, (typeof center === 'number' ? center : p75) * 1.05);
       const x = d3.scaleLinear().domain([lo, hi]).range([m.l, m.l + innerW]);
       const yMid = 52;
       const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
-      // baseline
+      
       svg.append('line').attr('x1', m.l).attr('x2', m.l + innerW).attr('y1', yMid).attr('y2', yMid)
         .attr('stroke', 'var(--line)').attr('stroke-width', 2).attr('stroke-linecap', 'round');
-      // banda P25–P75
+      
       if (typeof p25 === 'number' && typeof p75 === 'number') {
         svg.append('rect').attr('x', x(p25)).attr('y', yMid - 7).attr('height', 14).attr('rx', 7)
           .attr('fill', 'rgba(37,99,235,.16)').attr('stroke', 'rgba(37,99,235,.45)')
           .attr('width', 0).transition().duration(600).attr('width', Math.max(2, x(p75) - x(p25)));
       }
-      // centro del modelo (justo)
+      
       if (typeof center === 'number') {
         svg.append('line').attr('x1', x(center)).attr('x2', x(center)).attr('y1', yMid - 13).attr('y2', yMid + 13)
           .attr('stroke', 'var(--primary)').attr('stroke-width', 2.5);
         svg.append('text').attr('x', x(center)).attr('y', yMid - 20).attr('text-anchor', 'middle')
           .attr('class', 'd3-lbl').attr('fill', 'var(--primary)').text('Justo $' + Math.round(center).toLocaleString('en-US'));
       }
-      // precio anunciado (color de veredicto). Fuera del dominio: punto anclado
-      // al borde + flecha + label explícito "fuera de rango".
+      
+      
       if (typeof announced === 'number') {
-        // Tonos -700: el label es texto pequeño sobre blanco y debe cumplir AA
+        
         const col = zone === 'Ganga' ? '#15803d' : zone === 'Inflado' ? '#b91c1c' : '#b45309';
         const out = announced < lo ? 'left' : announced > hi ? 'right' : null;
         const ax = out === 'left' ? m.l + 10 : out === 'right' ? m.l + innerW - 10 : x(announced);
@@ -376,7 +352,6 @@ const MarketRangeD3 = ({ p25, p50, p75, fair, announced, zone }) => {
   return <div ref={ref} className="d3-marketrange" style={{ width: '100%' }}/>;
 };
 
-// Importancia de entorno por categoría: lollipop horizontal (línea + punto).
 const PoiImportanceD3 = ({ data }) => {
   const ref = useR(null);
   useE(() => {
@@ -399,8 +374,8 @@ const PoiImportanceD3 = ({ data }) => {
         .attr('x2', m.l).transition().duration(650).delay((d, i) => i * 45).attr('x2', d => x(d.pct));
       g.append('circle').attr('cx', m.l).attr('cy', 0).attr('r', 5).attr('fill', (d, i) => color(i))
         .transition().duration(700).delay((d, i) => i * 45).attr('cx', d => x(d.pct));
-      // Etiqueta: peso relativo dentro del entorno (suma 100%, fácil de dimensionar)
-      // y entre paréntesis el % absoluto del modelo. Cae al absoluto si no viene rel.
+      
+      
       g.append('text').attr('x', d => x(d.pct) + 10).attr('dy', '.32em')
         .attr('class', 'd3-val')
         .text(d => d.pct_of_env_total != null
@@ -415,9 +390,6 @@ const PoiImportanceD3 = ({ data }) => {
   return <div ref={ref} className="d3-poi" style={{ width: '100%' }}/>;
 };
 
-// Card auto-contenida con el lollipop de importancia de entorno. Se usa en el
-// resultado de Analizar precio (HomeScreen quedó fuera de la nav por rol, así que el
-// insight de POIs se muestra acá, donde sí es alcanzable). Fetchea por su cuenta.
 const PoiInsightCard = () => {
   const [data, setData] = useS(null);
   useE(() => {
@@ -445,8 +417,6 @@ const PoiInsightCard = () => {
   );
 };
 
-// Contrafactuales como tornado diverging: sube (verde) a la derecha, baja (rojo)
-// a la izquierda. Data REAL del modelo (re-serving), no heurística.
 const CounterfactualTornadoD3 = ({ items }) => {
   const ref = useR(null);
   useE(() => {
@@ -487,10 +457,6 @@ const CounterfactualTornadoD3 = ({ items }) => {
   return <div ref={ref} className="d3-cf" style={{ width: '100%' }}/>;
 };
 
-/* CounterfactualPanel — barras de delta por palanca, copy según rol.
-   Vendedor (isSeller): "Cómo subir tu precio sugerido" → solo acciones que SUBEN.
-   Inquilino: "Qué explica este precio" → todo (lo que aporta y lo que resta).
-   Honestidad: se muestra el delta REAL del modelo, sin forzar signos. */
 const CounterfactualPanel = ({ cf, loading, error, isSeller }) => {
   if (loading) {
     return (
@@ -511,7 +477,7 @@ const CounterfactualPanel = ({ cf, loading, error, isSeller }) => {
     }
     return null;
   }
-  // Vendedor: solo acciones accionables que SUBEN el precio. Inquilino: todas.
+  
   const items = isSeller
     ? cf.items.filter(i => i.kind !== 'informativo' && i.direction === 'sube')
     : cf.items;
@@ -534,16 +500,15 @@ const CounterfactualPanel = ({ cf, loading, error, isSeller }) => {
   );
 };
 
-/* ListingsScreen (inquilino) — filtros + split-view (mapa con price-pins + grid). */
 const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   const [data, setData] = useS(null);
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
   const [distritos, setDistritos] = useS([]);
   const [filters, setFilters] = useS({ district: '', min_price: '', max_price: '', min_area: '', max_area: '', dormitorios: 0 });
-  // '' = más recientes (default del backend). Cualquier otro valor se pasa como ?sort=.
+  
   const [sort, setSort] = useS('');
-  // Set de ids guardados como favoritos por el usuario. Toggle optimista.
+  
   const [favIds, setFavIds] = useS(() => new Set());
 
   const load = () => {
@@ -565,20 +530,20 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
       });
   };
 
-  useE(() => { load(); }, []);                       // carga inicial
-  // Cambiar el orden es un Select: el usuario espera efecto inmediato (los
-  // filtros de texto sí esperan al botón "Aplicar"). Solo tras la carga inicial.
+  useE(() => { load(); }, []);                       
+  
+  
   useE(() => { if (data) load(); }, [sort]);
-  useE(() => {                                       // lista de distritos para el filtro
+  useE(() => {                                       
     Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
-  useE(() => {                                       // favoritos guardados del usuario
+  useE(() => {                                       
     Api.favorites()
       .then(r => setFavIds(new Set((Array.isArray(r) ? r : []).map(l => l.id))))
       .catch(() => {});
   }, []);
 
-  // Toggle optimista: actualiza el set local de inmediato y revierte si la API falla.
+  
   const onToggleFav = (id, next) => {
     setFavIds(prev => {
       const s = new Set(prev);
@@ -587,7 +552,7 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
     });
     const req = next ? Api.addFavorite(id) : Api.removeFavorite(id);
     req.catch(ex => {
-      setFavIds(prev => {                            // revertir el cambio optimista
+      setFavIds(prev => {                            
         const s = new Set(prev);
         if (next) s.delete(id); else s.add(id);
         return s;
@@ -609,9 +574,9 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
         title="Explorar inmuebles"
         subtitle="Avisos publicados con el veredicto de precio de Wasi"/>
 
-      {/* Aclaración honesta: el veredicto del catálogo es una referencia rápida
-          por comparables de zona (mediana de precio por m² del distrito), NO la
-          salida del modelo. El análisis con el modelo vive en Analizar precio. */}
+      {
+
+}
       <div className="banner info" style={{marginBottom:14, display:'flex', alignItems:'flex-start', gap:9}}>
         <Icon name="info" size={15}/>
         <span className="small">
@@ -620,7 +585,7 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
         </span>
       </div>
 
-      {/* Barra de filtros horizontal estilo Zillow, sobre el split-view. */}
+      {}
       <Card className="compact" style={{marginBottom:16}}>
         <div className="row" style={{gap:14, alignItems:'flex-end', flexWrap:'wrap'}}>
           <div style={{flex:'1 1 200px', minWidth:160}}>
@@ -679,25 +644,22 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   );
 };
 
-/* ListingDetailScreen — detalle + modal contacto + puente a Analizar precio +
-   contrafactuales. `role` decide el copy: vendedor ve "cómo subir el precio",
-   inquilino ve "qué explica este precio". */
 const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAuthExpired }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   const [data, setData] = useS(null);
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
   const [contactOpen, setContactOpen] = useS(false);
-  // Contrafactuales: re-serving del modelo congelado con el form del listing.
+  
   const [cf, setCf] = useS(null);
   const [cfLoading, setCfLoading] = useS(false);
   const [cfError, setCfError] = useS(false);
-  // Pestañas del detalle: Inmueble (precio+ficha) · Analizar precio (re-serving del
-  // modelo) · Entorno (mapa del barrio embebido). Entorno migró aquí desde la
-  // nav superior: vive en el contexto del inmueble que se está viendo.
+  
+  
+  
   const [tab, setTab] = useS('inmueble');
-  // Al abrir otro inmueble, volver siempre a la pestaña Inmueble (si no, abrir B
-  // tras dejar A en 'entorno'/'fairvalue' mostraría la pestaña equivocada).
+  
+  
   useE(() => { setTab('inmueble'); }, [listingId]);
 
   useE(() => {
@@ -715,9 +677,9 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
     return () => { cancel = true; };
   }, [listingId]);
 
-  // Carga de contrafactuales una vez que tenemos el listing (mismo form que
-  // "Analizar este precio", SIN `precio`). Errores silenciosos: el panel muestra
-  // su propio estado, no rompe la pantalla.
+  
+  
+  
   useE(() => {
     if (!data || typeof data.lat !== 'number' || typeof data.lng !== 'number') return;
     let cancel = false;
@@ -774,7 +736,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
         }
       />
 
-      {/* Tab strip — mismo lenguaje visual que el toggle Operación del form. */}
+      {}
       <div className="row" style={{gap:8, marginBottom:18, flexWrap:'wrap'}}>
         {[['inmueble','Inmueble','home'], ['fairvalue','Analizar precio','chart'], ['entorno','Entorno','pin']].map(([k, label, icon]) => (
           <Btn key={k} variant={tab===k ? 'primary' : 'outline'} size="sm"
@@ -859,7 +821,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
                 cocheras: data.cocheras, antiguedad_anios: data.antiguedad_anios,
                 es_estudio: data.es_estudio, amenities: data.amenities,
                 precio: data.price_usd,
-                from_catalog: true,   // este aviso es del catálogo (= set de entrenamiento)
+                from_catalog: true,   
               })}>
               <Icon name="chart" size={14}/> Analizar este precio
             </Btn>
@@ -867,7 +829,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
 
           <CounterfactualPanel cf={cf} loading={cfLoading} error={cfError} isSeller={isSeller}/>
 
-          {/* Contrafactuales interactivos: sliders sobre este inmueble. */}
+          {}
           {(typeof data.lat === 'number' && typeof data.lng === 'number') && (
             <WhatIfSimulator
               baseForm={{ lat: data.lat, lng: data.lng, area: data.area_m2,
@@ -903,6 +865,3 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
   );
 };
 
-/* PublishScreen (propietario/agente) — clona el form de Analizar precio para crear
-   un Listing. El botón "Calcular precio sugerido" reusa Api.predict (modelo
-   congelado) y guarda fair_value_ref para el veredicto del listing. */

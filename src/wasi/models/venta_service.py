@@ -21,13 +21,10 @@ from wasi.paths import VENTAS_BUNDLE
 
 BUNDLE = VENTAS_BUNDLE
 
-# MAPE espacial honesto del modelo (ventas_model/RESULTADOS.md, GroupKFold por
-# coordenada, target encoding refit por fold). Se usa para la banda de error.
 MAE_PCT = 15.8
 MODEL_R2 = 0.856
-ZONE_BAND_PCT = 8.0   # mismo umbral de veredicto que alquiler (ml.ZONE_BAND_PCT)
+ZONE_BAND_PCT = 8.0
 INMUEBLE_COLS = ["m2", "dormitorios", "banos", "cocheras", "antiguedad_anios"]
-
 
 class VentaService:
     """Carga y sirve el modelo de precio de venta."""
@@ -74,6 +71,5 @@ class VentaService:
             "coverage_radius_km": float(geo.get("coverage_radius_km", 0)),
             "fallback_reason": geo.get("fallback_reason"),
         }
-
 
 venta_service = VentaService()

@@ -30,14 +30,8 @@ EARTH_M = 6_371_000.0
 OSM_CATEGORIES = ['supermercados', 'malls', 'universidades', 'parques',
                   'farmacias', 'bancos', 'estaciones']
 
-# Sprint 3.6 — Categorías premium adicionales geocodificadas via Nominatim.
-# Cada categoría emite 2 features: count_1km_osm_<cat> y dist_nearest_m_osm_<cat>
-# (no se emite count_500m porque la cobertura es muy chica: 11-24 POIs por categoría).
 PREMIUM_CATEGORIES = ['colegios_top', 'clinicas_premium', 'restaurantes_premium']
 
-# Regex de tier por categoría. Casos sin match caen a "other" (no genera feature).
-# Diseñados con \b o anchors para evitar falsos positivos (Ej: "Banco de la Nación"
-# no debería matchear "BCP"). Insensitive a may/min.
 _TIER_REGEX: Dict[str, Dict[str, re.Pattern]] = {
     'supermercados': {
         'premium': re.compile(r'\b(wong|vivanda|cencosud\s*express|la\s*bonbonniere)\b', re.I),
@@ -48,17 +42,15 @@ _TIER_REGEX: Dict[str, Dict[str, re.Pattern]] = {
         'mass':    re.compile(r'\b(banco\s+de\s+la\s+naci[oó]n|mibanco|banco\s+pichincha|banco\s+azteca|banco\s+ripley|banco\s+falabella|caja\s+(huancayo|piura|arequipa|trujillo|sullana|cusco|ica|tacna|paita|metropolitana|maynas)|edpyme)\b', re.I),
     },
     'farmacias': {
-        # cadena_grande = cadenas nacionales con > ~30 sucursales en el dataset
+
         'cadena':  re.compile(r'\b(inkafarma|mifarma|mi\s*farma|boticas\s+y\s+salud|boticas\s+per[uú]|arcangel|nova\s*farma|inka\s*farma)\b', re.I),
-        # 'indep' es el resto (no se calcula con regex, se calcula como total - cadena).
+
     },
 }
 
-# Categorías que admiten tier breakdown. Las que no están acá no generan features extra.
 _TIERED_CATEGORIES = list(_TIER_REGEX.keys())
 
 _DATA_DIR = EXTERNAL_DATA_DIR
-
 
 def _to_unit_sphere(lat: np.ndarray, lng: np.ndarray) -> np.ndarray:
     lat_r, lng_r = np.radians(lat), np.radians(lng)
@@ -68,14 +60,12 @@ def _to_unit_sphere(lat: np.ndarray, lng: np.ndarray) -> np.ndarray:
         np.sin(lat_r),
     ])
 
-
 def _haversine_m(lat1, lng1, lat2, lng2):
     lat1, lng1 = np.radians(lat1), np.radians(lng1)
     lat2, lng2 = np.radians(lat2), np.radians(lng2)
     dlat, dlng = lat2 - lat1, lng2 - lng1
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlng / 2) ** 2
     return 2 * EARTH_M * np.arcsin(np.sqrt(a))
-
 
 def _load_category(path: Path) -> Tuple[np.ndarray, List[str]]:
     """Lee un JSON Overpass y devuelve (array (N, 2) lat/lng, lista de N nombres).
@@ -96,7 +86,6 @@ def _load_category(path: Path) -> Tuple[np.ndarray, List[str]]:
         names.append((el.get('tags') or {}).get('name', '') or '')
     return (np.array(pts), names) if pts else (np.empty((0, 2)), [])
 
-
 def _classify_tier(category: str, names: List[str]) -> Dict[str, np.ndarray]:
     """Para una categoría tiered, devuelve {tier_name: bool_mask sobre todos los POIs}.
 
@@ -110,10 +99,6 @@ def _classify_tier(category: str, names: List[str]) -> Dict[str, np.ndarray]:
         tiers[tier_name] = np.array([bool(pattern.search(n)) for n in names])
     return tiers
 
-
-# Nombres OSM genéricos/ruidosos que no sirven como landmark para la narrativa.
-# Un "Agente BCP" o "Cajero" no es una agencia: el regex de tier lo etiquetaría
-# 'premium' y confundiría la gama del barrio. Se descartan del contexto del LLM.
 _GENERIC_POI_NAMES = {
     "banco", "farmacia", "botica", "cajero", "agente", "atm", "supermercado",
     "minimarket", "mini market", "bodega", "tienda", "market", "parque",
@@ -122,14 +107,12 @@ _GENERIC_POI_NAMES = {
 }
 _GENERIC_PREFIX = ("agente ", "cajero", "atm ")
 
-
 def _is_noise_name(name: str) -> bool:
     """True si el nombre del POI es vacío, numérico o genérico (no es landmark)."""
     n = name.strip().lower()
     if not n or n in _GENERIC_POI_NAMES or n.isdigit():
         return True
     return n.startswith(_GENERIC_PREFIX)
-
 
 class OSMIndex:
     """Singleton lazy: 7 KD-trees, uno por categoría.
@@ -190,7 +173,7 @@ class OSMIndex:
 
             if cat in _TIERED_CATEGORIES:
                 masks = self._tier_masks.get(cat, {})
-                # idx son índices globales en coords; in_1km es bool sobre esos vecinos.
+
                 neighbor_global_idx = idx[in_1km]
                 if cat == 'farmacias':
                     cadena_mask = masks.get('cadena', np.zeros(len(coords), dtype=bool))
@@ -204,8 +187,6 @@ class OSMIndex:
                     out[f"count_1km_osm_{cat}_premium"] = int(premium_mask[neighbor_global_idx].sum())
                     out[f"count_1km_osm_{cat}_mass"]    = int(mass_mask[neighbor_global_idx].sum())
 
-        # Sprint 3.6 — 3 categorías premium adicionales (colegios top / clínicas premium / restaurantes fine dining).
-        # Solo emiten count_1km y dist_nearest (cobertura muy chica — 11-24 POIs cada una).
         for cat in PREMIUM_CATEGORIES:
             coords = self._coords.get(cat, np.empty((0, 2)))
             if len(coords) == 0:
@@ -213,7 +194,7 @@ class OSMIndex:
                 out[f"dist_nearest_m_osm_{cat}"] = 9999.0
                 continue
             tree = self._trees[cat]
-            k = min(20, len(coords))  # menos vecinos: cobertura chica
+            k = min(20, len(coords))
             _, idx = tree.query(listing_xyz, k=k)
             idx = np.atleast_1d(idx).ravel()
             d_m = _haversine_m(lat, lng, coords[idx, 0], coords[idx, 1])
@@ -249,16 +230,16 @@ class OSMIndex:
             items: List[dict] = []
             seen: set = set()
             for j in order:
-                gi = int(idx[j])                       # índice global en coords/names
+                gi = int(idx[j])
                 dist = float(d_m[j])
                 if dist > max_m:
-                    break                              # order es ascendente: lo demás está más lejos
+                    break
                 nm = names[gi].strip() if gi < len(names) else ''
                 if _is_noise_name(nm):
-                    continue                           # sin nombre o genérico/cajero → inútil
+                    continue
                 key = nm.lower()
                 if key in seen:
-                    continue                           # dedupe: no repetir la misma marca/sucursal
+                    continue
                 seen.add(key)
                 tier = None
                 for tier_name, mask in masks.items():
@@ -266,7 +247,7 @@ class OSMIndex:
                         tier = tier_name
                         break
                 if tier is None and cat == "farmacias":
-                    tier = "indep"                     # farmacia que no es cadena → independiente
+                    tier = "indep"
                 items.append({"name": nm, "dist_m": round(dist), "tier": tier})
                 if len(items) >= per_cat:
                     break
@@ -274,9 +255,7 @@ class OSMIndex:
                 out[cat] = items
         return out
 
-
 _INDEX: OSMIndex | None = None
-
 
 def get_osm() -> OSMIndex:
     global _INDEX

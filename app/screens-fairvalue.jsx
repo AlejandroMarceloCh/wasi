@@ -1,7 +1,5 @@
-/* Wasi — Analizar precio: wizard, resultado alquiler/venta, Entorno.
-   Scripts clásicos con scope global compartido: los aliases useS/useE/useR
-   se declaran en screens-core y el orden de carga lo fija index.html. */
-/* ============== 4. FAIR VALUE FORM (wizard 3 pasos) ============== */
+
+
 const AMENIDADES = [
   { key:'ascensor',       label:'Ascensor' },
   { key:'seguridad',      label:'Seguridad' },
@@ -15,15 +13,15 @@ const AMENIDADES = [
 
 const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
-  // Operación: 'alquiler' (default = comportamiento actual, INTACTO) | 'venta'.
-  // En venta el modelo v1 ignora amenities/es_estudio y el precio es total en USD.
+  
+  
   const [operacion, setOperacion] = useS('alquiler');
   const isVenta = operacion === 'venta';
   const [step, setStep] = useS(1);
   const [submitting, setSubmitting] = useS(false);
   const [err, setErr] = useS('');
-  // "Analizar este precio" pre-carga las características del inmueble abierto;
-  // sin prefill el form arranca con los defaults.
+  
+  
   const [f, setF] = useS(() => {
     const p = prefill || {};
     const amen = Array.isArray(p.amenities) ? p.amenities
@@ -39,11 +37,11 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
       precio: p.precio != null ? String(p.precio) : '',
     };
   });
-  // ¿El form viene pre-cargado desde un aviso del catálogo? Ese catálogo es el
-  // mismo set con el que se entrenó el modelo: analizarlo SIN cambios produce un
-  // veredicto sesgado (el modelo "reconoce" el precio → tiende a Justo). En
-  // cuanto el usuario edita cualquier dato deja de ser ese punto y el aviso
-  // honesto desaparece.
+  
+  
+  
+  
+  
   const [fromCatalog, setFromCatalog] = useS(!!(prefill && prefill.from_catalog));
   const set = (k, v) => { setFromCatalog(false); setF(prev => ({ ...prev, [k]: v })); };
   const toggleAmenity = (k) => { setFromCatalog(false); setF(prev => ({
@@ -53,20 +51,20 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
       : [...prev.amenities, k],
   })); };
 
-  // Destino del buscador de dirección → MapPicker vuela el pin (S4).
+  
   const [flyTo, setFlyTo] = useS(null);
 
   const pinOk = enLima(f.lat, f.lng);
   const areaNum = Number(f.area);
   const areaOk = f.area && areaNum >= 10 && areaNum <= 1000;
-  // Cap del precio según operación: alquiler = USD/mes; venta = USD total.
+  
   const PRECIO_MIN = isVenta ? 10000 : 50;
   const PRECIO_MAX = isVenta ? 5000000 : 50000;
   const precioNum = Number(f.precio);
   const precioOk = f.precio && precioNum >= PRECIO_MIN && precioNum <= PRECIO_MAX;
 
-  // Reverse geocoding (Nominatim/OSM) para mostrar "Avenida X, Miraflores"
-  // en el resumen del step 3, en lugar de las coordenadas crudas.
+  
+  
   const [locLabel, setLocLabel] = useS('');
   const [locLoading, setLocLoading] = useS(false);
   const locCache = useR({});
@@ -100,8 +98,8 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
     setErr(''); setSubmitting(true);
     try {
       if (isVenta) {
-        // Modelo de venta v1: SIN amenities ni es_estudio. Devuelve el resultado
-        // directo (no hay analysis_id), por lo que se pasa el data a la pantalla.
+        
+        
         const res = await Api.predictVenta({
           lat: f.lat, lng: f.lng, area: areaNum,
           dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
@@ -110,16 +108,16 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         onSubmit && onSubmit(null, { lat: f.lat, lng: f.lng }, { operacion: 'venta', ventaData: res });
         return;
       }
-      // Alquiler — flujo original INTACTO.
+      
       const res = await Api.predict({
         lat: f.lat, lng: f.lng, area: areaNum,
         dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
         antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
         amenities: f.amenities, precio,
-        from_catalog: fromCatalog,   // aviso del catálogo → confianza Baja + warning (backend)
+        from_catalog: fromCatalog,   
       });
-      // Se pasa la respuesta viva (trae prediction_interval; los cuantiles no
-      // se persisten) y el form (alimenta el simulador what-if del resultado).
+      
+      
       onSubmit && onSubmit(res.analysis_id, { lat: f.lat, lng: f.lng }, {
         predictData: res,
         form: { lat: f.lat, lng: f.lng, area: areaNum, dormitorios: f.dormitorios,
@@ -147,8 +145,8 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         onBack={onBack}
       />
 
-      {/* Aviso de data leak: este inmueble viene del catálogo, que es el set de
-          entrenamiento del modelo. Analizarlo sin cambios sesga el veredicto. */}
+      {
+}
       {fromCatalog && (
         <div style={{
           margin:'0 0 16px', padding:'12px 14px', borderRadius:10,
@@ -165,10 +163,9 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         </div>
       )}
 
-      {/* Toggle Operación: Alquiler (default) | Venta. Al cambiar se limpia el
-          precio porque los rangos de alquiler (USD/mes) y venta (USD total) son
-          disjuntos. Solo se ofrece en el paso 1 para no cambiar el modelo a
-          mitad del flujo. */}
+      {
+
+}
       {step === 1 && (
         <div className="row" style={{gap:8, marginBottom:16}}>
           <span className="small muted" style={{marginRight:4}}>Operación:</span>
@@ -232,7 +229,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
             <ToggleRow label="Es un estudio (monoambiente)" checked={f.es_estudio}
               onChange={(v)=>setF(p=>({
                 ...p, es_estudio:v,
-                dormitorios: v ? 0 : Math.max(1, p.dormitorios),   // no-estudio nunca 0 dorm (P-07)
+                dormitorios: v ? 0 : Math.max(1, p.dormitorios),   
                 banos: v ? p.banos : Math.max(1, p.banos),
               }))}/>
           )}
@@ -283,7 +280,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
 
       {step === 3 && (
         <div className="step3-grid">
-          {/* Columna izquierda: input de precio grande tipo editorial */}
+          {}
           <Card className="wizard-card price-card">
             <div className="price-card-head">
               <div className="section-h">3 · {isVenta ? 'Precio de venta (USD)' : (isSeller ? '¿Cuánto piensas pedir?' : 'Precio anunciado')}</div>
@@ -338,7 +335,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
             </div>
           </Card>
 
-          {/* Columna derecha: resumen del depto en tabla limpia */}
+          {}
           <Card className="wizard-card summary-card">
             <div className="section-h">Resumen del depto</div>
             <div className="summary-rows">
@@ -389,8 +386,6 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
   );
 };
 
-/* Renderiza el informe LLM: líneas tipo **Título** se vuelven encabezados de
-   sección; el resto, párrafos con **negritas** inline. Sin librería markdown. */
 const renderNarrative = (text) => {
   const lines = String(text || '').split('\n');
   const out = [];
@@ -410,8 +405,8 @@ const renderNarrative = (text) => {
     }
     const parts = line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((seg, j) => {
       const m = seg.match(/^\*\*(.+)\*\*$/);
-      // Resto: limpia asteriscos sueltos (** sin cerrar, viñetas *) para no
-      // mostrar ruido markdown en una UI utility.
+      
+      
       return m ? <b key={j}>{m[1]}</b> : <span key={j}>{seg.replace(/\*/g, '')}</span>;
     });
     out.push(
@@ -421,11 +416,6 @@ const renderNarrative = (text) => {
   return out;
 };
 
-/* ============== 5b. VENTA RESULT (modelo de venta v1) ==============
-   Resultado del modelo de compra/venta. Reusa el gauge, las cards y el
-   veredicto de alquiler, pero en USD TOTAL (sin "/mes"). El modelo v1 NO
-   devuelve analysis_id, SHAP, intervalo P25-P75 ni narrativa LLM: esas
-   secciones se omiten con un aviso discreto, no se muestran vacías. */
 const VentaResult = ({ data, role, onBack, onContext }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   const fair = data.fair_value;
@@ -437,15 +427,15 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
   const isGanga = zona === 'Ganga';
   const accentVar = isInflado ? 'danger' : 'success';
   const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-  // Banda de referencia directa del backend (fair ± MAPE, ya calculada).
+  
   const bandMin = data.min;
   const bandMax = data.max;
-  // Confianza derivada de cobertura: el modelo de venta no devuelve `confidence`,
-  // así que la inferimos de n_comparables para el aviso honesto (mismo umbral
-  // conceptual que alquiler: pocos comparables → tómalo como referencia).
+  
+  
+  
   const pocosComparables = (data.n_comparables || 0) < 27;
 
-  // Posicionamiento del vendedor (Conservador/Competitivo/Agresivo) vs la banda.
+  
   const sellerPos = (anuncio == null) ? null
     : anuncio < bandMin ? 'Conservador'
     : anuncio > bandMax ? 'Agresivo'
@@ -566,7 +556,7 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
             </Card>
           )}
 
-          {/* Banda de referencia (min–max) */}
+          {}
           <Card>
             <div className="section-h" style={{margin:0}}>Rango de referencia</div>
             <div style={{display:'flex', alignItems:'baseline', justifyContent:'center', gap:8, marginTop:12}}>
@@ -579,7 +569,7 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
             </div>
           </Card>
 
-          {/* Aviso discreto: el análisis profundo es solo para alquiler en v1. */}
+          {}
           <div style={{padding:'10px 12px', background:'var(--bg-tint)', borderRadius:10, fontSize:12, color:'var(--ink-3)', lineHeight:1.55}}>
             <Icon name="info" size={13} stroke="var(--ink-3)"/> El análisis detallado (SHAP, contrafactuales y narrativa con IA) está disponible para alquiler. Venta es v1: precio justo, veredicto y rango.
           </div>
@@ -595,13 +585,6 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
   );
 };
 
-/* ============== 5. FAIR VALUE RESULT ============== */
-/* ============== Simulador what-if (contrafactuales interactivos) ==============
-   El usuario mueve sliders (área, dormitorios, baños…) y el modelo re-predice
-   en vivo vía /fairvalue/simulate (sin persistir análisis). Las barras D3
-   animan la transición Hoy → Simulado en cada respuesta. */
-
-// Dos barras horizontales: "Hoy" (precio base, fija) vs "Simulado" (animada).
 const SimBarsD3 = ({ base, sim }) => {
   const ref = useR(null);
   const prev = useR({ base: 0, sim: 0 });
@@ -640,14 +623,14 @@ const SimBarsD3 = ({ base, sim }) => {
 };
 
 const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
-  // Características editables por slider; lat/lng/amenities/precio quedan fijos.
+  
   const [f, setF] = useS(() => ({
     area: Math.round(baseForm.area),
     dormitorios: baseForm.dormitorios, banos: baseForm.banos,
     cocheras: baseForm.cocheras || 0, antiguedad_anios: baseForm.antiguedad_anios || 0,
   }));
-  const [baseFair, setBaseFair] = useS(null);   // referencia del form original
-  const [sim, setSim] = useS(null);             // última simulación
+  const [baseFair, setBaseFair] = useS(null);   
+  const [sim, setSim] = useS(null);             
   const [busy, setBusy] = useS(false);
   const [err, setErr] = useS('');
   const tRef = useR(null);
@@ -663,7 +646,7 @@ const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
     cocheras: nf.cocheras, antiguedad_anios: nf.antiguedad_anios,
   });
 
-  // Primera llamada: fija la referencia "Hoy" con el form original.
+  
   useE(() => {
     let alive = true;
     Api.simulate(payload(f))
@@ -701,7 +684,7 @@ const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
     setF(nf); run(nf);
   };
 
-  if (err && baseFair === null) return null;   // simulador caído: no estorbar
+  if (err && baseFair === null) return null;   
   const simFair = sim ? sim.fair_value : baseFair;
   const delta = (simFair != null && baseFair != null) ? simFair - baseFair : 0;
   const deltaPct = baseFair ? (delta / baseFair * 100) : 0;
@@ -754,9 +737,6 @@ const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
   );
 };
 
-// Avisos reales comparables (FR-03). Evidencia detrás del precio: los avisos del
-// dataset más cercanos y similares al inmueble. Pedido por 2 expertos para dar
-// confianza ("¿contra qué comparas?"). Carga lazy desde data.lat/lng/area/dorm.
 const ComparablesCard = ({ data }) => {
   const [items, setItems] = useS(null);
   const [loading, setLoading] = useS(true);
@@ -770,8 +750,8 @@ const ComparablesCard = ({ data }) => {
     return () => { alive = false; };
   }, [lat, lng]);
 
-  if (lat == null || lng == null) return null;            // análisis viejo sin coords
-  if (loading) return null;                                // sin parpadeo: aparece al cargar
+  if (lat == null || lng == null) return null;            
+  if (loading) return null;                                
   if (!items || items.length === 0) return null;
 
   const precios = items.map(i => i.precio_usd).sort((a, b) => a - b);
@@ -812,10 +792,10 @@ const ComparablesCard = ({ data }) => {
 };
 
 const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBack, onContext, onError, onAuthExpired }) => {
-  // Venta v1: el modelo no devuelve analysis_id, llega el data directo desde el
-  // form. Delegamos a un componente propio ANTES de cualquier hook, dejando el
-  // path de alquiler (debajo) idéntico. La rama es estable por render (depende
-  // de la pantalla, no de eventos), así que no rompe las reglas de hooks.
+  
+  
+  
+  
   if (ventaData) {
     return <VentaResult data={ventaData} role={role} onBack={onBack} onContext={onContext}/>;
   }
@@ -826,20 +806,20 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
   const [err, setErr] = useS('');
   const [saved, setSaved] = useS(false);
   const [saving, setSaving] = useS(false);
-  // Explicación SHAP (TreeSHAP real del modelo). Carga en paralelo al análisis.
+  
   const [explain, setExplain] = useS(null);
   const [explainFailed, setExplainFailed] = useS(false);
-  // Grupo SHAP expandido (drill-down a drivers concretos). Índice o null.
+  
   const [openGroup, setOpenGroup] = useS(null);
-  // Narrativa LLM (Groq/Llama). Carga después del explain; falla silenciosamente.
+  
   const [narrative, setNarrative] = useS(null);
   const [narrativeLoading, setNarrativeLoading] = useS(false);
-  // Análisis completo (modal). Fetch lazy: solo al abrir, una vez.
+  
   const [detailOpen, setDetailOpen] = useS(false);
   const [detail, setDetail] = useS(null);
   const [detailLoading, setDetailLoading] = useS(false);
   const [detailErr, setDetailErr] = useS('');
-  // Id del análisis vigente: descarta respuestas de detalle de un análisis previo.
+  
   const curId = useR(analysisId);
 
   useE(() => {
@@ -858,9 +838,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
     setDetailErr('');
     setDetailLoading(false);
     setDetailOpen(false);
-    // Viniendo del wizard llega la respuesta viva de /predict, que incluye
-    // prediction_interval (no se persiste, así que el GET no lo trae). Desde
-    // el historial no hay data viva y se consulta el análisis guardado.
+    
+    
+    
     if (liveData && liveData.analysis_id === analysisId) {
       setData(liveData);
       setLoading(false);
@@ -874,12 +854,12 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
           setLoading(false);
         });
     }
-    // SHAP — si falla (ej. modelo v1), el panel muestra "no disponible".
+    
     setExplainFailed(false);
     Api.explain(analysisId)
       .then(r => { if (!cancel) setExplain(r); })
       .catch(() => { if (!cancel) setExplainFailed(true); });
-    // Narrativa LLM — falla silenciosamente si GROQ_API_KEY no está configurado.
+    
     setNarrativeLoading(true);
     Api.narrative(analysisId, narrativeMode)
       .then(r => { if (!cancel) { setNarrative(r); setNarrativeLoading(false); } })
@@ -887,9 +867,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
     return () => { cancel = true; };
   }, [analysisId]);
 
-  // Abre el modal y dispara el fetch del detalle una sola vez. Tras un error NO
-  // se re-dispara al reabrir (el guard corta por detailErr); solo el botón
-  // "Reintentar" pasa retry=true. Descarta respuestas de un análisis ya cambiado.
+  
+  
+  
   const openDetail = (retry) => {
     setDetailOpen(true);
     if (!retry && (detail || detailLoading || detailErr)) return;
@@ -962,16 +942,16 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                 : (data.confidence || '').includes('Baja') ? 'danger'
                 : 'warning';
   const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-  // Formato único de dinero/porcentaje en toda la pantalla: $2,313 (sin
-  // decimales) y +194% (centésimas solo cuando el valor es chico).
+  
+  
   const usd0 = (v) => '$' + Math.round(v).toLocaleString('en-US');
   const pctFmt = (v) => (Math.abs(v) >= 10 ? Math.round(Math.abs(v)) : Math.abs(v).toFixed(1)) + '%';
 
-  // Confidence gating: la banda heurística [min, max] (= fair ± MAPE) se
-  // ensancha cuando hay pocos comparables. Usa data.confidence (single source
-  // of truth, ya calibrada por backtest LOO en el backend). El prediction_interval
-  // P25-P75 NO se toca: ese viene del modelo de cuantiles y mentir sobre él sería
-  // deshonesto.
+  
+  
+  
+  
+  
   const CONF_WIDEN = { Alta: 1.0, Media: 1.3, Baja: 1.8 };
   const wf = CONF_WIDEN[data.confidence] || 1.0;
   const effMaePct = (data.mae_pct || 0) * wf;
@@ -979,9 +959,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
   const bandMax = wf > 1 ? Math.round(fair + fair * effMaePct / 100) : data.max;
   const lowConf = data.confidence === 'Baja' || data.confidence === 'Media';
 
-  // Posicionamiento del vendedor: su precio tentativo vs la banda de referencia
-  // [min, max] (= fair ± MAPE, ensanchada según confianza). No es veredicto
-  // Ganga/Inflado: es estrategia.
+  
+  
+  
   const sellerPos = (anuncio == null) ? null
     : anuncio < bandMin ? 'Conservador'
     : anuncio > bandMax ? 'Agresivo'
@@ -991,10 +971,10 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
     Competitivo: 'Alineado al mercado: buen equilibrio entre margen y rapidez de colocación.',
     Agresivo: 'Por encima del mercado: más margen por mes, pero puede tardar en colocarse.',
   };
-  // Una sola fuente de color por estado: Card, Tag y gauge quedan consistentes.
+  
   const POS_VARIANT = { Conservador: 'accent', Competitivo: 'success', Agresivo: 'warning' };
   const sellerPosTag = sellerPos ? POS_VARIANT[sellerPos] : 'accent';
-  // Escala de la barra de posicionamiento: la banda + el precio del vendedor, con aire.
+  
   const barLo = Math.min(bandMin, anuncio || bandMin) * 0.95;
   const barHi = Math.max(bandMax, anuncio || bandMax) * 1.05;
   const barPct = (v) => Math.max(0, Math.min(100, (v - barLo) / (barHi - barLo) * 100));
@@ -1018,10 +998,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
         </div>
       )}
 
-      {/* Banner honesto de baja cobertura. Se activa cuando el backend marca
-          confianza Baja (< 27 comparables internos calibrados por backtest LOO).
-          Antes el trigger era < 20 hard-coded, lo que dejaba una zona gris
-          20-27 donde la confianza era Baja pero el banner no aparecía. */}
+      {
+
+}
       {data.confidence === 'Baja' && (
         <div className="banner banner-coverage" style={{marginBottom:14}}>
           <Icon name="info" size={14}/>
@@ -1032,8 +1011,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
       )}
 
       <div className="result-grid">
-        {/* Columna izquierda: gauge + palancas + simulador. Repartir las cards
-            entre ambas columnas evita el hueco blanco al lado de la derecha. */}
+        {
+}
         <div className="stack-20">
         <Card>
           <div className="row" style={{justifyContent:'space-between'}}>
@@ -1050,9 +1029,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             </div>
           )}
 
-          {/* Hero del comprador: veredicto + los dos números arriba del gauge.
-              (Reemplaza a la card "Comparativa": el veredicto vivía repetido
-              en tres lugares y competían dos números grandes por la atención.) */}
+          {
+
+}
           {!isSeller && (
             <>
               <div className={`verdict verdict-${isInflado?'inflado':isGanga?'ganga':'justo'}`} style={{marginTop:14}}>
@@ -1086,8 +1065,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             <GaugeChart fairValue={fair} diffPct={pct} zone={zona} seller={isSeller} sellerPos={sellerPos} chip={isSeller}/>
           </div>
 
-          {/* Rango P25-P75 del modelo de cuantiles (Sprint 3.1). Solo cuando
-              el modelo tiene quantile cargado (v2 + xgb_q*_v2.joblib). */}
+          {
+}
           {data.prediction_interval && (
             <div style={{marginTop:14, padding:'12px 14px', background:'linear-gradient(90deg, rgba(59,130,246,.05), rgba(59,130,246,.10), rgba(59,130,246,.05))', borderRadius:12, border:'1px solid rgba(59,130,246,.18)'}}>
               <div className="tiny muted" style={{textTransform:'uppercase', letterSpacing:'.06em', fontWeight:600, marginBottom:2}}>Tu precio frente al rango de mercado</div>
@@ -1111,8 +1090,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
           </div>
         </Card>
 
-          {/* Contrafactuales ligeros — sensibilidad a cambios chicos en las
-              features accionables (perturbación numérica, no DiCE). */}
+          {
+}
           {Array.isArray(data.counterfactuals) && data.counterfactuals.length > 0 && (
             <Card>
               <div className="row" style={{justifyContent:'space-between'}}>
@@ -1124,7 +1103,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
               </div>
               <div style={{display:'flex', flexDirection:'column', gap:8}}>
                 {(() => {
-                  // Mini-bar de magnitud relativa: de un vistazo se ve qué palanca pesa más.
+                  
                   const maxAbs = Math.max(...data.counterfactuals.map(c => Math.abs(c.pct_change)), 0.1);
                   return data.counterfactuals.map((cf, i) => {
                     const positive = cf.pct_change > 0;
@@ -1150,14 +1129,14 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             </Card>
           )}
 
-          {/* Contrafactuales interactivos: solo cuando llegamos del wizard
-              (el historial no guarda el form que generó el análisis). */}
+          {
+}
           {simForm && <WhatIfSimulator baseForm={simForm} onAuthExpired={onAuthExpired}/>}
         </div>
 
         <div className="stack-20">
           {isSeller ? (
-            /* Vista vendedor (Roberto): posicionamiento, no veredicto Ganga/Inflado. */
+            
             <Card accent={sellerPos ? POS_VARIANT[sellerPos] : 'success'}>
               <div className="row" style={{justifyContent:'space-between'}}>
                 <div className="section-h" style={{margin:0}}>Tu posicionamiento</div>
@@ -1175,7 +1154,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                   <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
                 </div>
               </div>
-              {/* Barra de posicionamiento: banda sugerida (verde) + marcador del precio */}
+              {}
               <div style={{marginTop:18}}>
                 <div style={{position:'relative', height:8, background:'var(--bg-tint)', borderRadius:4}}>
                   <div style={{position:'absolute', left:`${barPct(bandMin)}%`, width:`${barPct(bandMax)-barPct(bandMin)}%`, top:0, bottom:0, background:'var(--success-soft)', borderRadius:4}}/>
@@ -1204,7 +1183,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
               <Tag variant="accent">SHAP · Modelo Wasi v2</Tag>
             </div>
 
-            {/* Narrativa LLM */}
+            {}
             {(narrativeLoading || narrative) && (
               <div style={{
                 margin:'14px 0 0', padding:'14px 16px',
@@ -1247,13 +1226,13 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
               const maxAbs = grupos.reduce((m, g) => Math.max(m, Math.abs(g.contribution_log)), 0.0001);
               return (
                 <>
-                  {/* Precio base del modelo */}
+                  {}
                   <div className="row" style={{justifyContent:'space-between', marginTop:12, paddingBottom:10, borderBottom:'1px dashed var(--line)'}}>
                     <span className="small muted">Precio base del modelo</span>
                     <b className="numeric">${Math.round(explain.base_price)}</b>
                   </div>
 
-                  {/* Waterfall por grupo · clic en un grupo con detalle lo expande */}
+                  {}
                   <div style={{marginTop:12, display:'flex', flexDirection:'column', gap:12}}>
                     {grupos.map((g, i) => {
                       const w = Math.max(4, Math.round(Math.abs(g.contribution_log) / maxAbs * 100));
@@ -1286,7 +1265,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                               {g.positive ? '+' : '−'}{Math.abs(g.pct_effect).toFixed(1)}%
                             </b>
                           </div>
-                          {/* Barra centrada: positivos a la derecha, negativos a la izquierda */}
+                          {}
                           <div style={{display:'flex', alignItems:'center', height:8}}>
                             <div style={{flex:1, display:'flex', justifyContent:'flex-end'}}>
                               {!g.positive && <div style={{height:8, width:`${w}%`, background:col, borderRadius:'4px 0 0 4px', opacity:.85, transition:'width .3s'}}/>}
@@ -1296,7 +1275,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                               {g.positive && <div style={{height:8, width:`${w}%`, background:col, borderRadius:'0 4px 4px 0', opacity:.85, transition:'width .3s'}}/>}
                             </div>
                           </div>
-                          {/* Drill-down: drivers concretos del grupo */}
+                          {}
                           {isOpen && hasDrivers && (
                             <div style={{
                               marginTop:8, marginLeft:15, paddingLeft:11,
@@ -1323,7 +1302,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                     })}
                   </div>
 
-                  {/* Precio estimado */}
+                  {}
                   <div className="row" style={{justifyContent:'space-between', marginTop:14, paddingTop:10, borderTop:'1px solid var(--line)'}}>
                     <span className="small" style={{fontWeight:700}}>Precio estimado</span>
                     <b className="numeric" style={{fontSize:16, color:'var(--primary)'}}>${Math.round(explain.predicted_price)}</b>
@@ -1347,7 +1326,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
         </Btn>
       </div>
 
-      {/* Modal: análisis completo generado por IA sobre todo el espectro del modelo */}
+      {}
       <Modal
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
@@ -1372,7 +1351,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
         )}
         {detail && (
           <div>
-            {/* Tira de métricas clave */}
+            {}
             <div style={{display:'flex', flexWrap:'wrap', gap:8, marginBottom:18}}>
               {[
                 [isSeller ? 'Sugerido' : 'Referencia', `$${Math.round(detail.fair_value)}/mes`, null],
@@ -1394,10 +1373,10 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
               ))}
             </div>
 
-            {/* Informe LLM estructurado */}
+            {}
             <div>{renderNarrative(detail.narrative)}</div>
 
-            {/* Entorno nombrado con tier */}
+            {}
             {Array.isArray(detail.poi_highlights) && detail.poi_highlights.length > 0 && (
               <div style={{marginTop:18}}>
                 <div style={{fontSize:11.5, fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:.4, marginBottom:8}}>
@@ -1426,9 +1405,6 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
   );
 };
 
-
-/* ============== 6. ENTORNO (mapa + pin en vivo) ============== */
-/* Color por categoría de POI — compartido entre los puntos del mapa y los chips. */
 const POI_COLORS = {
   supermercados: '#2563eb',
   conveniencia:  '#f59e0b',
@@ -1448,18 +1424,18 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
   const [panelOpen, setPanelOpen] = useS(true);
-  // POIs pintados en el mapa: ON por defecto (el anillo + POIs explican el producto).
+  
   const [showPois, setShowPois] = useS(true);
   const [hiddenCats, setHiddenCats] = useS(() => new Set());
   const [poiLayers, setPoiLayers] = useS([]);
-  // Geocoding search
+  
   const [searchQ, setSearchQ] = useS('');
   const [searchLoading, setSearchLoading] = useS(false);
   const [flyTo, setFlyTo] = useS(null);
   const [suggestions, setSuggestions] = useS([]);
   const [sugOpen, setSugOpen] = useS(false);
 
-  // Photon (komoot) — mejor typeahead que Nominatim para POIs. bbox filtra Lima Metropolitana.
+  
   const PHOTON_URL = (q, limit) =>
     `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=${limit}&bbox=-77.2,-12.3,-76.7,-11.8`;
 
@@ -1499,7 +1475,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
       .finally(() => setSearchLoading(false));
   };
 
-  // Autocomplete: llama Photon con debounce mientras el usuario escribe.
+  
   useE(() => {
     const q = searchQ.trim();
     if (q.length < 3) { setSuggestions([]); setSugOpen(false); return; }
@@ -1523,7 +1499,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
     setSugOpen(false);
   };
 
-  // Recalcula el entorno cada vez que el pin cambia (debounce 250 ms).
+  
   useE(() => {
     let cancel = false;
     const t = setTimeout(() => {
@@ -1532,7 +1508,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
         .then(r => { if (!cancel) { setData(r); setErr(''); setLoading(false); } })
         .catch(ex => {
           if (cancel) return;
-          // Limpia data vieja para no mostrar mixed state (banner error + score viejo).
+          
           setData(null);
           const msg = handleApiErr(ex, { setErr, onAuthExpired });
           if (typeof onError === 'function') onError(msg);
@@ -1542,7 +1518,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
     return () => { cancel = true; clearTimeout(t); };
   }, [pin.lat, pin.lng]);
 
-  // POIs del mapa: solo se piden cuando el switch está prendido (y al mover el pin).
+  
   useE(() => {
     if (!showPois) { setPoiLayers([]); return; }
     let cancel = false;
@@ -1557,7 +1533,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
   const score = data ? data.score : 0;
   const levelVar = score >= 80 ? 'success' : score >= 50 ? 'warning' : 'danger';
 
-  // Puntos a pintar: aplanados, filtrados por las categorías visibles, coloreados.
+  
   const mapPois = !showPois ? [] : poiLayers.flatMap(l =>
     hiddenCats.has(l.kind) ? []
       : l.points.map(([la, lo]) => ({ lat: la, lng: lo, color: POI_COLORS[l.kind] || '#64748b' }))
@@ -1570,15 +1546,15 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
 
   return (
     <div className={`entorno-fullmap ${embedded ? 'embedded' : ''} fade-in`}>
-      {/* Mapa protagonista. En modo standalone ocupa toda la pantalla; embebido
-          (dentro del detalle de un inmueble) vive contenido en su pestaña.
-          showRadius dibuja el anillo de 1 km que el modelo cruza. */}
+      {
+
+}
       <MapPicker lat={start.lat} lng={start.lng} className="map-full" pois={mapPois}
         onMove={(la, lo)=>setPin({ lat: la, lng: lo })} flyTo={flyTo} showRadius/>
 
-      {/* Barra flotante: volver + título + búsqueda por dirección.
-          El botón Volver solo aparece standalone: embebido, las pestañas del
-          detalle ya gobiernan la navegación. */}
+      {
+
+}
       <div className="efm-topbar">
         {!embedded && (
           <button className="efm-glass efm-back" onClick={onBack} aria-label="Volver">
@@ -1630,7 +1606,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
         </div>
       </div>
 
-      {/* Chip de coordenadas (abajo-izquierda) */}
+      {}
       <div className="efm-glass efm-coords">
         <span className="small muted numeric">{pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</span>
         {data && <Tag variant="outline">{data.distrito}</Tag>}
@@ -1657,7 +1633,7 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
         </div>
       )}
 
-      {/* Panel flotante de métricas (derecha), colapsable */}
+      {}
       {!panelOpen ? (
         <button className="efm-glass efm-reopen" onClick={()=>setPanelOpen(true)} aria-label="Mostrar métricas">
           {data && <ScoreCircle value={score} size={36} stroke={5}/>}
@@ -1724,9 +1700,9 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
                   {data.summary}
                 </div>
 
-                {/* Desglose de seguridad (FR-11): el dato ya venía del backend pero
-                    no se mostraba. Denuncias del punto, comparativa vs Lima,
-                    comisarías y serenazgo del distrito. */}
+                {
+
+}
                 <div className="section-h" style={{margin:'16px 0 8px', fontSize:13}}>Seguridad del entorno</div>
                 <div className="stack-8">
                   {data.cantidad_denuncias != null && (

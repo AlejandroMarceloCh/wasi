@@ -29,9 +29,6 @@ EARTH_M = 6_371_000.0
 _BASE = EXTERNAL_DATA_DIR
 _DISPLAY = _BASE / "display"
 
-# categoria -> (archivo json, label). Las 5 primeras salen de Overpass fresco
-# (display/); farmacias/bancos/universidades reusan la data completa del modelo
-# (external/), que ya está bien poblada.
 CATEGORIES: Dict[str, Tuple[Path, str]] = {
     "supermercados": (_DISPLAY / "supermercados.json", "Supermercados"),
     "conveniencia":  (_DISPLAY / "conveniencia.json",  "Tiendas de conveniencia"),
@@ -43,9 +40,7 @@ CATEGORIES: Dict[str, Tuple[Path, str]] = {
     "parqueos":      (_DISPLAY / "parqueos.json",      "Parqueos"),
 }
 
-# Orden de presentación en la UI.
 DISPLAY_ORDER = list(CATEGORIES.keys())
-
 
 def _to_unit_sphere(lat: np.ndarray, lng: np.ndarray) -> np.ndarray:
     lat_r, lng_r = np.radians(lat), np.radians(lng)
@@ -55,14 +50,12 @@ def _to_unit_sphere(lat: np.ndarray, lng: np.ndarray) -> np.ndarray:
         np.sin(lat_r),
     ])
 
-
 def _haversine_m(lat1, lng1, lat2, lng2):
     lat1, lng1 = np.radians(lat1), np.radians(lng1)
     lat2, lng2 = np.radians(lat2), np.radians(lng2)
     dlat, dlng = lat2 - lat1, lng2 - lng1
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlng / 2) ** 2
     return 2 * EARTH_M * np.arcsin(np.sqrt(a))
-
 
 def _load_coords(path: Path) -> np.ndarray:
     """Lee un JSON Overpass → array (N, 2) de lat/lng (usa center para ways/relations)."""
@@ -76,7 +69,6 @@ def _load_coords(path: Path) -> np.ndarray:
         elif "center" in el:
             pts.append((el["center"]["lat"], el["center"]["lon"]))
     return np.array(pts) if pts else np.empty((0, 2))
-
 
 class DisplayPOIIndex:
     """Singleton lazy: un KD-tree por categoría de display."""
@@ -97,8 +89,7 @@ class DisplayPOIIndex:
         aunque haya cientos de POIs en 1 km (no hay cap como en geo_index).
         """
         pin_xyz = _to_unit_sphere(np.array([lat]), np.array([lng]))[0]
-        # Radio de corte en cuerda de la esfera unitaria para ~1.1 km (margen),
-        # luego se filtra por haversine exacta a 500/1000 m.
+
         r_chord = 2.0 * np.sin((1100.0 / EARTH_M) / 2.0)
         out: List[dict] = []
         for cat in DISPLAY_ORDER:
@@ -120,13 +111,12 @@ class DisplayPOIIndex:
                     "dist_nearest_m": round(float(d_m.min()), 1),
                 })
             else:
-                # Nada en ~1 km → distancia al más cercano real (k=1).
+
                 _, j = tree.query(pin_xyz, k=1)
                 dn = float(_haversine_m(lat, lng, coords[int(j), 0], coords[int(j), 1]))
                 out.append({"kind": cat, "label": label,
                             "count_500m": 0, "count_1km": 0, "dist_nearest_m": round(dn, 1)})
         return out
-
 
     def points(self, lat: float, lng: float, radius_m: float = 1000.0,
                cap: int = 400) -> List[dict]:
@@ -152,9 +142,7 @@ class DisplayPOIIndex:
             out.append({"kind": cat, "label": label, "points": pts})
         return out
 
-
 _INDEX: DisplayPOIIndex | None = None
-
 
 def get_display_pois() -> DisplayPOIIndex:
     global _INDEX

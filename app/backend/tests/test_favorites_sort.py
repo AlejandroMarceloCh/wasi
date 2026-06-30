@@ -12,7 +12,6 @@ Veredicto: umbral ZONE_BAND_PCT = 8% (ml.py).
 
 _ZONE_DISTRICT = "TestSortZone"
 
-
 def _seller_headers(client):
     client.post("/api/auth/register", json={
         "email": "seller_fav@wasi.pe", "name": "SellerFav",
@@ -21,10 +20,8 @@ def _seller_headers(client):
         "email": "seller_fav@wasi.pe", "password": "seller123"})
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
-
 def _listing(**kw):
-    # fair_value_ref NO se envía por la API (lo controla el server). Los tests
-    # de veredicto siembran la referencia directo en BD (ver _db_listing).
+
     d = dict(district=_ZONE_DISTRICT, address="Av. Test 100", lat=-12.121, lng=-77.030,
              area_m2=80, dormitorios=2, banos=2, cocheras=1, antiguedad_anios=5,
              es_estudio=False, price_usd=1400,
@@ -34,7 +31,6 @@ def _listing(**kw):
     d.update(kw)
     return d
 
-
 def _db_listing(client, price_usd, fair_value_ref=1200, district=_ZONE_DISTRICT):
     """Inserta un listing con fair_value_ref planted DIRECTO en BD. La API ya no
     acepta fair_value_ref del cliente (seguridad), así que para probar el
@@ -42,7 +38,7 @@ def _db_listing(client, price_usd, fair_value_ref=1200, district=_ZONE_DISTRICT)
     from sqlalchemy import select
     from database import SessionLocal
     from models import Listing, User
-    _seller_headers(client)  # garantiza que el user seller existe
+    _seller_headers(client)
     db = SessionLocal()
     try:
         seller = db.execute(
@@ -61,7 +57,6 @@ def _db_listing(client, price_usd, fair_value_ref=1200, district=_ZONE_DISTRICT)
     finally:
         db.close()
 
-
 def _seed_zone_listings(client, h):
     """Set con los 3 veredictos (Ganga/Justo/Inflado) + precios distintos para
     ordenar, sembrado en BD con fair_value_ref=1200. Devuelve los dicts."""
@@ -70,7 +65,6 @@ def _seed_zone_listings(client, h):
     inflado = _db_listing(client, price_usd=1400)
     return ganga, justo, inflado
 
-
 def _zone_listings(client, h, **params):
     p = {"district": _ZONE_DISTRICT}
     p.update(params)
@@ -78,15 +72,12 @@ def _zone_listings(client, h, **params):
     assert r.status_code == 200, r.text
     return r.json()
 
-
-# ── sort ────────────────────────────────────────────────────────────────────
 def test_sort_precio_asc(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
     rows = _zone_listings(client, h, sort="precio_asc")
     precios = [x["price_usd"] for x in rows]
     assert precios == sorted(precios), f"no ascendente: {precios}"
-
 
 def test_sort_precio_desc(client):
     h = _seller_headers(client)
@@ -95,36 +86,31 @@ def test_sort_precio_desc(client):
     precios = [x["price_usd"] for x in rows]
     assert precios == sorted(precios, reverse=True), f"no descendente: {precios}"
 
-
 def test_sort_ganga_primero(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
     rows = _zone_listings(client, h, sort="ganga")
-    # El más ganga = (price-ref)/ref más negativo. El primero debe ser un Ganga.
+
     assert rows[0]["zone"] == "Ganga"
-    # Monotonía: el score (price-ref)/ref es no decreciente a lo largo de la lista.
+
     def score(x):
         ref = x.get("fair_value_ref")
         return (x["price_usd"] - ref) / ref if ref else float("inf")
     scores = [score(x) for x in rows]
     assert scores == sorted(scores), f"orden ganga no monótono: {scores}"
 
-
 def test_sort_default_reciente(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
-    rows = _zone_listings(client, h)  # sin sort -> created_at desc
+    rows = _zone_listings(client, h)
     fechas = [x["created_at"] for x in rows]
     assert fechas == sorted(fechas, reverse=True), "default no es created_at desc"
-
 
 def test_sort_invalido_422(client):
     h = _seller_headers(client)
     r = client.get("/api/listings", headers=h, params={"sort": "barato"})
     assert r.status_code == 422
 
-
-# ── zone filter ──────────────────────────────────────────────────────────────
 def test_zone_filter_ganga(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
@@ -132,27 +118,22 @@ def test_zone_filter_ganga(client):
     assert len(rows) >= 1
     assert all(x["zone"] == "Ganga" for x in rows)
 
-
 def test_zone_filter_inflado(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
     rows = _zone_listings(client, h, zone="Inflado")
     assert all(x["zone"] == "Inflado" for x in rows)
 
-
 def test_zone_filter_invalido_422(client):
     h = _seller_headers(client)
     r = client.get("/api/listings", headers=h, params={"zone": "Carisimo"})
     assert r.status_code == 422
 
-
-# ── limit ────────────────────────────────────────────────────────────────────
 def test_limit_top_n(client):
     h = _seller_headers(client)
     _seed_zone_listings(client, h)
     rows = _zone_listings(client, h, sort="ganga", limit=2)
     assert len(rows) == 2
-
 
 def test_limit_cero_lista_vacia(client):
     h = _seller_headers(client)
@@ -160,12 +141,10 @@ def test_limit_cero_lista_vacia(client):
     rows = _zone_listings(client, h, limit=0)
     assert rows == []
 
-
 def test_limit_negativo_422(client):
     h = _seller_headers(client)
     r = client.get("/api/listings", headers=h, params={"limit": -1})
     assert r.status_code == 422
-
 
 def test_zone_y_sort_combinados(client):
     h = _seller_headers(client)
@@ -175,17 +154,15 @@ def test_zone_y_sort_combinados(client):
     if rows:
         assert rows[0]["zone"] == "Ganga"
 
-
-# ── favoritos ────────────────────────────────────────────────────────────────
 def test_favorite_guardar_y_listar(client, auth_headers):
     """auth_headers (Inquilino) guarda un listing; aparece en GET /api/favorites
     con su veredicto (zone)."""
-    lid = _db_listing(client, price_usd=1000)["id"]   # 1000 vs 1200 -> Ganga
+    lid = _db_listing(client, price_usd=1000)["id"]
 
     r = client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
     assert r.status_code == 201, r.text
     assert r.json()["id"] == lid
-    assert r.json()["zone"] == "Ganga"   # 1000 vs 1200 -> Ganga, viene en la respuesta
+    assert r.json()["zone"] == "Ganga"
 
     favs = client.get("/api/favorites", headers=auth_headers)
     assert favs.status_code == 200
@@ -193,7 +170,6 @@ def test_favorite_guardar_y_listar(client, auth_headers):
     assert lid in ids
     fav = next(x for x in favs.json() if x["id"] == lid)
     assert fav["zone"] == "Ganga"
-
 
 def test_favorite_idempotente_no_duplica(client, auth_headers):
     """Guardar dos veces el mismo listing: la segunda da 200 (no 201) y no
@@ -210,7 +186,6 @@ def test_favorite_idempotente_no_duplica(client, auth_headers):
     apariciones = [x for x in favs if x["id"] == lid]
     assert len(apariciones) == 1, "el favorito no debe duplicarse"
 
-
 def test_favorite_quitar(client, auth_headers):
     h = _seller_headers(client)
     lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
@@ -222,22 +197,18 @@ def test_favorite_quitar(client, auth_headers):
     favs = client.get("/api/favorites", headers=auth_headers).json()
     assert lid not in [x["id"] for x in favs]
 
-
 def test_favorite_quitar_idempotente(client, auth_headers):
     """Borrar un favorito que no existe igual da 204 (estado final = no guardado)."""
     d = client.delete("/api/favorites/999999", headers=auth_headers)
     assert d.status_code == 204
 
-
 def test_favorite_listing_inexistente_404(client, auth_headers):
     r = client.post("/api/favorites", headers=auth_headers, json={"listing_id": 999999})
     assert r.status_code == 404
 
-
 def test_favorite_sin_token_401(client):
     r = client.post("/api/favorites", json={"listing_id": 1})
     assert r.status_code == 401
-
 
 def test_favorites_aislados_por_usuario(client, auth_headers):
     """Los favoritos de un usuario no aparecen para otro."""
@@ -245,6 +216,5 @@ def test_favorites_aislados_por_usuario(client, auth_headers):
     lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
     client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
 
-    # El seller (otro usuario) no debe ver ese favorito.
     favs_seller = client.get("/api/favorites", headers=h).json()
     assert lid not in [x["id"] for x in favs_seller]

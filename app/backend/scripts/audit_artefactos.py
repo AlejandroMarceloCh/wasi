@@ -14,17 +14,14 @@ import joblib
 import numpy as np
 import pandas as pd
 
-# Rutas relativas a app/backend/
 BACKEND = Path(__file__).resolve().parent.parent
 MODELS = BACKEND / "models"
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
-
 
 def sep(titulo: str) -> None:
     print("\n" + "=" * 70)
     print(titulo)
     print("=" * 70)
-
 
 def auditar_modelo(path: Path, nombre: str):
     """Carga un modelo (RF/XGB) y reporta n_features y nombres."""
@@ -46,16 +43,13 @@ def auditar_modelo(path: Path, nombre: str):
         print(f"  n_estimators: {modelo.n_estimators}")
     return modelo
 
-
 def main() -> int:
     print("Auditoría de artefactos  ·  Fase 0.5")
     print(f"models/ = {MODELS}")
 
-    # --- Modelos ---
     rf = auditar_modelo(MODELS / "04_random_forest.joblib", "Random Forest (PRINCIPAL)")
     xgb = auditar_modelo(MODELS / "05_xgboost.joblib", "XGBoost (solo Gate 6)")
 
-    # --- feature_names.joblib ---
     sep("ARTEFACTO — feature_names.joblib (74 features esperadas, sin escalar)")
     try:
         feat_names = joblib.load(MODELS / "feature_names.joblib")
@@ -68,7 +62,6 @@ def main() -> int:
         print(f"  ERROR: {e}")
         feat_list = None
 
-    # --- target_enc_distrito.joblib ---
     sep("ARTEFACTO — target_enc_distrito.joblib")
     try:
         tenc = joblib.load(MODELS / "target_enc_distrito.joblib")
@@ -83,7 +76,6 @@ def main() -> int:
     except Exception as e:
         print(f"  ERROR: {e}")
 
-    # --- features_log_transformed.joblib ---
     sep("ARTEFACTO — features_log_transformed.joblib (19 features con log1p)")
     try:
         log_feats = joblib.load(MODELS / "features_log_transformed.joblib")
@@ -95,7 +87,6 @@ def main() -> int:
     except Exception as e:
         print(f"  ERROR: {e}")
 
-    # --- outlier_caps.joblib ---
     sep("ARTEFACTO — outlier_caps.joblib (Gate 1: punto de aplicación)")
     try:
         caps = joblib.load(MODELS / "outlier_caps.joblib")
@@ -109,7 +100,6 @@ def main() -> int:
     except Exception as e:
         print(f"  ERROR: {e}")
 
-    # --- Cruce con X_test.csv ---
     sep("CRUCE — X_test.csv (columnas y orden reales del entrenamiento)")
     xtest_path = PIPELINE_DATA / "X_test.csv"
     if xtest_path.exists():
@@ -128,7 +118,6 @@ def main() -> int:
     else:
         print(f"  X_test.csv no encontrado en {xtest_path}")
 
-    # --- Verificación n_features RF ---
     sep("VERIFICACIÓN — RF espera 74 features")
     if rf is not None:
         n = getattr(rf, "n_features_in_", None)
@@ -136,7 +125,6 @@ def main() -> int:
 
     print("\nAuditoría completa.\n")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

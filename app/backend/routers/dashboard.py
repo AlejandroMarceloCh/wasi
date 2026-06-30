@@ -14,7 +14,6 @@ from schemas import (
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
-
 def _time_ago(dt: datetime) -> str:
     """String corto tipo 'hace 2h' / 'hace 3d'."""
     if not dt:
@@ -30,10 +29,9 @@ def _time_ago(dt: datetime) -> str:
         return f"hace {secs // 3600}h"
     return f"hace {secs // 86400}d"
 
-
 @router.get("/dashboard", response_model=DashboardOut)
 def dashboard(db: Session = Depends(get_db), current: User = Depends(get_current_user)):
-    # ---- Stats del usuario ----
+
     analyses_count = db.scalar(
         select(func.count(Analysis.id)).where(Analysis.user_id == current.id)
     ) or 0
@@ -45,7 +43,6 @@ def dashboard(db: Session = Depends(get_db), current: User = Depends(get_current
             Analysis.user_id == current.id, Analysis.zone == "Inflado")
     ) or 0.0
 
-    # ---- Recientes (top 6) ----
     rows = db.execute(
         select(Analysis, Property)
         .join(Property, Property.id == Analysis.property_id)
@@ -67,14 +64,12 @@ def dashboard(db: Session = Depends(get_db), current: User = Depends(get_current
         for a, p in rows
     ]
 
-    # ---- Cobertura por distrito ----
     cov_rows = db.execute(
         select(District.name, District.listings_count, District.coverage_level)
         .order_by(District.listings_count.desc())
     ).all()
     coverage = [CoverageItem(name=r[0], listings=r[1], level=r[2]) for r in cov_rows]
 
-    # ---- Próximo paso: análisis con mayor sobreprecio sin reporte ----
     next_row = db.execute(
         select(Analysis, Property)
         .join(Property, Property.id == Analysis.property_id)

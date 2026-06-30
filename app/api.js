@@ -1,7 +1,7 @@
-/* Wasi — cliente API (frontend) */
+
 (function(){
-  // En producción (Vercel) apunta al backend de Render; en local usa :8000.
-  // window.WASI_API_BASE (si se define) tiene prioridad sobre ambos.
+  
+  
   const PROD_BACKEND = 'https://wasi-ei84.onrender.com';
   const BASE = (window.WASI_API_BASE
     || (location.hostname === 'localhost' ? 'http://localhost:8000' : PROD_BACKEND)) + '/api';
@@ -22,8 +22,8 @@
     catch { return null; }
   };
 
-  // Timeout duro de red (ms): si el servidor no responde, abortamos la petición
-  // para no dejar spinners infinitos en la UI.
+  
+  
   const REQUEST_TIMEOUT_MS = 10000;
 
   async function request(path, { method = 'GET', body, auth = true } = {}) {
@@ -32,8 +32,8 @@
       const t = getToken();
       if (t) headers['Authorization'] = `Bearer ${t}`;
     }
-    // AbortController corta la petición a los 10 s. timedOut distingue un abort
-    // por timeout de un fallo de red normal, para dar un mensaje claro.
+    
+    
     const controller = new AbortController();
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
@@ -81,7 +81,7 @@
     isAuthed: () => !!getToken(),
     clearSession,
 
-    // Auth
+    
     async register({ email, name, password, role }) {
       const r = await request('/auth/register', {
         method: 'POST',
@@ -103,8 +103,8 @@
     async me() {
       return request('/me');
     },
-    // Actualiza nombre/rol del perfil. Sincroniza localStorage para que
-    // el TopNav refleje el cambio sin re-login.
+    
+    
     async updateMe(payload) {
       const r = await request('/me', { method: 'PATCH', body: payload });
       if (r && r.user) localStorage.setItem(USER_KEY, JSON.stringify(r.user));
@@ -112,25 +112,25 @@
     },
     logout() { clearSession(); },
 
-    // Dashboard
+    
     dashboard: () => request('/dashboard'),
 
-    // Fair Value — payload: {lat,lng,area,dormitorios,banos,es_estudio,
-    //                         cocheras,antiguedad_anios,amenities[],precio}
+    
+    
     predict: (payload) => request('/fairvalue/predict', { method: 'POST', body: payload }),
-    // Simulador what-if — mismo payload que predict; corre el modelo en vivo
-    // SIN persistir análisis (pensado para sliders con debounce).
+    
+    
     simulate: (payload) => request('/fairvalue/simulate', { method: 'POST', body: payload }),
-    // Venta — modelo v1 de compra/venta. payload: {lat,lng,area,dormitorios,banos,
-    //   cocheras,antiguedad_anios,precio} (precio = venta anunciada en USD; SIN
-    //   amenities ni es_estudio). Devuelve fair_value + veredicto + banda, sin
-    //   analysis_id, SHAP, intervalo P25-P75 ni narrativa.
+    
+    
+    
+    
     predictVenta: (body) => request('/fairvalue/predict-venta', { method: 'POST', body }),
-    // Contrafactuales — payload igual a predict PERO sin `precio` (solo re-sirve
-    // el modelo congelado variando palancas).
+    
+    
     counterfactual: (payload) => request('/fairvalue/counterfactual', { method: 'POST', body: payload }),
-    // Avisos reales comparables (FR-03) — evidencia detrás del precio. params:
-    // {lat,lng,area,dormitorios}. No persiste; deriva del índice de comparables.
+    
+    
     comparables: ({ lat, lng, area, dormitorios }) => {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
       if (area != null) q.append('area', String(area));
@@ -145,7 +145,7 @@
     listAnalyses: () => request('/analyses'),
     saveReport: (id) => request('/analyses/' + id + '/save', { method: 'POST' }),
 
-    // Listings (oferta) + Leads (demanda) — flywheel
+    
     listListings: (params) => {
       const q = new URLSearchParams();
       if (params) Object.entries(params).forEach(([k, v]) => {
@@ -161,22 +161,22 @@
     createLead: (id, body) => request('/listings/' + id + '/leads', { method: 'POST', body }),
     listLeads: (id) => request('/listings/' + id + '/leads'),
 
-    // Favoritos (guardados) — el backend devuelve [ListingOut] en GET.
+    
     favorites: () => request('/favorites'),
     addFavorite: (listingId) => request('/favorites', { method: 'POST', body: { listing_id: listingId } }),
     removeFavorite: (listingId) => request('/favorites/' + listingId, { method: 'DELETE' }),
 
-    // Entorno — contexto del barrio para un pin (lat, lng)
+    
     entorno: ({ lat, lng }) => {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
       return request('/entorno?' + q.toString());
     },
-    // POIs individuales (lat/lng por categoría) en 1 km, para pintar en el mapa
+    
     entornoPois: ({ lat, lng }) => {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
       return request('/entorno/pois?' + q.toString());
     },
-    // Zonas de precio por distrito (no requiere auth)
+    
     distritosZona: () => request('/distritos-zona'),
   };
 

@@ -21,15 +21,14 @@ import pandas as pd
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-from geo_index import IDW_COLS, POI_TYPES, _haversine_m, _to_unit_sphere, get_index  # noqa: E402
-from model_service import model_service  # noqa: E402
+from geo_index import IDW_COLS, POI_TYPES, _haversine_m, _to_unit_sphere, get_index
+from model_service import model_service
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 
 RADIO_COMPARABLES_M = 1000.0
-EXCL_M = 10.0   # se excluye sí mismo + coords idénticas + vecinos < 10 m
+EXCL_M = 10.0
 K_IDW = 8
-
 
 def loo_geo(idx, lat, lng):
     """Reconstruye el contexto geo por IDW excluyendo vecinos a < 10 m.
@@ -40,7 +39,7 @@ def loo_geo(idx, lat, lng):
     _, cand = idx._tree.query(_to_unit_sphere([lat], [lng]), k=k)
     cand = np.atleast_1d(cand).ravel()
     d = _haversine_m(lat, lng, idx._lat[cand], idx._lng[cand])
-    keep = d >= EXCL_M                      # excluye sí mismo, idénticos y < 10 m
+    keep = d >= EXCL_M
     cand, d = cand[keep], d[keep]
 
     d_all = _haversine_m(lat, lng, idx._lat, idx._lng)
@@ -52,7 +51,6 @@ def loo_geo(idx, lat, lng):
     w = w / w.sum()
     geo = {c: float(np.dot(w, idx._geo[c][ci])) for c in IDW_COLS}
     return geo, densidad
-
 
 def main() -> int:
     model_service.load()
@@ -68,7 +66,7 @@ def main() -> int:
         fila = xtest.iloc[i].copy()
         geo, dens = loo_geo(idx, fila["latitud"], fila["longitud"])
         densidad[i] = dens
-        # sobrescribir solo las columnas geo con los valores LOO
+
         for c in IDW_COLS:
             fila[c] = np.log1p(geo[c]) if c in log_feats else geo[c]
         fila["total_poi_1km"] = sum(geo[f"count_1km_{t}"] for t in POI_TYPES)
@@ -81,7 +79,6 @@ def main() -> int:
     print(f"Densidad de comparables: min {densidad.min()}  "
           f"mediana {int(np.median(densidad))}  max {densidad.max()}\n")
 
-    # error por bin de densidad (quintiles)
     bordes = np.unique(np.quantile(densidad, [0, .2, .4, .6, .8, 1.0]).astype(int))
     print(f"{'densidad':>16s} {'n':>5s} {'mediana err':>12s} {'p75 err':>10s}")
     bins = []
@@ -94,11 +91,6 @@ def main() -> int:
         bins.append((int(lo), int(hi), int(m.sum()), med, p75))
         print(f"{lo:>7d}-{hi:<8d} {m.sum():>5d} {med*100:>11.1f}% {p75*100:>9.1f}%")
 
-    # El error depende DÉBILMENTE de la densidad: el único corte fuerte es la
-    # zona muy escasa (quintil inferior). Por eso:
-    #   - Baja  = densidad por debajo del quintil 20 (error netamente peor).
-    #   - Media = entre el quintil 20 y la mediana.
-    #   - Alta  = densidad por encima de la mediana (más comparables de respaldo).
     media_min = int(np.quantile(densidad, 0.20))
     alta_min = int(np.quantile(densidad, 0.50))
 
@@ -134,7 +126,6 @@ def main() -> int:
         print(f"  {tier:6s} n={v['n']:3d}  mediana {v['mediana_err']*100:.1f}%  p75 {v['p75_err']*100:.1f}%")
     print(f"Escrito: {out}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

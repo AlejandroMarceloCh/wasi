@@ -12,11 +12,9 @@ from schemas import (
 )
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
-# Roles válidos para el perfil — el form del frontend ofrece estos tres
 VALID_ROLES = {"Inquilino", "Propietario", "Agente inmobiliario"}
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
 
 @router.post("/register", response_model=AuthOut, status_code=201)
 @limiter.limit("10/minute")
@@ -39,14 +37,12 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
     try:
         db.commit()
     except IntegrityError:
-        # Race condition: otro request insertó el mismo email entre el SELECT
-        # de arriba y este commit. El UNIQUE de la BD lo atrapa → 409, no 500.
+
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
     db.refresh(user)
     token = create_access_token(user.id, user.email)
     return AuthOut(token=token, user=UserOut.model_validate(user))
-
 
 @router.post("/login", response_model=AuthOut)
 @limiter.limit("5/minute")
@@ -58,10 +54,7 @@ def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)):
     token = create_access_token(user.id, user.email)
     return AuthOut(token=token, user=UserOut.model_validate(user))
 
-
-# Endpoint /me fuera del prefix /api/auth — montado aparte
 me_router = APIRouter(prefix="/api", tags=["me"])
-
 
 def _build_me(db: Session, current: User) -> MeOut:
     """Arma la respuesta de /me: usuario + conteos + reportes guardados.
@@ -76,7 +69,6 @@ def _build_me(db: Session, current: User) -> MeOut:
         select(func.count(Report.id)).where(Report.user_id == current.id)
     ) or 0
 
-    # Lista de reportes guardados (Report → Analysis → Property para el distrito)
     report_rows = db.execute(
         select(Report, Property)
         .join(Analysis, Analysis.id == Report.analysis_id)
@@ -103,11 +95,9 @@ def _build_me(db: Session, current: User) -> MeOut:
         reports=reports,
     )
 
-
 @me_router.get("/me", response_model=MeOut)
 def me(db: Session = Depends(get_db), current: User = Depends(get_current_user)):
     return _build_me(db, current)
-
 
 @me_router.patch("/me", response_model=MeOut)
 def update_me(

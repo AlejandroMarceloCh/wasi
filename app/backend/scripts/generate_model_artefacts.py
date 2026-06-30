@@ -22,7 +22,6 @@ BACKEND = Path(__file__).resolve().parent.parent
 MODELS = BACKEND / "models"
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 
-# Artefactos versionados que el manifest cubre.
 ARTEFACTOS = [
     "04_random_forest.joblib",
     "05_xgboost.joblib",
@@ -32,14 +31,12 @@ ARTEFACTOS = [
     "outlier_caps.joblib",
 ]
 
-
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
-
 
 def gen_feature_order(xtest: pd.DataFrame, feat_names: list) -> dict:
     """74 features en orden canónico con su dtype. Falla si hay desalineación."""
@@ -53,7 +50,6 @@ def gen_feature_order(xtest: pd.DataFrame, feat_names: list) -> dict:
         ],
     }
 
-
 def gen_manifest() -> dict:
     """SHA-256 de cada artefacto + un hash global como 'version'."""
     hashes = {}
@@ -62,16 +58,15 @@ def gen_manifest() -> dict:
         if not path.exists():
             raise SystemExit(f"ABORT: falta artefacto {nombre}")
         hashes[nombre] = sha256(path)
-    # version global = hash de los hashes concatenados en orden fijo
+
     combinado = "".join(hashes[n] for n in ARTEFACTOS)
     version = hashlib.sha256(combinado.encode()).hexdigest()[:16]
     return {"version": version, "sklearn_version": "1.6.1", "artefactos": hashes}
 
-
 def gen_golden(rf, xtest: pd.DataFrame) -> dict:
     """5 vectores estratificados por precio de y_test + predicción RF esperada."""
     ytest = pd.read_csv(PIPELINE_DATA / "y_test.csv")["log_precio"].reset_index(drop=True)
-    # índices ordenados por precio → 5 cortes (bajo, bajo-medio, medio, alto-medio, alto)
+
     orden = ytest.sort_values().index.to_list()
     n = len(orden)
     cortes = [0.05, 0.27, 0.50, 0.73, 0.95]
@@ -79,7 +74,7 @@ def gen_golden(rf, xtest: pd.DataFrame) -> dict:
 
     casos = []
     for rank, i in zip(["bajo", "bajo-medio", "medio", "alto-medio", "alto"], idxs):
-        fila = xtest.iloc[[i]]                       # DataFrame 1xN, conserva nombres
+        fila = xtest.iloc[[i]]
         pred_log = float(rf.predict(fila)[0])
         casos.append({
             "rank_precio": rank,
@@ -94,7 +89,6 @@ def gen_golden(rf, xtest: pd.DataFrame) -> dict:
         "casos": casos,
     }
 
-
 def main() -> int:
     print("Generando artefactos derivados  ·  Fase 0.5\n")
 
@@ -102,19 +96,16 @@ def main() -> int:
     feat_names = joblib.load(MODELS / "feature_names.joblib")
     rf = joblib.load(MODELS / "04_random_forest.joblib")
 
-    # 1 — feature_order.json
     feature_order = gen_feature_order(xtest, feat_names)
     (MODELS / "feature_order.json").write_text(
         json.dumps(feature_order, indent=2, ensure_ascii=False))
     print(f"  feature_order.json     — {feature_order['n_features']} features")
 
-    # 2 — manifest.json
     manifest = gen_manifest()
     (MODELS / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False))
     print(f"  manifest.json          — version {manifest['version']}")
 
-    # 3 — golden_prediction.json
     golden = gen_golden(rf, xtest)
     (MODELS / "golden_prediction.json").write_text(
         json.dumps(golden, indent=2, ensure_ascii=False))
@@ -125,7 +116,6 @@ def main() -> int:
 
     print("\nArtefactos generados en models/.\n")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

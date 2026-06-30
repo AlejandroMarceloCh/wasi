@@ -22,15 +22,13 @@ from wasi.paths import EXTERNAL_DATA_DIR
 
 _DATA = EXTERNAL_DATA_DIR
 
-
 class DistritoFeatures:
     """Singleton lazy con joins precomputados por distrito normalizado."""
 
     def __init__(self):
-        nse = get_district_table()                # nombre_norm, estrato_nse, categoria_distrito
+        nse = get_district_table()
         com = pd.read_csv(_DATA / "comisarias_por_distrito.csv")
 
-        # Serenazgo — factor visual (NO entra al modelo ML)
         ser = pd.read_csv(_DATA / "serenazgo_por_distrito.csv")
         ser['nombre_norm'] = ser['distrito'].apply(_norm)
         self._serenazgo: dict = (
@@ -41,7 +39,6 @@ class DistritoFeatures:
         com['nombre_norm'] = com['distrito_nombre'].apply(_norm)
         com = com[['nombre_norm', 'n_comisarias']]
 
-        # Denuncias del año más reciente con cobertura completa
         den = pd.read_csv(_DATA / "denuncias_lima_clean.csv")
         anio = 2024 if 2024 in den['ANIO'].unique() else int(den['ANIO'].max())
         den = den[den['ANIO'] == anio].copy()
@@ -62,14 +59,12 @@ class DistritoFeatures:
         ).reset_index()
         piv.columns.name = None
 
-        # Join todo en una sola tabla
         table = nse.merge(com, on='nombre_norm', how='left')
         table = table.merge(piv, on='nombre_norm', how='left')
         for col in ['n_comisarias', 'violentas', 'patrimoniales', 'otras']:
             if col in table.columns:
                 table[col] = table[col].fillna(0).astype(int)
 
-        # Renombrar a feature names usadas por el modelo
         table = table.rename(columns={
             'n_comisarias':    'n_comisarias_distrito',
             'violentas':       'denuncias_violentas_distrito',
@@ -78,7 +73,7 @@ class DistritoFeatures:
         })
 
         self._table = table.set_index('nombre_norm').to_dict('index')
-        # Promedios globales para fallback de distritos no encontrados
+
         self._defaults = {
             'estrato_nse': 2,
             'categoria_distrito': 'popular',
@@ -87,7 +82,7 @@ class DistritoFeatures:
             'denuncias_patrimoniales_distrito': int(piv.get('patrimoniales', pd.Series([0])).median()),
             'denuncias_otras_distrito': int(piv.get('otras', pd.Series([0])).median()),
         }
-        # Promedio Lima de denuncias totales por distrito (para comparativa UI)
+
         for col in ('denuncias_violentas_distrito', 'denuncias_patrimoniales_distrito', 'denuncias_otras_distrito'):
             if col not in table.columns:
                 table[col] = 0
@@ -135,9 +130,7 @@ class DistritoFeatures:
             "label": label,
         }
 
-
 _DF: DistritoFeatures | None = None
-
 
 def get_distrito_features() -> DistritoFeatures:
     global _DF

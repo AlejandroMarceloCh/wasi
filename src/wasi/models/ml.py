@@ -21,26 +21,18 @@ from wasi.features.geo_index import POI_TYPES, geo_lookup
 from wasi.models.model_service import model_service
 from wasi.paths import CONFIDENCE_THRESHOLDS
 
-# Umbrales de confianza calibrados (Fase 0.5 — backtest LOO).
-# scripts/calibrate_confidence.py los regenera.
 _CONF_PATH = CONFIDENCE_THRESHOLDS
 try:
     _conf = json.loads(_CONF_PATH.read_text())
     CONF_ALTA_MIN = int(_conf["alta_min_comparables"])
     CONF_MEDIA_MIN = int(_conf["media_min_comparables"])
-except Exception:                       # sin el archivo → defaults razonables
+except Exception:
     CONF_ALTA_MIN, CONF_MEDIA_MIN = 119, 27
 
-# Umbral de proximidad al set de entrenamiento. Si el pin cae a <50 m de un
-# listing real, el IDW (floor 10 m) hace que ese listing domine la interpolación
-# → el modelo predice ~su propio precio → el veredicto "Justo" es trivial, no una
-# validación independiente. Pasa siempre al analizar un aviso del catálogo (que
-# se pobló con los mismos listings de training). Se marca confianza Baja + warning.
 TRAIN_PROXIMITY_KM = 0.05
 _LEAK_WARNING = ("Este aviso forma parte de los datos con los que se entrenó el "
                  "modelo; el veredicto es referencial, no una validación independiente.")
 
-# ── Gate 3 — set UX-8 de amenities: clave del form → feature del modelo ──────
 AMENITY_CHIPS: dict[str, str] = {
     "ascensor":       "tiene_ascensores",
     "seguridad":      "tiene_seguridad",
@@ -52,8 +44,6 @@ AMENITY_CHIPS: dict[str, str] = {
     "exteriores":     "tiene_exteriores",
 }
 
-# Labels en español neutro para el contrafactual accionable. Mismas 8 keys de
-# AMENITY_CHIPS / AMENIDADES del front. Se usan para armar "Agregar/Quitar <X>".
 _AMENITY_LABELS: dict[str, str] = {
     "ascensor":       "ascensor",
     "seguridad":      "seguridad",
@@ -65,30 +55,15 @@ _AMENITY_LABELS: dict[str, str] = {
     "exteriores":     "áreas exteriores",
 }
 
-# Banda ± para el veredicto "Justo". Más angosto que el MAE del modelo
-# (~16 %): un precio dentro del 8 % del valor de referencia se considera justo.
 ZONE_BAND_PCT = 8.0
 
-# Métricas del modelo en test (informativas, van en PredictOut).
-# v1 (RandomForest) vs v2 (XGBoost re-entrenado con features socio-eco).
-#
-# Evaluación LAZY: ml.py se importa antes de que model_service.load() corra en
-# el lifespan, así que el modo activo (v1/v2) recién se conoce en runtime.
-# mae_pct = MAPE por validación espacial (GroupKFold 5-fold por coordenada,
-# sin leakage de ubicación): 16.42% ± 0.59%. El split aleatorio da 15.74%, pero
-# inflado: 35% de los inmuebles de test comparten coordenada con train.
-# Ver pipeline/scripts/_audit_spatial_cv.py.
 _METRICS_V2 = {"r2": 0.847, "mae_usd": 159.0, "mae_pct": 16.4}
 _METRICS_V1 = {"r2": 0.785, "mae_usd": 173.0, "mae_pct": 15.9}
-
 
 def _model_metrics() -> dict:
     """Devuelve métricas del modo activo, evaluado en runtime (no en import)."""
     return _METRICS_V2 if model_service.mode == "v2" else _METRICS_V1
 
-
-# Accessors lazy — se evalúan al acceder, no al import. Compatibles con
-# el resto del código que las usaba como constantes (ml.MODEL_R2, etc.).
 class _LazyMetric:
     def __init__(self, key: str):
         self._key = key
@@ -99,23 +74,16 @@ class _LazyMetric:
     def __repr__(self):
         return str(_model_metrics()[self._key])
 
-
-# Las accedemos como funciones helper para evitar magia descriptor:
 def _r2() -> float:        return _model_metrics()["r2"]
 def _mae_usd() -> float:   return _model_metrics()["mae_usd"]
 def _mae_pct() -> float:   return _model_metrics()["mae_pct"]
 
-
-# Compat shim: módulos externos (health.py) usan `ml.MODEL_R2` directo.
-# Definimos `__getattr__` para que el lookup sea lazy.
 def __getattr__(name: str):
     if name == "MODEL_R2":      return _r2()
     if name == "MODEL_MAE_USD": return _mae_usd()
     if name == "MODEL_MAE_PCT": return _mae_pct()
     raise AttributeError(f"module 'ml' has no attribute {name!r}")
 
-
-# ── construcción de features ────────────────────────────────────────────────
 def build_features(form: dict, geo: dict) -> pd.DataFrame:
     """form (PredictIn) + geo (geo_lookup) → DataFrame 1×74 en orden canónico.
 
@@ -128,7 +96,6 @@ def build_features(form: dict, geo: dict) -> pd.DataFrame:
     """
     feats: dict[str, float] = {name: 0.0 for name in model_service.feature_order}
 
-    # 1 — estructurales (crudo)
     area       = float(form["area"])
     dorm       = float(form["dormitorios"])
     banos      = float(form["banos"])
@@ -141,11 +108,10 @@ def build_features(form: dict, geo: dict) -> pd.DataFrame:
     feats["cocheras"]           = cocheras
     feats["antiguedad_anios"]   = antiguedad
     feats["es_estudio"]         = 1.0 if form.get("es_estudio") else 0.0
-    feats["cocheras_informadas"] = 1.0          # el form siempre informa cocheras
+    feats["cocheras_informadas"] = 1.0
     feats["latitud"]            = float(form["lat"])
     feats["longitud"]           = float(form["lng"])
 
-    # amenities — 8 chips del Gate 3; las otras 29 quedan en 0
     seleccion = set(form.get("amenities", []))
     for chip, feat_name in AMENITY_CHIPS.items():
         if chip in seleccion:
@@ -153,19 +119,16 @@ def build_features(form: dict, geo: dict) -> pd.DataFrame:
     amenities_count = float(sum(1 for c in AMENITY_CHIPS if c in seleccion))
     feats["amenities_count"] = amenities_count
 
-    # geo (crudo, desde geo_lookup)
     feats["dist_mar_km"]        = float(geo["dist_mar_km"])
     feats["cantidad_denuncias"] = float(geo["cantidad_denuncias"])
     for t in POI_TYPES:
         feats[f"count_1km_{t}"]      = float(geo[f"count_1km_{t}"])
         feats[f"dist_nearest_m_{t}"] = float(geo[f"dist_nearest_m_{t}"])
 
-    # distrito → distrito_enc (target encoder; valores ya en espacio log)
     enc = model_service.target_encoder
     feats["distrito_enc"] = float(
         enc["map"].get(geo["distrito"], enc["global_mean"]))
 
-    # 2 — derivadas (crudo)
     feats["area_por_dormitorio"] = area / max(dorm, 1.0)
     feats["ratio_area_banos"]    = area / (banos + 1.0)
     feats["area_x_amenities"]    = area * amenities_count
@@ -173,24 +136,15 @@ def build_features(form: dict, geo: dict) -> pd.DataFrame:
     feats["total_poi_1km"]       = float(
         sum(geo[f"count_1km_{t}"] for t in POI_TYPES))
 
-    # 3 — defaults OHE (un inmueble cargado por el usuario, no por un portal)
-    feats["tipo_propiedad_Departamento"] = 1.0   # el form es para departamentos
-    feats["mismatch_type_ninguno"]       = 1.0   # sin distrito de portal → sin mismatch
-    # fuente_properati, fuente_urbania, mismatch_type_frontera → quedan en 0
+    feats["tipo_propiedad_Departamento"] = 1.0
+    feats["mismatch_type_ninguno"]       = 1.0
 
-    # 4 — log1p a las 18 features marcadas (sobre el valor crudo)
     for f in model_service.log_features:
         feats[f] = float(np.log1p(feats[f]))
 
-    # 5 — ensamblar en orden canónico
     orden = model_service.feature_order
     return pd.DataFrame([[feats[name] for name in orden]], columns=orden)
 
-
-# ── explainability SHAP (TreeSHAP nativo de XGBoost) ─────────────────────────
-# Agrupa las 101 features en 7 grupos legibles. Cada feature cae en exactamente
-# un grupo (cobertura verificada). El orden de chequeo importa: las reglas más
-# específicas (denuncias, POIs) van antes que las genéricas.
 GRUPO_META = {
     "Ubicación":              "Distrito, nivel socioeconómico, distancia al mar y al centro",
     "Tamaño y distribución":  "Área, dormitorios, baños y cocheras",
@@ -200,7 +154,6 @@ GRUPO_META = {
     "Servicios cercanos":     "Supermercados, colegios, bancos y otros POIs a 1 km",
     "Otros":                  "Factores técnicos (fuente del aviso, tipo de propiedad)",
 }
-
 
 def _grupo_de_feature(f: str) -> str:
     """Mapea una feature cruda del modelo a su grupo legible."""
@@ -220,15 +173,6 @@ def _grupo_de_feature(f: str) -> str:
         return "Amenidades"
     return "Otros"
 
-
-# ── drivers concretos dentro de cada grupo ──────────────────────────────────
-# El grupo dice "Servicios cercanos +6%"; el driver baja al QUÉ: "Cercanía a un
-# supermercado (a 230 m) +4%". Cada feature cruda se resuelve a un driver
-# semántico (driver_id) con etiqueta legible y el valor real de la propiedad.
-# Varias features pueden colapsar en el mismo driver (ej. count_1km_osm_super_*
-# + count_1km_supermercados → "Supermercados alrededor"): se suman sus φ.
-
-# POIs: nombre legible (singular) por palabra clave en la feature.
 _POI_NOMBRE = {
     "supermercados": "supermercado",
     "malls":         "centro comercial",
@@ -242,8 +186,6 @@ _POI_NOMBRE = {
     "estaciones":    "estación de transporte",
 }
 
-# Amenidades: feature → etiqueta presentable (override; el resto se deriva del
-# nombre quitando "tiene_" y reemplazando "_" por espacio).
 _AMENIDAD_LABEL = {
     "tiene_ascensores":            "Ascensor",
     "tiene_seguridad":             "Seguridad / vigilancia",
@@ -264,14 +206,12 @@ _AMENIDAD_LABEL = {
     "tiene_portero_electrico":     "Portero eléctrico",
 }
 
-
 def _poi_keyword(f: str) -> str | None:
     """Detecta el tipo de POI dentro del nombre de la feature."""
     for kw in _POI_NOMBRE:
         if kw in f:
             return kw
     return None
-
 
 def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | None:
     """Resuelve una feature cruda a (driver_id, etiqueta, valor_str, orden_dist).
@@ -281,7 +221,7 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
     `orden_dist` marca si menor valor es "mejor" (distancias) solo para elegir
     el valor representativo al fusionar; no afecta el signo del efecto.
     """
-    # — Servicios cercanos: POIs (distancia y densidad) —
+
     kw = _poi_keyword(f)
     if kw is not None:
         nombre = _POI_NOMBRE[kw]
@@ -294,9 +234,8 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
             plural = nombre + ("s" if not nombre.endswith("l") else "es")
             return (f"count_{kw}", f"{plural.capitalize()} alrededor",
                     f"{n} a 1 km", -n)
-        return None  # otros derivados de POI
+        return None
 
-    # — Tamaño y distribución —
     if f == "area_final_m2":
         return ("area", "Área", f"{float(valor):.0f} m²", float(valor))
     if f == "area_por_dormitorio":
@@ -310,12 +249,10 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
     if f == "es_estudio" and float(valor) >= 0.5:
         return ("estudio", "Tipo estudio", "Sí", 0)
 
-    # — Antigüedad (lineal + cuadrático fusionados) —
     if f in ("antiguedad_anios", "antiguedad_sq"):
         anios = float(form.get("antiguedad_anios", 0))
         return ("antiguedad", "Antigüedad", f"{anios:.0f} años", anios)
 
-    # — Ubicación —
     if f == "distrito_enc":
         return ("distrito", "Distrito", str(geo.get("distrito", "—")), 0)
     if f == "estrato_nse":
@@ -330,7 +267,6 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
         nivel = f.replace("cat_dist_", "")
         return ("cat_dist", "Categoría del distrito", nivel.capitalize(), 0)
 
-    # — Seguridad —
     if f == "n_comisarias_distrito":
         return ("comisarias", "Comisarías en el distrito", f"{int(round(float(valor)))}", float(valor))
     if f == "denuncias_violentas_distrito":
@@ -338,7 +274,6 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
     if f == "denuncias_patrimoniales_distrito":
         return ("den_patr", "Denuncias patrimoniales (distrito)", f"{int(round(float(valor)))}", float(valor))
 
-    # — Amenidades (solo las presentes) —
     if f.startswith("tiene_"):
         if float(valor) < 0.5:
             return None
@@ -347,8 +282,7 @@ def _driver_de_feature(f: str, valor: float, geo: dict, form: dict) -> tuple | N
     if f == "amenities_count":
         return ("amen_count", "Cantidad de amenidades", f"{int(round(float(valor)))}", float(valor))
 
-    return None  # fuente_*, tipo_propiedad_*, mismatch_*, lat/long, ratios técnicos
-
+    return None
 
 def explain_fair_value(form: dict) -> dict:
     """Explicación SHAP de la predicción central (solo v2).
@@ -372,17 +306,15 @@ def explain_fair_value(form: dict) -> dict:
 
     contribs, bias = model_service.shap_contributions(X)
     orden = model_service.feature_order
-    # Valor real por feature. Las log_features viajan como log1p(x) dentro de X;
-    # se invierten para mostrar el valor físico ("85 m²", no "4.4").
+
     log_feats = set(model_service.log_features)
     valores = {
         c: (float(np.expm1(X.iloc[0][c])) if c in log_feats else float(X.iloc[0][c]))
         for c in orden
     }
 
-    # Suma de contribuciones (log-space) por grupo + drivers concretos.
     por_grupo: dict[str, float] = {}
-    # driver_id → {label, value, contribution_log, _orden}
+
     drivers_por_grupo: dict[str, dict[str, dict]] = {}
     for nombre, phi in zip(orden, contribs):
         g = _grupo_de_feature(nombre)
@@ -394,7 +326,7 @@ def explain_fair_value(form: dict) -> dict:
         driver_id, label, valor_str, orden_repr = d
         dg = drivers_por_grupo.setdefault(g, {})
         if driver_id in dg:
-            dg[driver_id]["contribution_log"] += phi  # fusiona φ del mismo driver
+            dg[driver_id]["contribution_log"] += phi
         else:
             dg[driver_id] = {"label": label, "value": valor_str,
                              "contribution_log": phi, "_orden": orden_repr}
@@ -405,10 +337,10 @@ def explain_fair_value(form: dict) -> dict:
 
     grupos = []
     for g, phi_g in por_grupo.items():
-        # Efecto multiplicativo puro (orden-independiente).
+
         factor = float(np.exp(phi_g))
         pct = (factor - 1.0) * 100.0
-        # Top-3 drivers del grupo por |impacto|, con efecto individual.
+
         ds = sorted(drivers_por_grupo.get(g, {}).values(),
                     key=lambda x: abs(x["contribution_log"]), reverse=True)
         drivers = [{
@@ -416,16 +348,16 @@ def explain_fair_value(form: dict) -> dict:
             "value": d["value"],
             "pct_effect": round((float(np.exp(d["contribution_log"])) - 1.0) * 100.0, 1),
             "positive": d["contribution_log"] >= 0,
-        } for d in ds[:3] if abs(d["contribution_log"]) >= 0.002]  # ~±0.2%
+        } for d in ds[:3] if abs(d["contribution_log"]) >= 0.002]
         grupos.append({
             "label": g,
             "description": GRUPO_META.get(g, ""),
-            "contribution_log": round(phi_g, 6),  # aditivo: Σ = total_log - bias
+            "contribution_log": round(phi_g, 6),
             "pct_effect": round(pct, 1),
             "positive": phi_g >= 0,
             "drivers": drivers,
         })
-    # Mayor impacto (|log|) primero.
+
     grupos.sort(key=lambda x: abs(x["contribution_log"]), reverse=True)
 
     return {
@@ -435,8 +367,6 @@ def explain_fair_value(form: dict) -> dict:
         "distrito": geo["distrito"],
     }
 
-
-# ── factores explicativos (importancias globales del RF) ────────────────────
 def _factores(form: dict, geo: dict) -> list[dict]:
     """5 factores legibles, derivados de las importancias del RF."""
     area = float(form["area"])
@@ -460,7 +390,6 @@ def _factores(form: dict, geo: dict) -> list[dict]:
     ]
     return factores
 
-
 def _es_proximo_a_training(geo: dict, from_catalog: bool) -> bool:
     """True si el veredicto es trivial por cercanía al set de entrenamiento.
 
@@ -468,7 +397,6 @@ def _es_proximo_a_training(geo: dict, from_catalog: bool) -> bool:
     de un listing real (dist_nearest_km < TRAIN_PROXIMITY_KM).
     """
     return bool(from_catalog) or geo.get("dist_nearest_km", 1e9) < TRAIN_PROXIMITY_KM
-
 
 def _confianza(geo: dict, from_catalog: bool = False) -> str:
     """Confianza calibrada por densidad de comparables (backtest LOO).
@@ -490,22 +418,6 @@ def _confianza(geo: dict, from_catalog: bool = False) -> str:
         return "Media"
     return "Baja"
 
-
-# ── orquestación ────────────────────────────────────────────────────────────
-# ── Contrafactuales ligeros (Sprint 2.2) ─────────────────────────────────────
-# "¿Qué pasaría si...?" — perturbamos 1 feature accionable a la vez ±delta,
-# re-construimos el vector de features y re-predecimos. NO es DiCE (no busca
-# contrafactuales óptimos); es una perturbación numérica simple que da al
-# usuario una idea concreta de la sensibilidad del precio a cada característica.
-#
-# Rango y delta por feature (clamps al schema PredictIn):
-#   area:              [10, 1000]   delta ±10 m²
-#   dormitorios:       [0, 20]      delta ±1
-#   banos:             [1, 20]      delta ±1  (0 solo si es_estudio=True)
-#   cocheras:          [0, 20]      delta ±1
-#   antiguedad_anios:  [0, 100]     delta ±5  (sensibilidad realista)
-# Labels singular/plural explícitos para evitar agramaticalidad ("años de antigüedads").
-# El label se elige según qty: 1 = singular, >1 = plural. Unit (m²) se agrega aparte.
 COUNTERFACTUAL_SPECS = [
     {"feature": "area",             "delta": 10,  "singular": "m²",                "plural": "m²",                 "min": 10, "max": 1000},
     {"feature": "dormitorios",      "delta": 1,   "singular": "dormitorio",        "plural": "dormitorios",         "min": 0,  "max": 20},
@@ -514,10 +426,8 @@ COUNTERFACTUAL_SPECS = [
     {"feature": "antiguedad_anios", "delta": 5,   "singular": "año de antigüedad", "plural": "años de antigüedad",  "min": 0,  "max": 100},
 ]
 
-
 def _clamp_int(value: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, int(value)))
-
 
 def _predict_perturbed(form: dict, geo: dict) -> float:
     """Re-predict para un form ya perturbado. Ruteo idéntico a predict_fair_value."""
@@ -527,7 +437,6 @@ def _predict_perturbed(form: dict, geo: dict) -> float:
     else:
         X = build_features(form, geo)
     return float(model_service.predict(X))
-
 
 def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> list[dict]:
     """Perturbación ±delta por feature accionable, devuelve top-N por |pct_change|.
@@ -553,13 +462,11 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
         for sign in (+1, -1):
             new_val = current + sign * delta
 
-            # Clamps con regla especial para baños: min=1 salvo es_estudio
             lo = spec["min"]
             if feat == "banos" and not es_estudio:
                 lo = max(lo, 1)
             new_val = _clamp_int(new_val, lo, spec["max"])
 
-            # Si tras clamp queda igual al original, no aporta información
             if new_val == current:
                 continue
 
@@ -569,7 +476,7 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
 
             sign_label = "+" if sign > 0 else "−"
             qty = abs(sign * delta)
-            # Singular si qty=1, plural si qty>1
+
             name = spec["singular"] if qty == 1 else spec["plural"]
             results.append({
                 "feature": feat,
@@ -580,7 +487,6 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
                 "pct_change": pct_change,
             })
 
-    # Deduplicar por feature: si ambos signos están, quedarse con el de mayor |%|
     best_per_feature: dict[str, dict] = {}
     for r in results:
         f = r["feature"]
@@ -588,32 +494,18 @@ def compute_counterfactuals(form: dict, geo: dict, base_prediction: float) -> li
             best_per_feature[f] = r
     deduped = list(best_per_feature.values())
 
-    # Ordenar por |pct_change| desc, devolver top 5
     deduped.sort(key=lambda r: abs(r["pct_change"]), reverse=True)
     return deduped[:5]
 
-
-# ── Contrafactuales accionables (endpoint dedicado /fairvalue/counterfactual) ─
-# A diferencia de compute_counterfactuals (±delta numérico para el card de
-# /predict), aquí se exploran palancas accionables COMPLETAS: variantes
-# numéricas con límites PLAUSIBLES (no los del schema) + toggle de las 8
-# amenities conocidas. Todo es re-serving del modelo congelado (mismo
-# _predict_perturbed), cero re-entrenamiento. El modelo NO es monótono: un
-# cambio "positivo" puede dar delta negativo -> se reporta tal cual (honestidad
-# del dominio). geo se calcula UNA vez fuera y se reusa (lat/lng fijo en todas
-# las variantes; la única diferencia es la palanca).
-#
-#   feature,           delta, cap_plausible, label
 _CF_NUM_SPECS = [
     ("area",              +15, 1000, "+15 m²"),
     ("cocheras",          +1,    3,  "Agregar 1 cochera"),
     ("banos",             +1,    4,  "Agregar 1 baño"),
     ("dormitorios",       +1,    5,  "Agregar 1 dormitorio"),
-    ("antiguedad_anios",  -5,    0,  "Si fuera 5 años más nuevo"),  # informativo
+    ("antiguedad_anios",  -5,    0,  "Si fuera 5 años más nuevo"),
 ]
 _CF_INFORMATIVE = {"antiguedad_anios"}
-_CF_NOISE_PCT = 0.5   # |delta_pct| < 0.5% = ruido del árbol, se descarta
-
+_CF_NOISE_PCT = 0.5
 
 def _direction(delta: float) -> str:
     if delta > 0:
@@ -621,7 +513,6 @@ def _direction(delta: float) -> str:
     if delta < 0:
         return "baja"
     return "neutro"
-
 
 def compute_counterfactuals_full(form: dict, geo: dict, base: float) -> list[dict]:
     """Palancas accionables (numéricas + amenities) re-servidas contra el modelo
@@ -632,11 +523,10 @@ def compute_counterfactuals_full(form: dict, geo: dict, base: float) -> list[dic
     es_estudio = bool(form.get("es_estudio", False))
     current_amen = list(form.get("amenities", []))
 
-    # --- numéricas ---
     for feat, delta, cap, label in _CF_NUM_SPECS:
         cur = int(form.get(feat, 0))
         new_val = cur + delta
-        # clamp realista: subir no pasa el cap; bajar (antigüedad) no baja del cap=0
+
         if delta > 0:
             new_val = min(new_val, cap)
         else:
@@ -657,20 +547,10 @@ def compute_counterfactuals_full(form: dict, geo: dict, base: float) -> list[dic
             "direction": _direction(d), "new_price": new_price,
         })
 
-    # --- amenities: NO se exponen como palanca (decisión 2026-06-30) ---
-    # Las amenities pesan <1% del modelo (vs distrito 56%). Su señal real está
-    # confundida con la ubicación (confounding): un depto con walk-in closet está
-    # en San Isidro, y el modelo ya atribuye ese precio al distrito. Sin restricción
-    # de monotonía, XGBoost puede dar delta NEGATIVO al agregar una amenity valiosa
-    # (artefacto de peso bajo, no señal). Mostrar eso como palanca accionable
-    # ("Agregar terraza −$30") destruye la credibilidad del simulador. Las amenities
-    # SIGUEN alimentando la predicción base (build_features_v2 las usa); solo dejan
-    # de ofrecerse como lever simulable. current_amen se conserva en el form base.
-    _ = current_amen  # documentado: alimenta la base, no se togglea
+    _ = current_amen
 
     items.sort(key=lambda r: abs(r["delta"]), reverse=True)
     return items
-
 
 def counterfactual_full(form: dict) -> dict:
     """Entry-point del endpoint. geo una vez; base = P50 si hay quantile, sino
@@ -690,7 +570,6 @@ def counterfactual_full(form: dict) -> dict:
         "items": compute_counterfactuals_full(form, geo, base),
     }
 
-
 def predict_fair_value(form: dict) -> dict:
     """Pipeline completo: form → precio de referencia + veredicto.
 
@@ -701,9 +580,7 @@ def predict_fair_value(form: dict) -> dict:
     t0 = time.perf_counter()
 
     geo = geo_lookup(float(form["lat"]), float(form["lng"]))
-    # Ruteo según el modo del model_service (cargado en startup):
-    # - v1: build_features (74 features RF)
-    # - v2: build_features_v2 (95 features XGBoost con NSE/OSM/seguridad)
+
     if model_service.mode == "v2":
         from wasi.models.ml_v2 import build_features_v2
         X = build_features_v2(form, geo)
@@ -711,9 +588,6 @@ def predict_fair_value(form: dict) -> dict:
         X = build_features(form, geo)
     fair_value = round(model_service.predict(X), 2)
 
-    # Sprint 3.1: intervalo de predicción P25/P50/P75 (solo v2 con quantile
-    # models cargados). El centro sigue siendo el modelo principal (no P50),
-    # para no romper el contrato de fair_value.
     prediction_interval = model_service.predict_interval(X) if model_service.has_quantile else None
 
     precio = float(form["precio"])
@@ -726,19 +600,12 @@ def predict_fair_value(form: dict) -> dict:
     else:
         zone = "Justo"
 
-    # Métricas resueltas en runtime según el modo activo del servicio.
     mae_pct = _mae_pct()
     delta = fair_value * (mae_pct / 100)
 
-    # Contrafactuales (S2.2 + S3.1): la base es P50 del modelo de cuantiles
-    # cuando está disponible, sino fair_value central. Esto asegura coherencia
-    # — el usuario ve el contrafactual perturbado desde el mismo centro
-    # estadístico que está mirando arriba en el card del rango.
     base_for_cf = (prediction_interval or {}).get("p50") or fair_value
     counterfactuals = compute_counterfactuals(form, geo, base_prediction=base_for_cf)
 
-    # Leak local: aviso del catálogo o pin pegado a un listing de training. El
-    # "Justo" sería trivial → confianza Baja + warning honesto (no toca el modelo).
     from_catalog = bool(form.get("from_catalog", False))
     warnings = list(geo["warnings"])
     if _es_proximo_a_training(geo, from_catalog):
@@ -766,7 +633,7 @@ def predict_fair_value(form: dict) -> dict:
         "fallback_reason": geo["fallback_reason"],
         "version": model_service.version,
         "distrito": geo["distrito"],
-        # Para pedir comparables (FR-03) sin re-ingresar el form.
+
         "lat": float(form["lat"]),
         "lng": float(form["lng"]),
         "area": float(form.get("area", 0)) or None,

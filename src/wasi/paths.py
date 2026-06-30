@@ -16,7 +16,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
 def _find_root(start: Path) -> Path:
     """Sube desde start hasta encontrar pyproject.toml (raíz del repo)."""
     for p in [start, *start.parents]:
@@ -27,12 +26,9 @@ def _find_root(start: Path) -> Path:
         "Definir WASI_REPO_ROOT como variable de entorno."
     )
 
-
 _env_root = os.environ.get("WASI_REPO_ROOT", "")
 REPO_ROOT: Path = Path(_env_root) if _env_root else _find_root(Path(__file__))
 
-# Detecta si los artefactos ya migraron a la raíz (post R3+R4)
-# o siguen en app/backend/ (pre R3+R4).
 _BACKEND_DIR = REPO_ROOT / "app" / "backend"
 
 DATA_DIR: Path = (
@@ -53,10 +49,8 @@ CONFIDENCE_THRESHOLDS: Path = (
     else _BACKEND_DIR / "confidence_thresholds.json"
 )
 
-# Alias de conveniencia
 MODELS_V2_DIR: Path = MODELS_DIR / "v2"
 EXTERNAL_DATA_DIR: Path = DATA_DIR / "external"
-
 
 def _check_paths() -> None:
     critical = {
@@ -71,6 +65,5 @@ def _check_paths() -> None:
         "wasi.paths: REPO_ROOT=%s DATA_DIR=%s MODELS_DIR=%s",
         REPO_ROOT, DATA_DIR, MODELS_DIR,
     )
-
 
 _check_paths()

@@ -13,7 +13,6 @@ from schemas import EntornoOut, EntornoPoiLayer, EntornoPoisOut, PoiContext
 
 router = APIRouter(prefix="/api/entorno", tags=["entorno"])
 
-
 @router.get("/pois", response_model=EntornoPoisOut)
 def entorno_pois(
     lat: float = Query(..., description="Latitud del pin"),
@@ -28,7 +27,6 @@ def entorno_pois(
     layers = get_display_pois().points(lat, lng, radius_m=1000.0)
     return EntornoPoisOut(layers=[EntornoPoiLayer(**l) for l in layers])
 
-
 def _level_for(score: int) -> str:
     if score >= 80:
         return "Excelente"
@@ -38,10 +36,8 @@ def _level_for(score: int) -> str:
         return "Regular"
     return "Riesgo"
 
-
 def _clamp(v: float, lo: int, hi: int) -> int:
     return int(max(lo, min(hi, v)))
-
 
 @router.get("", response_model=EntornoOut)
 def entorno(
@@ -57,15 +53,10 @@ def entorno(
             detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
         )
 
-    # Score: se mantiene calibrado sobre geo_index (percentile rank del dataset).
-    # NO se toca para no romper la calibración del backtest.
     score_total_poi = sum(geo[f"count_1km_{t}"] for t in POI_TYPES)
     denuncias = int(round(geo["cantidad_denuncias"]))
     security, services = scoring_entorno(geo["cantidad_denuncias"], float(score_total_poi))
 
-    # POIs MOSTRADOS: data fresca de OSM (display_pois), conteo real sin el cap de
-    # 60 del geo_index y con supermercados separados de tiendas de conveniencia.
-    # Esto es solo display — el modelo no usa estos números.
     from wasi.features.display_pois import get_display_pois
     poi_rows = get_display_pois().lookup(lat, lng)
     pois = [PoiContext(
@@ -88,22 +79,14 @@ def entorno(
         f"{denuncias} denuncias registradas."
     )
 
-    # Breakdown del score (Sprint 1.3) — n° comisarías del distrito + ratio
-    # de denuncias del distrito vs promedio Lima. Usa data ya cargada por
-    # DistritoFeatures, sin requests extra.
     df = get_distrito_features()
     n_comisarias = int(df.lookup(geo["distrito"]).get("n_comisarias_distrito", 0))
     denuncias_distrito = df.total_denuncias(geo["distrito"])
     lima_avg = df.lima_avg_denuncias or 1.0
     denuncias_vs_lima_pct = round(denuncias_distrito / lima_avg, 2)
 
-    # Serenazgo — factor visual (Sprint 3.4). None si el distrito no tiene datos.
     serenazgo_data = df.serenazgo(geo["distrito"])
 
-    # Sprint 3.6 — POIs premium del barrio (colegios top / clínicas premium / restaurantes
-    # fine dining). Geocodificados via Nominatim, son features VISUALES para el usuario
-    # (NO entran al modelo central porque la cobertura es muy chica). Si la categoría
-    # devuelve 0 en 1km, se omite del response para no contaminar el UI.
     from wasi.features.osm_lookup import get_osm
     osm_feats = get_osm().lookup(lat, lng)
     premium_nearby = {}
