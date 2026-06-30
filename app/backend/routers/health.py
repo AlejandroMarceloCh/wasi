@@ -19,8 +19,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-import ml
-from model_service import model_service
+import wasi.models.ml as ml
+from wasi.models.model_service import model_service
 
 router = APIRouter(prefix="/api", tags=["observability"])
 

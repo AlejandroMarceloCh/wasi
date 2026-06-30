@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from model_service import MODELS, USE_V2, ModelService
+from wasi.models.model_service import MODELS, USE_V2, ModelService
 
 
 def test_startup_exito():

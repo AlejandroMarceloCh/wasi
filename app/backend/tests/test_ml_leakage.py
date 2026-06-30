@@ -8,9 +8,9 @@ vista. El fix baja la confianza a "Baja" y agrega un warning. Estos tests lo bli
 import pandas as pd
 import pytest
 
-from geo_index import get_index
-from ml import _LEAK_WARNING, TRAIN_PROXIMITY_KM, predict_fair_value
-from model_service import model_service
+from wasi.features.geo_index import get_index
+from wasi.models.ml import _LEAK_WARNING, TRAIN_PROXIMITY_KM, predict_fair_value
+from wasi.models.model_service import model_service
 
 
 @pytest.fixture(scope="module", autouse=True)

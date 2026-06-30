@@ -130,8 +130,8 @@ def test_amenities_no_se_exponen_como_palanca_v2():
     alimentando la predicción base, pero NO aparecen como lever simulable.
     Este test blinda que ninguna palanca 'amenity:*' se emita.
     """
-    from model_service import model_service
-    from ml import counterfactual_full
+    from wasi.models.model_service import model_service
+    from wasi.models.ml import counterfactual_full
     if not model_service.is_loaded:
         model_service.load()
     res = counterfactual_full(_dict_sin_precio(amenities=["seguridad", "ascensor"]))

@@ -1,9 +1,9 @@
 """Tests de build_features y predict_fair_value (Fase 2 / Fase 7)."""
 import pytest
 
-from geo_index import OutOfBoundsError
-from ml import AMENITY_CHIPS, build_features, predict_fair_value
-from model_service import model_service
+from wasi.features.geo_index import OutOfBoundsError
+from wasi.models.ml import AMENITY_CHIPS, build_features, predict_fair_value
+from wasi.models.model_service import model_service
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -22,7 +22,7 @@ def _form(**kw):
 
 
 def _geo():
-    from geo_index import geo_lookup
+    from wasi.features.geo_index import geo_lookup
     return geo_lookup(-12.121, -77.030)
 
 
@@ -43,7 +43,7 @@ def test_predict_fair_value_v2_shape():
     """En modo v2, predict_fair_value usa build_features_v2 (95 features)."""
     if model_service.mode != "v2":
         pytest.skip("v2 no activo")
-    from ml_v2 import build_features_v2
+    from wasi.models.ml_v2 import build_features_v2
     X = build_features_v2(_form(), _geo())
     assert X.shape[0] == 1
     assert X.shape[1] >= 80

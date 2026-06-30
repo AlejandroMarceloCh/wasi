@@ -17,12 +17,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from geo_index import POI_TYPES, geo_lookup
-from model_service import model_service
+from wasi.features.geo_index import POI_TYPES, geo_lookup
+from wasi.models.model_service import model_service
+from wasi.paths import CONFIDENCE_THRESHOLDS
 
 # Umbrales de confianza calibrados (Fase 0.5 — backtest LOO).
 # scripts/calibrate_confidence.py los regenera.
-_CONF_PATH = Path(__file__).resolve().parent / "confidence_thresholds.json"
+_CONF_PATH = CONFIDENCE_THRESHOLDS
 try:
     _conf = json.loads(_CONF_PATH.read_text())
     CONF_ALTA_MIN = int(_conf["alta_min_comparables"])
@@ -366,7 +367,7 @@ def explain_fair_value(form: dict) -> dict:
         raise RuntimeError("explain_fair_value: solo disponible con el modelo v2")
 
     geo = geo_lookup(float(form["lat"]), float(form["lng"]))
-    from ml_v2 import build_features_v2
+    from wasi.models.ml_v2 import build_features_v2
     X = build_features_v2(form, geo)
 
     contribs, bias = model_service.shap_contributions(X)
@@ -521,7 +522,7 @@ def _clamp_int(value: int, lo: int, hi: int) -> int:
 def _predict_perturbed(form: dict, geo: dict) -> float:
     """Re-predict para un form ya perturbado. Ruteo idéntico a predict_fair_value."""
     if model_service.mode == "v2":
-        from ml_v2 import build_features_v2
+        from wasi.models.ml_v2 import build_features_v2
         X = build_features_v2(form, geo)
     else:
         X = build_features(form, geo)
@@ -676,7 +677,7 @@ def counterfactual_full(form: dict) -> dict:
     el predict central. Puede lanzar OutOfBoundsError (pin fuera de Lima)."""
     geo = geo_lookup(float(form["lat"]), float(form["lng"]))
     if model_service.mode == "v2":
-        from ml_v2 import build_features_v2
+        from wasi.models.ml_v2 import build_features_v2
         X = build_features_v2(form, geo)
     else:
         X = build_features(form, geo)
@@ -704,7 +705,7 @@ def predict_fair_value(form: dict) -> dict:
     # - v1: build_features (74 features RF)
     # - v2: build_features_v2 (95 features XGBoost con NSE/OSM/seguridad)
     if model_service.mode == "v2":
-        from ml_v2 import build_features_v2
+        from wasi.models.ml_v2 import build_features_v2
         X = build_features_v2(form, geo)
     else:
         X = build_features(form, geo)

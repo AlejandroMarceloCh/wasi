@@ -6,8 +6,8 @@ mapa devuelve el contexto interpolado. No hay tablas de POIs en la BD.
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user
-from distrito_features import get_distrito_features
-from geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, in_bbox, scoring_entorno
+from wasi.features.distrito_features import get_distrito_features
+from wasi.features.geo_index import POI_TYPES, OutOfBoundsError, geo_lookup, in_bbox, scoring_entorno
 from models import User
 from schemas import EntornoOut, EntornoPoiLayer, EntornoPoisOut, PoiContext
 
@@ -24,7 +24,7 @@ def entorno_pois(
     en el mapa. Misma fuente que los conteos (display_pois, solo-display)."""
     if not in_bbox(lat, lng):
         return EntornoPoisOut(layers=[])
-    from display_pois import get_display_pois
+    from wasi.features.display_pois import get_display_pois
     layers = get_display_pois().points(lat, lng, radius_m=1000.0)
     return EntornoPoisOut(layers=[EntornoPoiLayer(**l) for l in layers])
 
@@ -66,7 +66,7 @@ def entorno(
     # POIs MOSTRADOS: data fresca de OSM (display_pois), conteo real sin el cap de
     # 60 del geo_index y con supermercados separados de tiendas de conveniencia.
     # Esto es solo display — el modelo no usa estos números.
-    from display_pois import get_display_pois
+    from wasi.features.display_pois import get_display_pois
     poi_rows = get_display_pois().lookup(lat, lng)
     pois = [PoiContext(
         kind=p["kind"], label=p["label"],
@@ -104,7 +104,7 @@ def entorno(
     # fine dining). Geocodificados via Nominatim, son features VISUALES para el usuario
     # (NO entran al modelo central porque la cobertura es muy chica). Si la categoría
     # devuelve 0 en 1km, se omite del response para no contaminar el UI.
-    from osm_lookup import get_osm
+    from wasi.features.osm_lookup import get_osm
     osm_feats = get_osm().lookup(lat, lng)
     premium_nearby = {}
     for cat, label in (

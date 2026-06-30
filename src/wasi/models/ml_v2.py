@@ -14,10 +14,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from geo_index import POI_TYPES, geo_lookup
-from model_service import model_service
-from osm_lookup import OSM_CATEGORIES, get_osm
-from distrito_features import get_distrito_features
+from wasi.features.geo_index import POI_TYPES, geo_lookup
+from wasi.models.model_service import model_service
+from wasi.features.osm_lookup import OSM_CATEGORIES, get_osm
+from wasi.features.distrito_features import get_distrito_features
 
 # Mismas claves de amenities que v1 (consistencia con el form del frontend).
 AMENITY_CHIPS = {

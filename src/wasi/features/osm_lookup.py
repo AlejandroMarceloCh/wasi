@@ -23,6 +23,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 from scipy.spatial import cKDTree
 
+from wasi.paths import EXTERNAL_DATA_DIR
+
 EARTH_M = 6_371_000.0
 
 OSM_CATEGORIES = ['supermercados', 'malls', 'universidades', 'parques',
@@ -55,7 +57,7 @@ _TIER_REGEX: Dict[str, Dict[str, re.Pattern]] = {
 # Categorías que admiten tier breakdown. Las que no están acá no generan features extra.
 _TIERED_CATEGORIES = list(_TIER_REGEX.keys())
 
-_DATA_DIR = Path(__file__).resolve().parent / "data" / "external"
+_DATA_DIR = EXTERNAL_DATA_DIR
 
 
 def _to_unit_sphere(lat: np.ndarray, lng: np.ndarray) -> np.ndarray:

@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from geo_index import OutOfBoundsError, geo_lookup
+from wasi.features.geo_index import OutOfBoundsError, geo_lookup
 
 
 def test_zona_densa():

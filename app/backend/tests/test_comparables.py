@@ -1,5 +1,5 @@
 """Comparables (FR-03): avisos reales como evidencia del Fair Value."""
-from comparables_service import get_comparables_service
+from wasi.models.comparables_service import get_comparables_service
 
 
 def test_comparables_service_devuelve_cercanos_y_similares():

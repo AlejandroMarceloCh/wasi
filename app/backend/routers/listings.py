@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from ml import ZONE_BAND_PCT          # mismo umbral del veredicto que usa ml.predict_fair_value
+from wasi.models.ml import ZONE_BAND_PCT          # mismo umbral del veredicto que usa ml.predict_fair_value
 from models import Favorite, Lead, Listing, User
 from schemas import FavoriteIn, LeadIn, LeadOut, ListingIn, ListingOut
 

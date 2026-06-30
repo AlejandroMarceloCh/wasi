@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
+from wasi.paths import DATA_DIR
+
 _EARTH_M = 6_371_000.0
 
 
@@ -100,5 +102,5 @@ def get_comparables_service() -> ComparablesService:
     global _SERVICE
     if _SERVICE is None:
         _SERVICE = ComparablesService(
-            Path(__file__).resolve().parent / "data" / "comparables.csv")
+            DATA_DIR / "comparables.csv")
     return _SERVICE

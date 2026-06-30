@@ -22,9 +22,11 @@ from typing import Dict, List, Tuple
 import numpy as np
 from scipy.spatial import cKDTree
 
+from wasi.paths import EXTERNAL_DATA_DIR
+
 EARTH_M = 6_371_000.0
 
-_BASE = Path(__file__).resolve().parent / "data" / "external"
+_BASE = EXTERNAL_DATA_DIR
 _DISPLAY = _BASE / "display"
 
 # categoria -> (archivo json, label). Las 5 primeras salen de Overpass fresco

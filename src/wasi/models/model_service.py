@@ -26,8 +26,10 @@ import joblib
 import numpy as np
 import pandas as pd
 
-MODELS = Path(__file__).resolve().parent / "models"
-MODELS_V2 = MODELS / "v2"
+from wasi.paths import MODELS_DIR, MODELS_V2_DIR
+
+MODELS = MODELS_DIR
+MODELS_V2 = MODELS_V2_DIR
 MODELO_PRINCIPAL = "04_random_forest.joblib"
 MODELO_PRINCIPAL_V2 = "modelo_final_v2.joblib"
 

@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import models  # noqa: F401 — registra las tablas en Base.metadata
 from database import Base, engine, ensure_schema
-from geo_index import get_index
-from model_service import model_service
-from venta_service import venta_service
+from wasi.features.geo_index import get_index
+from wasi.models.model_service import model_service
+from wasi.models.venta_service import venta_service
 from seed import seed_if_empty
 from routers import auth as auth_router
 from routers import dashboard as dashboard_router

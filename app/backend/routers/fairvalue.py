@@ -8,11 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
-from comparables_service import get_comparables_service
+from wasi.models.comparables_service import get_comparables_service
 from database import get_db
-from geo_index import OutOfBoundsError, in_bbox
-import ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
-from ml import counterfactual_full, explain_fair_value, predict_fair_value
+from wasi.features.geo_index import OutOfBoundsError, in_bbox
+import wasi.models.ml as ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
+from wasi.models.ml import counterfactual_full, explain_fair_value, predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
 from schemas import (ComparablesOut, Counterfactual, CounterfactualIn,
@@ -20,7 +20,7 @@ from schemas import (ComparablesOut, Counterfactual, CounterfactualIn,
                      ExplainOut, Factor, NarrativeOut, PoiHighlight, PredictIn,
                      PredictOut, PredictionInterval, PredictVentaIn,
                      PredictVentaOut, RecentItem, SaveOut, SimulateOut)
-from venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VENTA_R2,
+from wasi.models.venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VENTA_R2,
                            ZONE_BAND_PCT as VENTA_ZONE_BAND, venta_service)
 
 router = APIRouter(prefix="/api", tags=["fairvalue"])
@@ -383,7 +383,7 @@ def _form_from_property(p) -> dict:
 def _poi_highlights(lat: float, lng: float) -> List[PoiHighlight]:
     """POIs nombrados cercanos, curados para narrativa y display. Falla suave."""
     try:
-        from osm_lookup import get_osm
+        from wasi.features.osm_lookup import get_osm
         raw = get_osm().nearest_named(lat, lng, per_cat=2, max_m=1200.0)
     except Exception:
         return []
@@ -705,7 +705,7 @@ def poi_importance():
 
     Solo disponible en modelo v2. Devuelve lista ordenada de mayor a menor.
     """
-    from model_service import model_service
+    from wasi.models.model_service import model_service
     data = model_service.poi_importance()
     if not data:
         raise HTTPException(status_code=503, detail="Modelo v1 activo — sin datos POI")

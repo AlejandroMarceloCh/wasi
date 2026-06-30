@@ -4,7 +4,7 @@ Cubre osm_lookup.nearest_named (POIs por nombre + tier) y el helper
 _poi_highlights del router. Deterministas: NO llaman a Groq ni a la red,
 solo a los KD-trees ya cargados sobre los JSON de OSM del repo.
 """
-from osm_lookup import get_osm
+from wasi.features.osm_lookup import get_osm
 
 # San Isidro, zona financiera (Camino Real / Pardo y Aliaga): bancos de gama alta.
 SAN_ISIDRO = (-12.0967, -77.0365)

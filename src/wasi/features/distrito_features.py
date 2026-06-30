@@ -17,9 +17,10 @@ from typing import Dict
 
 import pandas as pd
 
-from distritos_lima_features import attach_features, get_district_table, _norm
+from wasi.features.distritos_lima_features import attach_features, get_district_table, _norm
+from wasi.paths import EXTERNAL_DATA_DIR
 
-_DATA = Path(__file__).resolve().parent / "data" / "external"
+_DATA = EXTERNAL_DATA_DIR
 
 
 class DistritoFeatures:

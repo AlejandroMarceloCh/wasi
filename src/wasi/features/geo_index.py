@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
+from wasi.paths import DATA_DIR
+
 # --- bbox Lima Metropolitana ---------------------------------------------
 # Aproximación conservadora (rectángulo, no polígono exacto). Envuelve el
 # bbox real del dataset: lat [-12.39, -11.79], lng [-77.16, -76.77].
@@ -189,7 +191,7 @@ def get_index() -> GeoIndex:
     """Devuelve el índice (lo construye en la primera llamada)."""
     global _INDEX
     if _INDEX is None:
-        _INDEX = GeoIndex(Path(__file__).resolve().parent / "data" / "geo_index.csv")
+        _INDEX = GeoIndex(DATA_DIR / "geo_index.csv")
     return _INDEX
 
 

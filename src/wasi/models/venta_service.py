@@ -16,10 +16,10 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from geo_index import geo_lookup
+from wasi.features.geo_index import geo_lookup
+from wasi.paths import VENTAS_BUNDLE
 
-BUNDLE = (Path(__file__).resolve().parent.parent.parent
-          / "ventas_model" / "models" / "xgb_venta.joblib")
+BUNDLE = VENTAS_BUNDLE
 
 # MAPE espacial honesto del modelo (ventas_model/RESULTADOS.md, GroupKFold por
 # coordenada, target encoding refit por fold). Se usa para la banda de error.
