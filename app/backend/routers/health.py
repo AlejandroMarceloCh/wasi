@@ -15,12 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import wasi.models.ml as ml
 from wasi.models.model_service import model_service
+from wasi.paths import DATA_DIR, MODELS_DIR
 
 router = APIRouter(prefix="/api", tags=["observability"])
 
@@ -51,11 +52,10 @@ class ModelInfoOut(BaseModel):
 
 def _modelo_principal_path() -> Path | None:
     """Path al .joblib activo, según el modo del model_service."""
-    backend_dir = Path(__file__).resolve().parent.parent
     if model_service.mode == "v2":
-        p = backend_dir / "models" / "v2" / "modelo_final_v2.joblib"
+        p = MODELS_DIR / "v2" / "modelo_final_v2.joblib"
     else:
-        p = backend_dir / "models" / "04_random_forest.joblib"
+        p = MODELS_DIR / "04_random_forest.joblib"
     return p if p.exists() else None
 
 def _trained_at_iso() -> Optional[str]:
@@ -66,7 +66,7 @@ def _trained_at_iso() -> Optional[str]:
     ts = datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
     return ts.isoformat()
 
-_DISTRITOS_PATH = Path(__file__).resolve().parent.parent / "data" / "distritos_zona.json"
+_DISTRITOS_PATH = DATA_DIR / "distritos_zona.json"
 _distritos_cache: Optional[List[Any]] = None
 
 @router.get("/distritos-zona")
@@ -78,9 +78,11 @@ def distritos_zona():
     return JSONResponse(_distritos_cache or [])
 
 @router.get("/health", response_model=HealthOut)
-def health():
-    """Liveness probe. No requiere auth."""
+def health(response: Response):
+    """Liveness probe. No requiere auth. 503 si el modelo no está cargado."""
     is_ok = model_service.is_loaded
+    if not is_ok:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthOut(
         status="ok" if is_ok else "degraded",
         model_mode=model_service.mode,
