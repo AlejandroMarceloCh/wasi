@@ -114,13 +114,27 @@ const ZONE_VARIANT = { Ganga: 'success', Justo: 'warning', Inflado: 'danger' };
 const safeImageUrl = (url) =>
   (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) ? url : null;
 
+const WASI_PHOTOS = [
+  '1522708323590-d24dbb6b0267','1502672260266-1c1ef2d93688','1493809842364-78817add7ffb',
+  '1560448204-e02f11c3d0e2','1560185007-cde436f6a4d0','1554995207-c18c203602cb',
+  '1505691938895-1758d7feb511','1484154218962-a197022b5858','1556912172-45b7abe8b7e1',
+  '1502005229762-cf1b2da7c5d6','1522444195799-478538b28823','1567767292278-a4f21aa2d36e',
+  '1545324418-cc1a3fa10c00','1502672023488-70e25813eb80','1416339306562-f3d12fefd36f',
+  '1486304873000-235643847519','1560184897-ae75f418493e','1538688525198-9b88f6f53126',
+  '1583847268964-b28dc8f51f92',
+];
+const apartmentPhoto = (id) => {
+  const i = ((id % WASI_PHOTOS.length) + WASI_PHOTOS.length) % WASI_PHOTOS.length;
+  return `https://images.unsplash.com/photo-${WASI_PHOTOS[i]}?w=640&h=400&fit=crop&q=70`;
+};
+
 const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   const z = listing.zone;
   const open = () => onOpen && onOpen(listing.id);
   const price = Math.round(listing.price_usd).toLocaleString('en-US');
   const specs = listing.es_estudio ? 'Estudio' : `${listing.dormitorios} dorm`;
   const imgSrc = safeImageUrl(listing.image_url)
-    || (listing.id != null ? `https://picsum.photos/seed/wasi${listing.id}/640/400` : null);
+    || (listing.id != null ? apartmentPhoto(listing.id) : null);
   
   
   const showFav = typeof onToggleFav === 'function';
