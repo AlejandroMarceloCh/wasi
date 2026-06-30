@@ -1222,7 +1222,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             )}
 
             {explain && (() => {
-              const grupos = (explain.groups || []).filter(g => Math.abs(g.pct_effect) >= 0.1);
+              const grupos = (explain.groups || []).filter(g => Math.abs(g.pct_effect) >= 0.1)
+                .sort((a, b) => Math.abs(b.contribution_log) - Math.abs(a.contribution_log));
               const maxAbs = grupos.reduce((m, g) => Math.max(m, Math.abs(g.contribution_log)), 0.0001);
               return (
                 <>
@@ -1230,6 +1231,12 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                   <div className="row" style={{justifyContent:'space-between', marginTop:12, paddingBottom:10, borderBottom:'1px dashed var(--line)'}}>
                     <span className="small muted">Precio base del modelo</span>
                     <b className="numeric">${Math.round(explain.base_price)}</b>
+                  </div>
+
+                  {}
+                  <div className="row" style={{justifyContent:'space-between', marginTop:12, fontSize:10, textTransform:'uppercase', letterSpacing:'.05em', fontWeight:700}}>
+                    <span style={{color:'var(--danger)'}}>← Baja el precio</span>
+                    <span style={{color:'var(--success)'}}>Sube el precio →</span>
                   </div>
 
                   {}
