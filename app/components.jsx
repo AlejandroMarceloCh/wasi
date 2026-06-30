@@ -112,14 +112,15 @@ const Tag = ({ variant = 'default', children, className = '', ...rest }) => (
 const ZONE_VARIANT = { Ganga: 'success', Justo: 'warning', Inflado: 'danger' };
 
 const safeImageUrl = (url) =>
-  (typeof url === 'string' && /^https?:\/\
+  (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) ? url : null;
 
 const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   const z = listing.zone;
   const open = () => onOpen && onOpen(listing.id);
   const price = Math.round(listing.price_usd).toLocaleString('en-US');
   const specs = listing.es_estudio ? 'Estudio' : `${listing.dormitorios} dorm`;
-  const imgSrc = safeImageUrl(listing.image_url);
+  const imgSrc = safeImageUrl(listing.image_url)
+    || (listing.id != null ? `https://picsum.photos/seed/wasi${listing.id}/640/400` : null);
   
   
   const showFav = typeof onToggleFav === 'function';
@@ -131,17 +132,11 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
     <div className="listing-card-z card hover" role="button" tabIndex={0}
          onClick={open} onKeyDown={onKeyActivate(open)}>
       <div className="lcz-media">
-        {imgSrc
-          ? <img src={imgSrc} alt={listing.address} loading="lazy"
-                 onError={(e)=>{ e.target.style.display='none'; }}/>
-          : (
-            
-            
-            
-            <div className={`lcz-placeholder lcz-ph-${ZONE_VARIANT[z] || 'default'}`}>
-              <Icon name="home" size={28} stroke="#fff"/>
-            </div>
-          )}
+        <div className={`lcz-placeholder lcz-ph-${ZONE_VARIANT[z] || 'default'}`}>
+          <Icon name="home" size={28} stroke="#fff"/>
+        </div>
+        {imgSrc && <img src={imgSrc} alt={listing.address} loading="lazy"
+               onError={(e)=>{ e.target.style.display='none'; }}/>}
         {z && <span className={`lcz-verdict tag tag-${ZONE_VARIANT[z] || 'default'}`}>{z}</span>}
         {showFav && (
           <button

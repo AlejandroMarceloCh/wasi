@@ -2158,7 +2158,7 @@
      precio prominente. Reusa .card / .card.hover; padding propio en 0. */
   .listing-card-z{ padding:0; overflow:hidden; cursor:pointer; display:flex; flex-direction:column; }
   .lcz-media{ position:relative; aspect-ratio:16/10; overflow:hidden; background:var(--line-2); }
-  .lcz-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .lcz-media img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; z-index:1; }
   /* Zoom suave de la imagen/placeholder al pasar sobre la card (estilo Zillow). */
   .lcz-media img, .lcz-placeholder{ transition:transform .45s cubic-bezier(.2,.8,.2,1); }
   .listing-card-z:hover .lcz-media img,
@@ -2168,7 +2168,7 @@
     .listing-card-z:hover .lcz-placeholder{ transform:none; }
   }
   .lcz-placeholder{
-    position:relative;
+    position:absolute; inset:0;
     width:100%; height:100%; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:8px;
     color:rgba(255,255,255,.92);
@@ -2194,7 +2194,7 @@
      Sobre fotos claras el tag perdía contraste: le damos fondo sólido + borde
      claro + sombra para garantizar legibilidad (WCAG AA) sin importar la imagen. */
   .lcz-verdict{
-    position:absolute; top:10px; left:10px;
+    position:absolute; top:10px; left:10px; z-index:2;
     box-shadow:0 2px 8px rgba(0,0,0,.28);
     border:1px solid rgba(255,255,255,.85);
     font-weight:700;
@@ -2208,7 +2208,7 @@
      semitransparente para legibilidad sobre cualquier foto; al activarse, el
      ícono toma color de marca y se rellena (fill=currentColor en el SVG). */
   .lcz-fav{
-    position:absolute; top:8px; right:8px;
+    position:absolute; top:8px; right:8px; z-index:2;
     width:34px; height:34px; border-radius:50%;
     display:inline-flex; align-items:center; justify-content:center;
     background:rgba(255,255,255,.92); border:1px solid var(--line);
