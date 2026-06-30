@@ -51,7 +51,7 @@ Wasi convierte ese vacío en un producto de datos: un modelo entrenado sobre mil
  
 ## 1.1 Producto y modelo de negocio
  
-Wasi sirve hoy a dos usuarios B2C con objetivos opuestos: el **inquilino**, que quiere no pagar de más, y el **propietario**, que fija un precio y muchas veces no lo mueve aunque el mercado diga otra cosa — lo que se traduce en vacancia prolongada o margen perdido. La estrategia comercial usa el segmento B2C (Free → Pro) para validar el producto con usuarios reales antes de escalar hacia el segmento de mayor ticket: **B2B**.
+Wasi sirve hoy a dos usuarios B2C con objetivos opuestos: el **inquilino**, que quiere no pagar de más, y el **propietario**, que fija un precio y muchas veces no lo mueve aunque el mercado diga otra cosa — lo que se traduce en vacancia prolongada o margen perdido. La estrategia comercial usa el segmento B2C (Free al Pro) para validar el producto con usuarios reales antes de escalar hacia el segmento de mayor ticket: **B2B**.
  
 El B2B se identificó como la **mayor fuente de ingresos potencial** y se validó con una conversación con un profesional del sector inmobiliario, que confirmó
 tres señales de demanda concretas:
@@ -123,7 +123,7 @@ dominio, no solo estadística.
  
 ### 3.1 Transformación del target
  
-`precio_usd → log1p(precio_usd)`. Por el sesgo detectado en el EDA, se modela en
+`precio_usd a log1p(precio_usd)`. Por el sesgo detectado en el EDA, se modela en
 escala logarítmica. Consecuencia importante: los efectos del modelo son
 **multiplicativos** sobre el precio base, no aditivos — algo que se respeta en
 toda la cadena de explicabilidad.
@@ -235,10 +235,10 @@ Frontend (React 18 + Leaflet, sin build, vía CDN)
         ▼
 Backend (FastAPI + SQLAlchemy + SQLite)
         │
-        ├─ geo_index.py      → distrito + POIs (cKDTree + haversine)
-        ├─ ml_v2.py          → 101 features (réplica exacta del notebook 03)
-        ├─ model_service.py  → XGBoost central + quantiles + TreeSHAP
-        └─ venta_service.py  → modelo de venta (extensión)
+        ├─ geo_index.py      : distrito + POIs (cKDTree + haversine)
+        ├─ ml_v2.py          : 101 features (réplica exacta del notebook 03)
+        ├─ model_service.py  : XGBoost central + quantiles + TreeSHAP
+        └─ venta_service.py  : modelo de venta (extensión)
 ```
  
 ### 5.2 Paridad entrenamiento–serving
@@ -329,12 +329,12 @@ Demo local: `http://localhost:5500` · usuario `ana@wasi.pe` / `demo1234`.
 **Orden de reproducción del pipeline de ML:**
  
 ```
-notebooks/01_limpieza.ipynb            → dataset limpio
-notebooks/02_eda.ipynb                 → análisis exploratorio
-notebooks/03_feature_engineering.ipynb → 101 features
-notebooks/04_entrenamiento_modelos.ipynb → 5 candidatos, GroupKFold espacial
-notebooks/05_evaluacion_seleccion.ipynb  → selección + serialización
-notebooks/11_analisis_residuos.ipynb     → diagnóstico de errores
+notebooks/01_limpieza.ipynb            : dataset limpio
+notebooks/02_eda.ipynb                 : análisis exploratorio
+notebooks/03_feature_engineering.ipynb : 101 features
+notebooks/04_entrenamiento_modelos.ipynb : 5 candidatos, GroupKFold espacial
+notebooks/05_evaluacion_seleccion.ipynb  : selección + serialización
+notebooks/11_analisis_residuos.ipynb     : diagnóstico de errores
 ```
  
 Todos los datos necesarios para replicar (datasets de train/test, POIs,
@@ -352,7 +352,7 @@ denuncias, comisarías, metadata) están versionados en
 3. **Cobertura geográfica desigual.** Los distritos con pocos avisos tienen
    mayor incertidumbre; mitigado con suavizado bayesiano y un indicador de
    confianza en la UI.
-4. **Sesgo de retransformación log→USD.** El uso de `expm1` introduce un sesgo
+4. **Sesgo de retransformación log a USD.** El uso de `expm1` introduce un sesgo
    menor de Jensen, no corregido (impacto bajo en MAPE).
 5. **Venta es v0.** El modelo de venta es una demostración de extensibilidad, sin
    la capa completa de SHAP/narrativa del modelo de alquiler.
