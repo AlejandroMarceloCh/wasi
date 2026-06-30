@@ -112,7 +112,7 @@ const Tag = ({ variant = 'default', children, className = '', ...rest }) => (
 const ZONE_VARIANT = { Ganga: 'success', Justo: 'warning', Inflado: 'danger' };
 
 const safeImageUrl = (url) =>
-  (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) ? url : null;
+  (typeof url === 'string' && /^(https?:\/\/|data:image\/)/i.test(url.trim())) ? url : null;
 
 const WASI_PHOTOS = [
   '1522708323590-d24dbb6b0267','1502672260266-1c1ef2d93688','1493809842364-78817add7ffb',

@@ -8,7 +8,7 @@ Equipo: Leonardo Montoya · Diana Ñañez · Alejandro Marcelo
  
 Repositorio: `https://github.com/AlejandroMarceloCh/wasi`
  
-Video de prototipo: `[pendiente — agregar enlace de YouTube]`
+Video de prototipo: https://youtu.be/1fbrG-gOUUM
  
 ---
  

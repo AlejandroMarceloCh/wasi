@@ -45,9 +45,54 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
       : [...prev.amenities, k],
   }));
 
+  const onPickFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || !/^image\//.test(file.type)) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 720;
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        set('image_url', canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   useE(() => {
     Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
+
+  useE(() => {
+    if (!enLima(f.lat, f.lng)) return;
+    const t = setTimeout(() => {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${f.lat}&lon=${f.lng}&format=jsonv2&accept-language=es&zoom=18`;
+      fetch(url).then(r => r.json()).then(data => {
+        const a = data.address || {};
+        const rawDist = a.suburb || a.city_district || a.neighbourhood || a.city || a.town || '';
+        const street = a.road || a.pedestrian || '';
+        const num = a.house_number ? ` ${a.house_number}` : '';
+        setF(prev => {
+          const next = { ...prev };
+          if (rawDist) {
+            const match = distritos.find(d => d.distrito && d.distrito.toLowerCase() === rawDist.toLowerCase());
+            next.district = match ? match.distrito : rawDist;
+          }
+          if (street) next.address = `${street}${num}`;
+          return next;
+        });
+      }).catch(() => {});
+    }, 650);
+    return () => clearTimeout(t);
+  }, [f.lat, f.lng, distritos]);
 
   const pinOk = enLima(f.lat, f.lng);
   const areaNum = Number(f.area);
@@ -243,14 +288,25 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           </div>
         </div>
         <div style={{marginTop:14}}>
-          <div>
-            <Input label="Foto del inmueble (URL, opcional)" placeholder="https://…/foto.jpg"
-              value={f.image_url} onChange={(e)=>set('image_url', e.target.value)}/>
-            <p className="tiny muted" style={{marginTop:4}}>
-              Pega el enlace de una imagen (clic derecho → “Copiar dirección de la imagen”).
-              La subida de fotos desde el dispositivo llegará pronto.
-            </p>
+          <label style={{display:'block', marginBottom:6, fontWeight:600, fontSize:13, color:'var(--ink-2)'}}>Foto del inmueble (opcional)</label>
+          <div className="row" style={{gap:10, flexWrap:'wrap', alignItems:'center'}}>
+            <label style={{display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', border:'1px solid var(--line)', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:600, background:'var(--surface)'}}>
+              <Icon name="plus" size={14}/> Subir foto
+              <input type="file" accept="image/*" onChange={onPickFile} style={{display:'none'}}/>
+            </label>
+            {f.image_url && /^(https?:\/\/|data:image\/)/i.test(f.image_url.trim()) && (
+              <span className="row" style={{gap:8, alignItems:'center'}}>
+                <img src={f.image_url} alt="Vista previa" style={{width:54, height:40, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)'}}/>
+                <button type="button" onClick={()=>set('image_url','')} style={{fontSize:12, color:'var(--danger)', background:'none', border:'none', cursor:'pointer', padding:0}}>Quitar</button>
+              </span>
+            )}
           </div>
+          <p className="tiny muted" style={{margin:'6px 0 8px'}}>
+            Sube una foto desde tu dispositivo, o pega el enlace de una imagen.
+          </p>
+          <Input label="" placeholder="https://…/foto.jpg"
+            value={/^data:/i.test(f.image_url) ? '' : f.image_url}
+            onChange={(e)=>set('image_url', e.target.value)}/>
         </div>
       </Card>
 

@@ -271,7 +271,7 @@ class ListingIn(BaseModel):
     price_usd: float = Field(gt=0, le=50000)
 
     description: Optional[str] = Field(default="", max_length=2000)
-    image_url: Optional[str] = Field(default=None, max_length=512)
+    image_url: Optional[str] = Field(default=None, max_length=1_500_000)
     amenities: List[str] = Field(default_factory=list)
     contact_name: str = Field(min_length=2, max_length=255)
     contact_phone: str = Field(min_length=6, max_length=32)
@@ -279,15 +279,16 @@ class ListingIn(BaseModel):
 
     @field_validator("image_url")
     @classmethod
-    def _image_url_solo_http(cls, v: Optional[str]) -> Optional[str]:
-        """Solo se aceptan URLs http(s). Rechaza javascript:, data:, etc.
-        (evita XSS si la URL se renderea en el frontend). Se mantiene como str
-        para no cambiar el tipo de guardado."""
+    def _image_url_segura(cls, v: Optional[str]) -> Optional[str]:
+        """Acepta URLs http(s) o imágenes subidas embebidas (data:image/...).
+        Rechaza javascript:, data:text, etc. para evitar XSS al renderear en
+        <img> (data:image solo pinta píxeles, no ejecuta script)."""
         if v is None or v == "":
             return v
-        if not v.lower().startswith(("http://", "https://")):
-            raise ValueError("image_url debe empezar con http:// o https://")
-        return v
+        low = v.lower()
+        if low.startswith(("http://", "https://")) or low.startswith("data:image/"):
+            return v
+        raise ValueError("image_url debe ser http(s):// o una imagen subida (data:image/)")
 
     @model_validator(mode="after")
     def _no_cero_sin_estudio(self):
