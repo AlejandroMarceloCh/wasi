@@ -12,7 +12,15 @@
 | Fase | Paso | Estado | Cierre | Notas |
 |------|------|--------|--------|-------|
 | 0 | 0.1 Quitar amenities del simulador | ✅ | 2026-06-30 | `compute_counterfactuals_full` ya no emite palancas `amenity:*`. Test actualizado. 134 passed |
-| 0 | 0.2 Commit sprints 1-6 + planes | ⬜ | | 18 mod + 3 nuevos sin commit |
+| 0 | 0.2 Commit sprints 1-6 + planes | ✅ | 2026-06-30 | commit `eeed565`, 24 archivos, sin push aún |
+| FINAL | S7.1 Fotos reales (upload, FR-01/02) | ⬜ DIFERIDO | | Va AL FINAL de todo: requiere bucket Cloudinary (gratis, sin tarjeta, 2 min setup de Alejandro). Única pieza con dependencia externa |
+| 0.5 | S7.2 Comparables visibles junto al FairValue (FR-03) | ✅ | 2026-06-30 | `comparables_service` + `/fairvalue/comparables` + `ComparablesCard`. 4 tests. 138 passed |
+| 0.5 | S7.3 Fuente de datos citada (FR-12) | ✅ | 2026-06-30 | Línea de fuentes (OSM·MININTER·CENACOM) en `PoiInsightCard`; ya existía en EntornoMapScreen |
+| 0.5 | S7.4 Landing/onboarding claro (FR-09) | ✅ | 2026-06-30 | Usuario nuevo aterriza en pantalla accionable por rol (no en marketing); login→home |
+| 0.5 | S7.5 Preview del aviso antes de publicar (FR-14) | ✅ | 2026-06-30 | Botón "Vista previa" + Modal que reusa `ListingCard` en PublishScreen |
+| 0.5 | S7.6 Indicador de seguridad SIDPOL (FR-11) | ✅ | 2026-06-30 | Desglose seguridad en card entorno: denuncias, vs Lima %, comisarías, serenazgo (dato ya existía en backend) |
+| 0.5 | GATE-B E2E manual 8 pasos (navegador) | ⬜ | | **Alejandro**. Sin esto los fixes NO están verificados en runtime |
+| 0.5 | GATE-C sección informe data leak (Overleaf) | ⬜ | | **Alejandro** |
 | 1 | 1.1 Secrets (GROQ rotar, JWT fuerte, .env.example) | ⬜ | | P0-1 |
 | 1 | 1.2 fair_value_ref server-side (anti-fraude) | ⬜ | | P0-7 |
 | 1 | 1.3 Rate limiting (slowapi) | ⬜ | | P0-8 |
@@ -54,6 +62,31 @@ Estados: ⬜ pendiente · 🔄 en curso · ✅ cerrado · ⚠️ cerrado-con-deu
 ### Paso 0.2 — Commit de todo
 - 18 archivos modificados (sprints 1-6) + `PLAN_SPRINTS_WASI.md`, `FEEDBACK_AUDIT_WASI.md`, `test_ml_leakage.py`, este plan, `AUDITORIA_PRODUCCION_WASI.md`.
 - Sin trailer Co-Authored-By. Esperar "dale" antes de push.
+
+---
+
+### Fase 0.5 — Sprint 7: FRs de curso pendientes (HONESTIDAD: C1 NO estaba 100%)
+
+> Los sprints 1-6 cerraron los **bugs** del feedback (P-01 a P-17). Pero varios
+> **feature requests** quedaron sin tocar y el **E2E manual nunca se corrió**.
+> Esto NO estaba cumplido; este sprint lo cierra antes de pasar a producción.
+
+| ID | FR | Qué falta | Fuentes | Esfuerzo |
+|----|----|-----------|---------|----------|
+| S7.1 | FR-01/02 Fotos reales | upload desde dispositivo (hoy solo URL + copy) — se cruza con P0-2.2 de prod | 5 fuentes | M |
+| S7.2 | FR-03 Comparables visibles | mostrar listings comparables junto al FairValue | 2 expertos | M |
+| S7.3 | FR-12 Fuente citada | "Datos: OSM/MININTER/CENACOM" visible en el breakdown | Inq5 (×3) | S |
+| S7.4 | FR-09 Landing/onboarding | el usuario nuevo no entiende el producto en 5s | 3 fuentes | M |
+| S7.5 | FR-14 Preview del aviso | ver cómo queda el listing antes de publicar | New Rec | S |
+| S7.6 | FR-11 Seguridad SIDPOL | exponer el dato de criminalidad con fuente | 3 fuentes | M |
+
+**NO entran a Sprint 7 (backlog de producto, no de curso — confirmado):** FR-08 ROI,
+FR-20 precio de cierre, FR-23 B2B benchmark, FR-13 chatbot, FR-07 urgencia,
+FR-25 búsqueda por POI, FR-26 corredor/legal, FR-19 reglas del edificio.
+
+**Pendiente de Alejandro (no código):** GATE-B (E2E manual 8 pasos en navegador) +
+GATE-C (sección del informe sobre el data leak). Sin GATE-B, los fixes de S1-S6
+están verdes en tests pero **no verificados en runtime**.
 
 ---
 

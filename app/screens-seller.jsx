@@ -18,6 +18,9 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
   const [cf, setCf] = useS(null);
   const [cfLoading, setCfLoading] = useS(false);
   const [cfError, setCfError] = useS(false);
+  // Vista previa del aviso antes de publicar (FR-14): reusa ListingCard tal cual
+  // se verá en el catálogo, para que el propietario valide antes de lanzar.
+  const [previewOpen, setPreviewOpen] = useS(false);
   const [f, setF] = useS({
     district: (prefill && prefill.district) || '',
     address: '',
@@ -313,11 +316,40 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           <Btn variant="outline" onClick={onBack}>
             <Icon name="back" size={14}/> Cancelar
           </Btn>
-          <Btn variant="primary" size="lg" onClick={submit} disabled={submitting}>
-            <Icon name="check" size={16}/> Publicar inmueble
-          </Btn>
+          <div className="row" style={{gap:10}}>
+            <Btn variant="outline" size="lg" onClick={()=>setPreviewOpen(true)}>
+              <Icon name="eye" size={15}/> Vista previa
+            </Btn>
+            <Btn variant="primary" size="lg" onClick={submit} disabled={submitting}>
+              <Icon name="check" size={16}/> Publicar inmueble
+            </Btn>
+          </div>
         </div>
       </Card>
+
+      {/* FR-14: vista previa del aviso tal como se verá en el catálogo. */}
+      <Modal open={previewOpen} onClose={()=>setPreviewOpen(false)}
+        title="Vista previa del aviso"
+        subtitle="Así se verá tu publicación en el catálogo. Cierra para seguir editando.">
+        <div style={{maxWidth:320, margin:'0 auto'}}>
+          <ListingCard listing={{
+            id: 0,
+            price_usd: priceNum || parseFloat(f.price_usd) || 0,
+            image_url: f.image_url.trim() || null,
+            address: f.address.trim() || 'Dirección del inmueble',
+            district: f.district.trim() || '—',
+            dormitorios: f.dormitorios, banos: f.banos, area_m2: areaNum,
+            zone: (fairRef && priceNum)
+              ? (priceNum < fairRef * 0.92 ? 'Ganga' : priceNum > fairRef * 1.08 ? 'Inflado' : 'Justo')
+              : null,
+          }}/>
+        </div>
+        {(!f.image_url.trim()) && (
+          <p className="tiny muted" style={{textAlign:'center', marginTop:12}}>
+            Sin foto, tu aviso muestra un color por zona. Agregar una foto mejora el interés.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 };

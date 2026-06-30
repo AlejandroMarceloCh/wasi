@@ -437,6 +437,10 @@ const PoiInsightCard = () => {
         aporta ~{totalPct.toFixed(1)}% en total).
       </p>
       <PoiImportanceD3 data={data}/>
+      <p className="tiny muted" style={{ marginTop: 8 }}>
+        Fuentes: servicios cercanos de OpenStreetMap · denuncias del MININTER ·
+        comisarías del CENACOM.
+      </p>
     </Card>
   );
 };

@@ -765,4 +765,9 @@ def predict_fair_value(form: dict) -> dict:
         "fallback_reason": geo["fallback_reason"],
         "version": model_service.version,
         "distrito": geo["distrito"],
+        # Para pedir comparables (FR-03) sin re-ingresar el form.
+        "lat": float(form["lat"]),
+        "lng": float(form["lng"]),
+        "area": float(form.get("area", 0)) or None,
+        "dormitorios": int(form.get("dormitorios", 0)),
     }

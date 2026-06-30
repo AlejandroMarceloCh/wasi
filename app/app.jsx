@@ -51,7 +51,15 @@ const ErrorBanner = ({ msg, onClose }) => {
 // Pantalla de aterrizaje tras login / al abrir la app autenticado: el Home
 // reconectado (resumen + accesos directos), común a ambos roles. Los "volver"
 // de los flujos internos usan `roleHome` (listings / mis-publicaciones), no esto.
-const computeRoleHome = () => 'home';
+// Aterrizaje tras autenticar. Login normal → 'home' (resumen + landing).
+// Registro nuevo (isNew) → la pantalla accionable según rol, para que el usuario
+// nuevo empiece a USAR el producto en vez de leer marketing (onboarding FR-09).
+const computeRoleHome = (isNew) => {
+  if (!isNew) return 'home';
+  const u = (window.Api && window.Api.getUser()) || {};
+  const seller = u.role === 'Propietario' || u.role === 'Agente inmobiliario';
+  return seller ? 'mis-publicaciones' : 'listings';
+};
 
 function App() {
   const [screen, setScreen] = uS(window.Api && window.Api.isAuthed() ? computeRoleHome() : 'splash');
@@ -165,7 +173,7 @@ function App() {
         {(screen === 'auth-login' || screen === 'auth-register') && (
           <AuthScreen
             initialMode={screen === 'auth-login' ? 'login' : 'register'}
-            onAuth={() => setScreen(computeRoleHome())}
+            onAuth={(isNew) => setScreen(computeRoleHome(isNew))}
             onError={setErrorMsg}
           />
         )}

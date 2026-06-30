@@ -190,6 +190,25 @@ class CounterfactualOut(BaseModel):
     items: List[CounterfactualItem] = Field(default_factory=list)
 
 
+class ComparableItem(BaseModel):
+    """Aviso real cercano y similar, mostrado como evidencia del Fair Value (FR-03).
+    Sin PII: distrito + características + precio + distancia, nunca dirección exacta."""
+    distrito: str
+    precio_usd: int
+    area_m2: int
+    dormitorios: int
+    banos: int
+    antiguedad_anios: int
+    lat: float
+    lng: float
+    distancia_km: float
+
+
+class ComparablesOut(BaseModel):
+    items: List[ComparableItem] = Field(default_factory=list)
+    total_dataset: int  # tamaño del universo de avisos comparables
+
+
 class PredictionInterval(BaseModel):
     """Intervalo de predicción P25/P50/P75 (XGBoost quantile, Sprint 3.1)."""
     p25: float
@@ -224,6 +243,12 @@ class PredictOut(BaseModel):
     fallback_reason: Optional[str] = None
     version: str
     distrito: str
+    # Ubicación y tamaño del inmueble analizado — para pedir comparables (FR-03)
+    # sin re-ingresar el form. Opcionales para no romper respuestas viejas.
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    area: Optional[float] = None
+    dormitorios: Optional[int] = None
 
 
 class PredictVentaIn(BaseModel):

@@ -129,6 +129,14 @@
     // Contrafactuales — payload igual a predict PERO sin `precio` (solo re-sirve
     // el modelo congelado variando palancas).
     counterfactual: (payload) => request('/fairvalue/counterfactual', { method: 'POST', body: payload }),
+    // Avisos reales comparables (FR-03) — evidencia detrás del precio. params:
+    // {lat,lng,area,dormitorios}. No persiste; deriva del índice de comparables.
+    comparables: ({ lat, lng, area, dormitorios }) => {
+      const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+      if (area != null) q.append('area', String(area));
+      if (dormitorios != null) q.append('dormitorios', String(dormitorios));
+      return request('/fairvalue/comparables?' + q.toString());
+    },
     getAnalysis: (id) => request('/analyses/' + id),
     explain: (id) => request('/fairvalue/explain/' + id),
     narrative: (id, mode) => request('/fairvalue/narrative/' + id + (mode ? '?mode=' + mode : '')),

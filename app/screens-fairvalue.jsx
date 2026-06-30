@@ -754,6 +754,63 @@ const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
   );
 };
 
+// Avisos reales comparables (FR-03). Evidencia detrás del precio: los avisos del
+// dataset más cercanos y similares al inmueble. Pedido por 2 expertos para dar
+// confianza ("¿contra qué comparas?"). Carga lazy desde data.lat/lng/area/dorm.
+const ComparablesCard = ({ data }) => {
+  const [items, setItems] = useS(null);
+  const [loading, setLoading] = useS(true);
+  const lat = data && data.lat, lng = data && data.lng;
+  useE(() => {
+    if (lat == null || lng == null) { setLoading(false); return; }
+    let alive = true;
+    Api.comparables({ lat, lng, area: data.area, dormitorios: data.dormitorios })
+      .then(r => { if (alive) { setItems((r && r.items) || []); setLoading(false); } })
+      .catch(() => { if (alive) { setItems([]); setLoading(false); } });
+    return () => { alive = false; };
+  }, [lat, lng]);
+
+  if (lat == null || lng == null) return null;            // análisis viejo sin coords
+  if (loading) return null;                                // sin parpadeo: aparece al cargar
+  if (!items || items.length === 0) return null;
+
+  const precios = items.map(i => i.precio_usd).sort((a, b) => a - b);
+  const mid = precios[Math.floor(precios.length / 2)];
+  return (
+    <Card>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <div className="section-h" style={{ margin: 0 }}>Avisos similares en la zona</div>
+        <Tag variant="outline">{items.length} comparables</Tag>
+      </div>
+      <p className="tiny muted" style={{ marginTop: 4, marginBottom: 10 }}>
+        Avisos reales cercanos y de tamaño parecido — la evidencia contra la que se
+        contrasta tu precio. Mediana del grupo: <strong>${mid.toLocaleString('en-US')}/mes</strong>.
+      </p>
+      <div className="stack-8">
+        {items.map((it, i) => (
+          <div key={i} className="row" style={{
+            justifyContent: 'space-between', alignItems: 'center',
+            padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 10 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>${it.precio_usd.toLocaleString('en-US')}<span className="tiny muted"> /mes</span></div>
+              <div className="tiny muted">
+                {it.area_m2} m² · {it.dormitorios} dorm · {it.banos} baños
+                {it.antiguedad_anios > 0 ? ` · ${it.antiguedad_anios} años` : ''}
+              </div>
+            </div>
+            <div className="tiny muted" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+              {it.distrito}<br/>a {it.distancia_km} km
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="tiny muted" style={{ marginTop: 8 }}>
+        Fuente: avisos del dataset de Wasi. Se omite la dirección exacta por privacidad.
+      </p>
+    </Card>
+  );
+};
+
 const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBack, onContext, onError, onAuthExpired }) => {
   // Venta v1: el modelo no devuelve analysis_id, llega el data directo desde el
   // form. Delegamos a un componente propio ANTES de cualquier hook, dejando el
@@ -1138,6 +1195,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
           ) : null}
 
           <PoiInsightCard/>
+
+          <ComparablesCard data={data}/>
 
           <Card>
             <div className="row" style={{justifyContent:'space-between'}}>
@@ -1663,6 +1722,43 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
                 </div>
                 <div style={{marginTop:14, padding:'12px 14px', background:'var(--bg-tint)', borderRadius:12, fontSize:13, color:'var(--ink-2)', lineHeight:1.55}}>
                   {data.summary}
+                </div>
+
+                {/* Desglose de seguridad (FR-11): el dato ya venía del backend pero
+                    no se mostraba. Denuncias del punto, comparativa vs Lima,
+                    comisarías y serenazgo del distrito. */}
+                <div className="section-h" style={{margin:'16px 0 8px', fontSize:13}}>Seguridad del entorno</div>
+                <div className="stack-8">
+                  {data.cantidad_denuncias != null && (
+                    <div className="row" style={{justifyContent:'space-between', fontSize:13}}>
+                      <span className="muted">Denuncias cerca del punto</span>
+                      <strong>{data.cantidad_denuncias.toLocaleString('es-PE')}</strong>
+                    </div>
+                  )}
+                  {data.denuncias_vs_lima_pct ? (
+                    <div className="row" style={{justifyContent:'space-between', fontSize:13}}>
+                      <span className="muted">Vs. promedio de Lima</span>
+                      <strong style={{color: data.denuncias_vs_lima_pct > 1.15 ? 'var(--warning)' : data.denuncias_vs_lima_pct < 0.85 ? 'var(--success)' : 'var(--ink)'}}>
+                        {data.denuncias_vs_lima_pct > 1.15
+                          ? `${Math.round((data.denuncias_vs_lima_pct - 1) * 100)}% más denuncias`
+                          : data.denuncias_vs_lima_pct < 0.85
+                            ? `${Math.round((1 - data.denuncias_vs_lima_pct) * 100)}% menos denuncias`
+                            : 'En el promedio'}
+                      </strong>
+                    </div>
+                  ) : null}
+                  {data.n_comisarias_distrito ? (
+                    <div className="row" style={{justifyContent:'space-between', fontSize:13}}>
+                      <span className="muted">Comisarías en el distrito</span>
+                      <strong>{data.n_comisarias_distrito}</strong>
+                    </div>
+                  ) : null}
+                  {data.serenazgo && data.serenazgo.label ? (
+                    <div className="row" style={{justifyContent:'space-between', fontSize:13}}>
+                      <span className="muted">Serenazgo</span>
+                      <strong>{data.serenazgo.label}</strong>
+                    </div>
+                  ) : null}
                 </div>
               </>
             )}

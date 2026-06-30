@@ -8,17 +8,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from comparables_service import get_comparables_service
 from database import get_db
-from geo_index import OutOfBoundsError
+from geo_index import OutOfBoundsError, in_bbox
 import ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
 from ml import counterfactual_full, explain_fair_value, predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
 from routers.dashboard import _time_ago
-from schemas import (Counterfactual, CounterfactualIn, CounterfactualOut,
-                     DetailedNarrativeOut, ExplainGroup, ExplainOut,
-                     Factor, NarrativeOut, PoiHighlight, PredictIn, PredictOut,
-                     PredictionInterval, PredictVentaIn, PredictVentaOut,
-                     RecentItem, SaveOut, SimulateOut)
+from schemas import (ComparablesOut, Counterfactual, CounterfactualIn,
+                     CounterfactualOut, DetailedNarrativeOut, ExplainGroup,
+                     ExplainOut, Factor, NarrativeOut, PoiHighlight, PredictIn,
+                     PredictOut, PredictionInterval, PredictVentaIn,
+                     PredictVentaOut, RecentItem, SaveOut, SimulateOut)
 from venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VENTA_R2,
                            ZONE_BAND_PCT as VENTA_ZONE_BAND, venta_service)
 
@@ -81,6 +82,10 @@ def _analysis_to_out(a: Analysis) -> PredictOut:
         fallback_reason=a.fallback_reason,
         version=a.model_version,
         distrito=a.property.district,
+        lat=a.property.lat,
+        lng=a.property.lng,
+        area=a.property.area_m2,
+        dormitorios=a.property.dormitorios,
     )
 
 
@@ -240,6 +245,30 @@ def counterfactual(
             status_code=400,
             detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
         )
+
+
+@router.get("/fairvalue/comparables", response_model=ComparablesOut)
+def comparables(
+    lat: float,
+    lng: float,
+    area: Optional[float] = None,
+    dormitorios: Optional[int] = None,
+    current: User = Depends(get_current_user),
+):
+    """Avisos reales cercanos y similares al inmueble (FR-03, pedido por 2 expertos).
+
+    Es la evidencia detrás del precio de referencia: muestra contra qué avisos
+    reales se compara. Sin PII (distrito + características + precio, nunca dirección
+    exacta ni contacto). No persiste nada — se deriva del índice de comparables.
+    """
+    if not in_bbox(lat, lng):
+        raise HTTPException(
+            status_code=400,
+            detail="Por ahora solo cubrimos Lima Metropolitana. Mueve el pin a un punto dentro de Lima e intenta de nuevo.",
+        )
+    svc = get_comparables_service()
+    items = svc.nearby(lat, lng, area=area, dormitorios=dormitorios, k=6)
+    return {"items": items, "total_dataset": svc.n}
 
 
 @router.get("/analyses", response_model=List[RecentItem])

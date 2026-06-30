@@ -97,7 +97,9 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
     try {
       if (mode === 'login') await Api.login({ email: form.email, password: form.password });
       else await Api.register({ email: form.email, name: form.name, password: form.password, role: form.role });
-      onAuth();
+      // isNew=true tras registro → aterriza en la pantalla accionable según rol
+      // (onboarding FR-09), no en el landing de marketing.
+      onAuth(mode === 'register');
     } catch (ex) {
       const msg = (ex && ex.message) || 'Error al autenticar';
       setErr(msg);   // el banner local del form ya muestra el error
