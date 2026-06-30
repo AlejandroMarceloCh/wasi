@@ -423,17 +423,19 @@ const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix =
 /* ============ TopNav ============ */
 const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
   // Navegación por rol: el comprador (Inquilino) explora y guarda; el vendedor
-  // (Propietario/Agente) gestiona sus inmuebles y sus leads. Fair Value y Perfil
+  // (Propietario/Agente) gestiona sus inmuebles y sus leads. Analizar precio y Perfil
   // son comunes. Entorno ya no es tab: vive como pestaña dentro del detalle.
   const isSeller = user?.role === 'Propietario' || user?.role === 'Agente inmobiliario';
   const tabs = isSeller ? [
-    { key: 'mis-propiedades', label: 'Mis propiedades', icon: 'home' },
-    { key: 'fairvalue', label: 'Fair Value', icon: 'chart' },
+    { key: 'inicio', label: 'Inicio', icon: 'home' },
+    { key: 'mis-propiedades', label: 'Mis propiedades', icon: 'map' },
+    { key: 'fairvalue', label: 'Analizar precio', icon: 'chart' },
     { key: 'leads', label: 'Leads', icon: 'mail' },
     { key: 'profile', label: 'Perfil', icon: 'user' },
   ] : [
+    { key: 'inicio', label: 'Inicio', icon: 'home' },
     { key: 'explorar', label: 'Explorar', icon: 'map' },
-    { key: 'fairvalue', label: 'Fair Value', icon: 'chart' },
+    { key: 'fairvalue', label: 'Analizar precio', icon: 'chart' },
     { key: 'guardados', label: 'Guardados', icon: 'heart' },
     { key: 'profile', label: 'Perfil', icon: 'user' },
   ];

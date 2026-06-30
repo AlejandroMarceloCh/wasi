@@ -121,3 +121,23 @@ def test_create_listing_sin_image_url(client):
     assert r.status_code == 201
     # _listing() no manda image_url -> default None -> placeholder de marca en el front
     assert r.json()["image_url"] is None
+
+
+def test_delete_listing_owner_ok(client):
+    """P-14: el dueño borra su inmueble (204) y deja de aparecer en /mine."""
+    h = _seller_headers(client)
+    created = client.post("/api/listings", headers=h, json=_listing()).json()
+    lid = created["id"]
+    r = client.delete(f"/api/listings/{lid}", headers=h)
+    assert r.status_code == 204
+    mine = client.get("/api/listings/mine", headers=h).json()
+    assert all(l["id"] != lid for l in mine)
+
+
+def test_delete_listing_ajeno_404(client, auth_headers):
+    """Un usuario que no es dueño no puede borrar (404, no revela el inmueble)."""
+    h = _seller_headers(client)
+    created = client.post("/api/listings", headers=h, json=_listing()).json()
+    # auth_headers = Inquilino distinto al dueño
+    r = client.delete(f"/api/listings/{created['id']}", headers=auth_headers)
+    assert r.status_code == 404

@@ -82,6 +82,110 @@ const MapPicker = ({ lat, lng, onMove, className, pois, flyTo, showRadius }) => 
   return <div ref={elRef} className={className || 'map-box'} role="application" aria-label="Mapa interactivo. Haz clic o arrastra el pin para seleccionar la ubicación del inmueble."/>;
 };
 
+/* AddressSearch — buscador de dirección reusable (Photon/komoot) con autocomplete.
+   onPick(lat,lng) se dispara al elegir una sugerencia o submit. Pensado para ir
+   ARRIBA de un MapPicker: el padre guarda {lat,lng} en su estado flyTo y se lo pasa
+   al MapPicker, que vuela el pin y emite onMove. Es la misma lógica que el buscador
+   de EntornoMapScreen, extraída para los forms (lo pidieron Propietario 1 y 2). */
+const AddressSearch = ({ onPick, placeholder }) => {
+  const [q, setQ] = useS('');
+  const [loading, setLoading] = useS(false);
+  const [sug, setSug] = useS([]);
+  const [open, setOpen] = useS(false);
+
+  const PHOTON = (query, limit) =>
+    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${limit}&bbox=-77.2,-12.3,-76.7,-11.8`;
+  const resolveAlias = (s) =>
+    (window.LIMA_ALIASES && window.LIMA_ALIASES[s.toLowerCase().trim()]) || s;
+  const parse = (data) =>
+    (data.features || []).map(ft => {
+      const p = ft.properties;
+      const name = p.name || p.street || '';
+      const cityPart  = p.city  && p.city  !== name ? p.city  : null;
+      const statePart = p.state && p.state !== name ? p.state : null;
+      const context = [...new Set([cityPart, statePart].filter(Boolean))].join(', ');
+      return { name, context, lat: ft.geometry.coordinates[1], lng: ft.geometry.coordinates[0] };
+    }).filter(s => s.name);
+
+  const pick = (s) => {
+    setQ(s.name + (s.context ? ', ' + s.context : ''));
+    setSug([]); setOpen(false);
+    if (onPick) onPick(s.lat, s.lng);
+  };
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    setOpen(false);
+    if (sug.length > 0) { pick(sug[0]); return; }
+    const query = q.trim();
+    if (!query) return;
+    setLoading(true);
+    fetch(PHOTON(resolveAlias(query), 1))
+      .then(r => r.json())
+      .then(data => { const s = parse(data); if (s.length > 0) pick(s[0]); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  // Autocomplete con debounce 400 ms.
+  useE(() => {
+    const query = q.trim();
+    if (query.length < 3) { setSug([]); setOpen(false); return; }
+    const tid = setTimeout(() => {
+      fetch(PHOTON(resolveAlias(query), 5))
+        .then(r => r.json())
+        .then(data => { const s = parse(data); setSug(s); setOpen(s.length > 0); })
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(tid);
+  }, [q]);
+
+  return (
+    <div className="addr-search" style={{position:'relative', marginBottom:10}}>
+      <form onSubmit={onSubmit} role="search"
+        style={{display:'flex', alignItems:'center', gap:8, border:'1px solid var(--line)',
+                borderRadius:10, padding:'9px 12px', background:'var(--surface)'}}>
+        <Icon name="pin" size={14} stroke="var(--ink-3)"/>
+        <input type="text" value={q} onChange={e => setQ(e.target.value)}
+          onFocus={() => sug.length > 0 && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder={placeholder || 'Buscar dirección en Lima…'}
+          aria-label="Buscar dirección"
+          style={{flex:1, background:'none', border:'none', outline:'none',
+                  fontSize:13, color:'var(--ink)', fontFamily:'inherit'}}/>
+        <button type="submit" disabled={loading} aria-label="Buscar"
+          style={{background:'none', border:'none', cursor:'pointer', padding:'0 2px',
+                  color:'var(--primary)', display:'flex', alignItems:'center',
+                  opacity: loading ? 0.5 : 1}}>
+          {loading
+            ? <div style={{width:14, height:14, border:'2px solid var(--primary)',
+                           borderTopColor:'transparent', borderRadius:'50%',
+                           animation:'spin .6s linear infinite'}}/>
+            : <Icon name="arrow" size={14}/>}
+        </button>
+      </form>
+      {open && sug.length > 0 && (
+        <div style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:1000,
+                     background:'var(--surface)', border:'1px solid var(--line)', borderRadius:10,
+                     boxShadow:'0 8px 24px rgba(0,0,0,.10)', overflow:'hidden'}}>
+          {sug.map((s, i) => (
+            <button key={i} type="button" onMouseDown={() => pick(s)}
+              style={{display:'flex', gap:8, alignItems:'center', width:'100%', textAlign:'left',
+                      padding:'9px 12px', background:'none', border:'none', cursor:'pointer',
+                      borderTop: i ? '1px solid var(--line)' : 'none'}}>
+              <Icon name="pin" size={14} stroke="var(--ink-3)"/>
+              <div style={{minWidth:0}}>
+                <span style={{display:'block', fontSize:13, color:'var(--ink)'}}>{s.name}</span>
+                {s.context && <span style={{display:'block', fontSize:11, color:'var(--ink-3)'}}>{s.context}</span>}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* Stepper — control numérico +/− */
 const Stepper = ({ label, value, set, min = 0, max = 20, suffix }) => (
   <div className="stepper-field">

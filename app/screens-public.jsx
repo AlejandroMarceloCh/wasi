@@ -25,7 +25,7 @@ const SplashScreen = ({ onStart, onLogin }) => (
             <div className="feature-card">
               <div className="icowrap"><Icon name="key" size={20}/></div>
               <div>
-                <div className="t">Fair Value</div>
+                <div className="t">Analizar precio</div>
                 <div className="d">Precio de referencia · error medio {WASI_STATS.ALQ_MAPE}%</div>
               </div>
             </div>

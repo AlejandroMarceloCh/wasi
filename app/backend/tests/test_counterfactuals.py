@@ -118,3 +118,35 @@ def test_counterfactual_signo_coherente_area(client, auth_headers):
         # Tolerancia: aceptamos 0 (sin cambio significativo), pero no negativo > -1%.
         assert area_pos[0]["pct_change"] >= -1.0, \
             f"+10 m² bajó el precio {area_pos[0]['pct_change']}% — modelo invertido"
+
+
+def test_amenities_no_se_exponen_como_palanca_v2():
+    """P-17 / decisión 2026-06-30: las amenities NO se ofrecen como palanca.
+
+    Pesan <1% del modelo y su efecto está confundido con la ubicación
+    (confounding con distrito). Sin monotonicidad, agregar una amenity valiosa
+    podía dar delta negativo — artefacto que destruía la credibilidad del
+    simulador. Decisión: quitarlas del set de palancas (Opción 3). Siguen
+    alimentando la predicción base, pero NO aparecen como lever simulable.
+    Este test blinda que ninguna palanca 'amenity:*' se emita.
+    """
+    from model_service import model_service
+    from ml import counterfactual_full
+    if not model_service.is_loaded:
+        model_service.load()
+    res = counterfactual_full(_dict_sin_precio(amenities=["seguridad", "ascensor"]))
+    items = res["items"] if isinstance(res, dict) else res.items
+    amenity_levers = [it for it in items if str(it["feature"]).startswith("amenity:")]
+    assert not amenity_levers, \
+        f"no debería haber palancas de amenities, aparecieron: {[it['label'] for it in amenity_levers]}"
+    # Las numéricas (área, baños, etc.) sí deben seguir presentes.
+    assert any(not str(it["feature"]).startswith("amenity:") for it in items), \
+        "deberían quedar palancas numéricas tras quitar las amenities"
+
+
+def _dict_sin_precio(**kw):
+    d = dict(lat=-12.121, lng=-77.030, area=85, dormitorios=2, banos=2,
+             es_estudio=False, cocheras=1, antiguedad_anios=6,
+             amenities=["ascensor", "seguridad"])
+    d.update(kw)
+    return d

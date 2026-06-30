@@ -5,6 +5,11 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   const [submitting, setSubmitting] = useS(false);
   const [calculating, setCalculating] = useS(false);
+  // El usuario ya escribió su propio precio → no lo pisamos con el sugerido (P-04).
+  const [priceUserTyped, setPriceUserTyped] = useS(
+    !!(prefill && prefill.price_usd != null));
+  // Destino del buscador de dirección → MapPicker vuela el pin (S4).
+  const [flyTo, setFlyTo] = useS(null);
   const [fairRef, setFairRef] = useS(prefill && prefill.fair_value ? prefill.fair_value : null);
   const [err, setErr] = useS('');
   const [distritos, setDistritos] = useS([]);
@@ -54,6 +59,21 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
     && f.contact_name.trim().length >= 2 && f.contact_phone.trim().length >= 6
     && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim());
 
+  // Lista legible de lo que falta para publicar — alimenta el aviso del submit
+  // (P-03): antes el botón quedaba mudo y el usuario no sabía qué corregir.
+  const camposFaltantes = () => {
+    const m = [];
+    if (!pinOk) m.push('ubica el pin dentro de Lima');
+    if (f.district.trim().length < 2) m.push('Distrito');
+    if (f.address.trim().length < 3) m.push('Dirección');
+    if (!areaOk) m.push('Área (10–1000 m²)');
+    if (!priceOk) m.push(`Precio ($${PRECIO_MIN}–$${PRECIO_MAX.toLocaleString('en-US')}/mes)`);
+    if (f.contact_name.trim().length < 2) m.push('Nombre de contacto');
+    if (f.contact_phone.trim().length < 6) m.push('Teléfono (mín. 6 dígitos)');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim())) m.push('Correo válido');
+    return m;
+  };
+
   // Reusa el contrato congelado: precio gt=0 obligatorio aunque el usuario aún
   // no fije el precio publicado, por eso el fallback a 1.
   const calcular = async () => {
@@ -68,7 +88,9 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
       });
       const fv = res.fair_value;
       setFairRef(fv);
-      if (fv != null) set('price_usd', String(Math.round(fv)));   // pre-rellena el precio sugerido
+      // Solo pre-rellena si el usuario aún no escribió su propio precio (P-04):
+      // si ya puso uno, se respeta y la referencia se muestra aparte en el Tag.
+      if (fv != null && !priceUserTyped) set('price_usd', String(Math.round(fv)));
       // Simulador de palancas: mismo form SIN `precio` (re-serving del modelo
       // congelado). Error silencioso: el panel maneja su propio estado.
       setCf(null); setCfError(false); setCfLoading(true);
@@ -89,7 +111,13 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
   };
 
   const submit = async () => {
-    if (!formOk || submitting) return;
+    if (submitting) return;
+    // P-03: en vez de no hacer nada, decir qué falta.
+    if (!formOk) {
+      const faltan = camposFaltantes();
+      setErr('Para publicar, completa: ' + faltan.join(' · '));
+      return;
+    }
     setErr(''); setSubmitting(true);
     try {
       const listing = await Api.createListing({
@@ -147,9 +175,11 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
       <Card className="wizard-card">
         <div className="section-h">1 · Ubicación</div>
         <p className="small muted" style={{marginTop:-4, marginBottom:12}}>
-          Arrastra el pin (o haz click) en la ubicación exacta del inmueble.
+          Busca la dirección o arrastra el pin en la ubicación exacta del inmueble.
         </p>
-        <MapPicker lat={f.lat} lng={f.lng} onMove={(lat,lng)=>setF(p=>({...p, lat, lng}))}/>
+        <AddressSearch onPick={(lat,lng)=>setFlyTo({lat,lng})}/>
+        <MapPicker lat={f.lat} lng={f.lng} flyTo={flyTo}
+          onMove={(lat,lng)=>setF(p=>({...p, lat, lng}))}/>
         <div className="row" style={{justifyContent:'space-between', marginTop:12}}>
           <span className="small muted numeric">{f.lat.toFixed(5)}, {f.lng.toFixed(5)}</span>
           {pinOk
@@ -172,7 +202,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         <ToggleRow label="Es un estudio (monoambiente)" checked={f.es_estudio}
           onChange={(v)=>setF(p=>({
             ...p, es_estudio:v,
-            dormitorios: v ? 0 : p.dormitorios,
+            dormitorios: v ? 0 : Math.max(1, p.dormitorios),   // no-estudio nunca 0 dorm (P-07)
             banos: v ? p.banos : Math.max(1, p.banos),
           }))}/>
         <div className="grid-2" style={{marginTop:12, gap:14}}>
@@ -181,7 +211,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           <Stepper label="Antigüedad" value={f.antiguedad_anios}
             set={(v)=>set('antiguedad_anios',v)} min={0} max={100} suffix="años"/>
           <Stepper label="Dormitorios" value={f.dormitorios}
-            set={(v)=>set('dormitorios',v)} min={0} max={20}/>
+            set={(v)=>set('dormitorios',v)} min={f.es_estudio?0:1} max={20}/>
           <Stepper label="Baños" value={f.banos}
             set={(v)=>set('banos',v)} min={f.es_estudio?0:1} max={20}/>
           <Stepper label="Cocheras" value={f.cocheras}
@@ -211,8 +241,14 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           </div>
         </div>
         <div style={{marginTop:14}}>
-          <Input label="Foto del inmueble (URL, opcional)" placeholder="https://…/foto.jpg"
-            value={f.image_url} onChange={(e)=>set('image_url', e.target.value)}/>
+          <div>
+            <Input label="Foto del inmueble (URL, opcional)" placeholder="https://…/foto.jpg"
+              value={f.image_url} onChange={(e)=>set('image_url', e.target.value)}/>
+            <p className="tiny muted" style={{marginTop:4}}>
+              Pega el enlace de una imagen (clic derecho → “Copiar dirección de la imagen”).
+              La subida de fotos desde el dispositivo llegará pronto.
+            </p>
+          </div>
         </div>
       </Card>
 
@@ -235,7 +271,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           <span className="big-price-prefix">$</span>
           <input className="big-price-input" value={f.price_usd} inputMode="numeric"
             placeholder="900" aria-label="Precio publicado en USD por mes"
-            onChange={(e)=>set('price_usd', e.target.value.replace(/[^0-9]/g,''))}/>
+            onChange={(e)=>{ setPriceUserTyped(true); set('price_usd', e.target.value.replace(/[^0-9]/g,'')); }}/>
           <span className="big-price-suffix"><span className="sl">/</span> mes</span>
         </div>
         <div className="big-price-foot">
@@ -277,7 +313,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           <Btn variant="outline" onClick={onBack}>
             <Icon name="back" size={14}/> Cancelar
           </Btn>
-          <Btn variant="primary" size="lg" onClick={submit} disabled={!formOk || submitting}>
+          <Btn variant="primary" size="lg" onClick={submit} disabled={submitting}>
             <Icon name="check" size={16}/> Publicar inmueble
           </Btn>
         </div>
@@ -307,12 +343,30 @@ const fmtLeadDate = (iso) => {
 
 // Tarjeta de un inmueble con sus leads. Carga los leads de forma diferida (lazy)
 // la primera vez que se expande, para no disparar N peticiones de golpe.
-const MyListingRow = ({ listing, onOpenListing, onError, onAuthExpired }) => {
+const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpired }) => {
   const [open, setOpen] = useS(false);
   const [leads, setLeads] = useS(null);
   const [loading, setLoading] = useS(false);
   const [err, setErr] = useS('');
   const [loaded, setLoaded] = useS(false);
+  const [deleting, setDeleting] = useS(false);
+
+  // Borrar publicación (P-14). confirm nativo: el cascade del backend limpia
+  // leads/favoritos. Tras borrar, el padre recarga la lista vía onDeleted.
+  const del = (e) => {
+    e.stopPropagation();
+    if (deleting) return;
+    const ok = window.confirm(`¿Borrar la publicación de "${listing.address}"? Esta acción no se puede deshacer.`);
+    if (!ok) return;
+    setDeleting(true);
+    Api.deleteListing(listing.id)
+      .then(() => { if (typeof onDeleted === 'function') onDeleted(); })
+      .catch(ex => {
+        setDeleting(false);
+        const msg = handleApiErr(ex, { setErr, onAuthExpired });
+        if (typeof onError === 'function') onError(msg);
+      });
+  };
 
   const loadLeads = (retry) => {
     if ((loaded || loading) && !retry) return;
@@ -423,15 +477,25 @@ const MyListingRow = ({ listing, onOpenListing, onError, onAuthExpired }) => {
             </div>
           )}
 
-          {!loading && !err && leads && leads.length > 0 && onOpenListing && (
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
+            {!loading && !err && leads && leads.length > 0 && onOpenListing && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenListing(listing.id); }}
+                style={{ padding: 0, background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              >
+                Ver inmueble <Icon name="fwd" size={13} stroke="var(--primary)"/>
+              </button>
+            )}
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onOpenListing(listing.id); }}
-              style={{ marginTop: 12, padding: 0, background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              onClick={del}
+              disabled={deleting}
+              style={{ marginLeft: 'auto', padding: 0, background: 'none', border: 'none', color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              Ver inmueble <Icon name="fwd" size={13} stroke="var(--primary)"/>
+              <Icon name="alert" size={13} stroke="var(--danger)"/> {deleting ? 'Borrando…' : 'Borrar'}
             </button>
-          )}
+          </div>
         </div>
       )}
     </Card>
@@ -520,6 +584,7 @@ const MyListingsScreen = ({ onBack, onOpenListing, onPublish, onError, onAuthExp
               key={l.id}
               listing={l}
               onOpenListing={onOpenListing}
+              onDeleted={load}
               onError={onError}
               onAuthExpired={onAuthExpired}
             />

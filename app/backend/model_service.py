@@ -348,6 +348,13 @@ class ModelService:
             pct = round(sum(float(imp[i]) for i in idxs) / total * 100, 2)
             result.append({"category": label, "pct": pct, "n_features": len(idxs)})
         result.sort(key=lambda x: -x["pct"])
+        # pct_of_env_total: peso RELATIVO dentro del entorno (suma 100% entre las
+        # categorías). Ayuda a dimensionar un 1.25% absoluto que el usuario no
+        # sabe leer (feedback Inquilino 5). NO se convierte a $/mes: la importancia
+        # es global del modelo, no el efecto SHAP en un inmueble puntual.
+        env_total = sum(r["pct"] for r in result)
+        for r in result:
+            r["pct_of_env_total"] = round(r["pct"] / env_total * 100, 1) if env_total else 0.0
         self._poi_importance_cache = result
         return result
 

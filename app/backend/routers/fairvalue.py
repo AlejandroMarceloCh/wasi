@@ -428,10 +428,18 @@ def narrative(
 
     top = [g for g in sorted(groups, key=lambda g: abs(g["pct_effect"]), reverse=True)
            if abs(g["pct_effect"]) >= 0.5][:3]
-    factors_text = "\n".join(
-        f"- {g['label']}: {'sube' if g['positive'] else 'baja'} el precio {abs(g['pct_effect']):.1f}%"
-        for g in top
-    ) or "- (el inmueble está cerca del promedio de su distrito)"
+
+    def _fmt_group(g):
+        head = (f"- {g['label']}: {'sube' if g['positive'] else 'baja'} el precio "
+                f"{abs(g['pct_effect']):.1f}%")
+        ds = g.get("drivers", [])[:2]
+        if ds:
+            detalle = "; ".join(f"{d['label']} ({d['value']})" for d in ds)
+            head += f" — en concreto: {detalle}"
+        return head
+
+    factors_text = "\n".join(_fmt_group(g) for g in top) \
+        or "- (el inmueble está cerca del promedio de su distrito)"
     announced = float(a.announced_price) if a.announced_price is not None else None
 
     if is_seller:
@@ -447,7 +455,8 @@ def narrative(
             f"Factores del modelo (SHAP, efectos multiplicativos, no sumar):\n{factors_text}\n\n"
             f"Escribe 2 o 3 oraciones en español neutro (usa 'tú', nunca 'vos'/'tenés'/'podés') "
             f"dirigidas al propietario: por qué este es un buen precio de referencia para publicar "
-            f"y qué hace valioso su inmueble. Menciona los 2 factores más relevantes. "
+            f"y qué hace valioso su inmueble. Menciona los 2 factores más relevantes citando el "
+            f"detalle concreto entre paréntesis (ej. distrito, distancia, área), no genérico. "
             f"No uses markdown ni asteriscos. Sé directo, sin adjetivos exagerados ni emojis."
         )
     else:
@@ -463,7 +472,8 @@ def narrative(
             f"Factores del modelo (SHAP, efectos multiplicativos, no sumar):\n{factors_text}\n\n"
             f"Escribe 2 o 3 oraciones en español neutro (usa 'tú', nunca 'vos'/'tenés'/'podés') "
             f"explicando por qué este es el precio de referencia. Menciona los 2 factores más "
-            f"relevantes. No uses markdown ni asteriscos. Sé directo, sin adjetivos exagerados ni emojis."
+            f"relevantes citando el detalle concreto entre paréntesis (ej. distrito, distancia, área), "
+            f"no genérico. No uses markdown ni asteriscos. Sé directo, sin adjetivos exagerados ni emojis."
         )
     text = _groq_chat(settings.groq_api_key, prompt, max_tokens=170, temperature=0.3)
 
@@ -528,7 +538,14 @@ def narrative_detailed(
                   key=lambda g: abs(g["pct_effect"]), reverse=True)
 
     def _g_line(g):
-        return f"- {g['label']} ({g['description']}): {'+' if g['positive'] else '-'}{abs(g['pct_effect']):.1f}%"
+        base = f"- {g['label']} ({g['description']}): {'+' if g['positive'] else '-'}{abs(g['pct_effect']):.1f}%"
+        ds = g.get("drivers", [])[:2]
+        if ds:
+            detalle = "; ".join(
+                f"{d['label']} {d['value']} {'+' if d['positive'] else '-'}{abs(d['pct_effect']):.1f}%"
+                for d in ds)
+            base += f"  [{detalle}]"
+        return base
 
     sube_txt = "\n".join(_g_line(g) for g in sube) or "- (ninguno relevante)"
     baja_txt = "\n".join(_g_line(g) for g in baja) or "- (ninguno relevante)"

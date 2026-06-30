@@ -5,6 +5,7 @@ const { useState: uS } = React;
 // un comprador nunca dispara 'mis-propiedades'/'leads' y un vendedor nunca
 // dispara 'explorar'/'guardados', así que conviven sin colisión.
 const TAB_TO_SCREEN = {
+  inicio: 'home',
   explorar: 'listings',
   guardados: 'saved',
   'mis-propiedades': 'mis-publicaciones',
@@ -13,6 +14,7 @@ const TAB_TO_SCREEN = {
   profile: 'profile',
 };
 const SCREEN_TO_TAB = (s) => {
+  if (s === 'home') return 'inicio';
   if (s.startsWith('fairvalue')) return 'fairvalue';
   if (s.startsWith('listing')) return 'explorar';   // cubre 'listings' y 'listing-detail'
   if (s === 'saved') return 'guardados';
@@ -46,11 +48,10 @@ const ErrorBanner = ({ msg, onClose }) => {
 
 // Home según rol leyendo el usuario vigente (localStorage). Se usa en los
 // puntos donde el `roleHome` del render quedó desactualizado (justo tras login).
-const computeRoleHome = () => {
-  const u = (window.Api && window.Api.getUser()) || {};
-  return (u.role === 'Propietario' || u.role === 'Agente inmobiliario')
-    ? 'mis-publicaciones' : 'listings';
-};
+// Pantalla de aterrizaje tras login / al abrir la app autenticado: el Home
+// reconectado (resumen + accesos directos), común a ambos roles. Los "volver"
+// de los flujos internos usan `roleHome` (listings / mis-publicaciones), no esto.
+const computeRoleHome = () => 'home';
 
 function App() {
   const [screen, setScreen] = uS(window.Api && window.Api.isAuthed() ? computeRoleHome() : 'splash');
@@ -65,7 +66,7 @@ function App() {
   const [currentListingId, setCurrentListingId] = uS(null);
   const [publishPrefill, setPublishPrefill] = uS(null);
   // "Analizar este precio" desde el detalle: características del inmueble que
-  // pre-cargan el form de Fair Value. null = form en blanco (entrada por nav).
+  // pre-cargan el form de Analizar precio. null = form en blanco (entrada por nav).
   const [fvPrefill, setFvPrefill] = uS(null);
 
   const go = (s) => setScreen(s);
@@ -168,7 +169,7 @@ function App() {
             onError={setErrorMsg}
           />
         )}
-        {screen === 'home' && <HomeScreen onGo={go} onOpenListing={onOpenListing}/>}
+        {screen === 'home' && <HomeScreen role={userRole} onGo={go} onOpenListing={onOpenListing} onPublish={() => onPublish(null)} user={currentUser}/>}
         {screen === 'operaciones' && (
           <DashboardScreen
             role={userRole}
@@ -237,13 +238,14 @@ function App() {
             role={userRole}
             prefill={publishPrefill}
             onBack={() => setScreen(roleHome)}
-            onPublished={(id) => { setDetailReturn(null); setCurrentListingId(id); setScreen('listing-detail'); }}
+            onPublished={(id) => { setDetailReturn(null); setCurrentListingId(id); setScreen('mis-publicaciones'); }}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
         )}
         {screen === 'mis-publicaciones' && (
           <MyListingsScreen
+            onBack={() => setScreen(roleHome)}
             onOpenListing={onOpenListing}
             onPublish={() => onPublish(null)}
             onError={setErrorMsg}

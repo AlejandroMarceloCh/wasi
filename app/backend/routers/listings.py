@@ -177,6 +177,24 @@ def get_listing(listing_id: int, db: Session = Depends(get_db),
     return _to_out(l)
 
 
+@router.delete("/listings/{listing_id}", status_code=204)
+def delete_listing(listing_id: int, db: Session = Depends(get_db),
+                   current: User = Depends(get_current_user)):
+    """Borra un inmueble del propietario actual (P-14, pedido literal "falta borrar").
+
+    Solo el dueño puede borrarlo. El cascade del modelo limpia sus leads y
+    favoritos asociados. 404 si no existe o no es del usuario (no revelar
+    inmuebles ajenos).
+    """
+    l = db.get(Listing, listing_id)
+    if not l or l.owner_id != current.id:
+        raise HTTPException(status_code=404, detail="Inmueble no encontrado")
+    db.delete(l)
+    current.last_activity_at = datetime.now(timezone.utc)
+    db.commit()
+    return None
+
+
 @router.post("/listings/{listing_id}/leads", response_model=LeadOut, status_code=201)
 def create_lead(listing_id: int, payload: LeadIn,
                 db: Session = Depends(get_db), current: User = Depends(get_current_user)):

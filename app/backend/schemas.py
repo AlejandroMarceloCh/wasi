@@ -111,11 +111,17 @@ class PredictIn(BaseModel):
     antiguedad_anios: int = Field(ge=0, le=100)
     amenities: List[str] = Field(default_factory=list)
     precio: float = Field(gt=0)
+    # El aviso analizado proviene del catálogo (= mismos listings del set de
+    # entrenamiento). Si es True, el veredicto "Justo" es trivial (el modelo ya
+    # vio ese precio): se baja la confianza y se avisa. Ver _confianza en ml.py.
+    from_catalog: bool = False
 
     @model_validator(mode="after")
-    def _banos_no_cero_sin_estudio(self):
+    def _no_cero_sin_estudio(self):
         if self.banos == 0 and not self.es_estudio:
             raise ValueError("banos solo puede ser 0 si es_estudio = true")
+        if self.dormitorios == 0 and not self.es_estudio:
+            raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
         return self
 
 
@@ -294,9 +300,11 @@ class ListingIn(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _banos_no_cero_sin_estudio(self):
+    def _no_cero_sin_estudio(self):
         if self.banos == 0 and not self.es_estudio:
             raise ValueError("banos solo puede ser 0 si es_estudio = true")
+        if self.dormitorios == 0 and not self.es_estudio:
+            raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
         return self
 
 
@@ -353,12 +361,20 @@ class LeadOut(BaseModel):
 
 
 # ---------- Explainability SHAP (TreeSHAP nativo XGBoost) ----------
+class ExplainDriver(BaseModel):
+    label: str                # driver legible: "Cercanía a supermercado"
+    value: str                # valor real de la propiedad: "a 230 m"
+    pct_effect: float         # efecto multiplicativo individual del driver
+    positive: bool
+
+
 class ExplainGroup(BaseModel):
     label: str
     description: str
     contribution_log: float   # aditivo en log-space (Σ = log1p(precio) − base)
     pct_effect: float         # efecto multiplicativo sobre el precio: (exp(Σφ)−1)·100
     positive: bool
+    drivers: List[ExplainDriver] = Field(default_factory=list)  # top-3 concretos
 
 
 class ExplainOut(BaseModel):

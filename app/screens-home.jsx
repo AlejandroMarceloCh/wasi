@@ -3,7 +3,7 @@
    se declaran en screens-core y el orden de carga lo fija index.html. */
 /* ============== 2.5 HOME — landing del producto ============== */
 
-/* Mini-gauge usado dentro del hero-mock y del card de Fair Value del Home.
+/* Mini-gauge usado dentro del hero-mock y del card de Analizar precio del Home.
    La aguja apunta arriba en su forma base (de (CX,CY) a (CX,CY-R)) y se
    rota según pct: pct=0 → -90° (Ganga, izquierda), pct=0.5 → 0° (Justo),
    pct=1 → +90° (Inflado, derecha). La transición CSS hace la animación. */
@@ -423,7 +423,8 @@ const DistrictMap = ({ onGo }) => {
   );
 };
 
-const HomeScreen = ({ onGo, onOpenListing }) => {
+const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
+  const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   /* Rotación del hero-mock: cada 5,5 s salta al siguiente listing.
      animatedPct arranca en 0 y al primer paint salta al pct real → la
      transición CSS del SVG hace la animación de entrada de la aguja. */
@@ -483,12 +484,25 @@ const HomeScreen = ({ onGo, onOpenListing }) => {
           — y cómo es el barrio alrededor.
         </p>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-          <Btn variant="primary" size="lg" onClick={() => onGo('fairvalue-form')}>
-            Probar una estimación <Icon name="arrow" size={16}/>
-          </Btn>
-          <Btn variant="outline" size="lg" onClick={() => onGo('entorno-map')}>
-            Explorar el mapa
-          </Btn>
+          {isSeller ? (
+            <>
+              <Btn variant="primary" size="lg" onClick={() => (onPublish ? onPublish() : onGo('publish'))}>
+                Publicar inmueble <Icon name="arrow" size={16}/>
+              </Btn>
+              <Btn variant="outline" size="lg" onClick={() => onGo('fairvalue-form')}>
+                Analizar un precio
+              </Btn>
+            </>
+          ) : (
+            <>
+              <Btn variant="primary" size="lg" onClick={() => onGo('fairvalue-form')}>
+                Probar una estimación <Icon name="arrow" size={16}/>
+              </Btn>
+              <Btn variant="outline" size="lg" onClick={() => onGo('listings')}>
+                Explorar inmuebles
+              </Btn>
+            </>
+          )}
         </div>
         <div className="home-hero-stats">
           <div>
@@ -522,7 +536,7 @@ const HomeScreen = ({ onGo, onOpenListing }) => {
             <div className="v">${current.anuncio}</div>
           </div>
           <div className="hero-mock-card fair">
-            <div className="k">Fair Value</div>
+            <div className="k">Analizar precio</div>
             <div className="v">${current.fair}</div>
           </div>
         </div>
@@ -584,13 +598,13 @@ const HomeScreen = ({ onGo, onOpenListing }) => {
         Estimación de precio + análisis de entorno, conectados sobre los mismos datos.
       </p>
       <div className="home-modules">
-        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Fair Value: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')} onKeyDown={onKeyActivate(() => onGo('fairvalue-form'))}>
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Analizar precio: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')} onKeyDown={onKeyActivate(() => onGo('fairvalue-form'))}>
           <div className="top">
             <div className="feat-ico ico-fv">
               <Icon name="key" size={26}/>
             </div>
           </div>
-          <h3>Fair Value</h3>
+          <h3>Analizar precio</h3>
           <p className="desc">
             El modelo Wasi estima el precio de referencia comparando {WASI_STATS.VARIABLES} atributos
             contra {WASI_STATS.ALQ_AVISOS} avisos reales de Lima.
@@ -601,7 +615,7 @@ const HomeScreen = ({ onGo, onOpenListing }) => {
                 <HomeMiniGauge pct={0.78}/>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700 }}>Fair Value</div>
+                <div className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700 }}>Analizar precio</div>
                 <div style={{ fontFamily: 'Space Grotesk', fontSize: 28, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1, marginTop: 4 }}>
                   $700 <span className="small muted" style={{ fontWeight: 500 }}>/mes</span>
                 </div>
@@ -662,7 +676,7 @@ const HomeScreen = ({ onGo, onOpenListing }) => {
             <p>Obtienes el precio de referencia y si el anuncio está inflado, justo o es ganga.</p>
             <div className="home-step-chip">
               <Icon name="check" size={14} stroke="var(--success)"/>
-              <span>Fair Value:&nbsp;<b style={{ color: 'var(--primary)' }}>$700</b></span>
+              <span>Analizar precio:&nbsp;<b style={{ color: 'var(--primary)' }}>$700</b></span>
               <Tag variant="success" style={{ marginLeft: 'auto' }}>Ganga</Tag>
             </div>
           </div>
@@ -858,7 +872,7 @@ const MODULE_INFO = {
     screen: 'fairvalue-form',
     icon: 'key',
     iconVariant: 'primary',
-    title: 'Fair Value',
+    title: 'Analizar precio',
     subtitle: 'Estimador de precio de referencia',
     intro: 'Vas a estimar cuánto debería costar el alquiler de un inmueble según el mercado real de Lima.',
     points: [
@@ -1006,11 +1020,11 @@ const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAut
               <span className="small muted">Selecciona un módulo para comenzar</span>
             </div>
             <div className="grid-2">
-              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Fair Value" onClick={()=>setConfirm('fairvalue')} onKeyDown={onKeyActivate(()=>setConfirm('fairvalue'))}>
+              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Analizar precio" onClick={()=>setConfirm('fairvalue')} onKeyDown={onKeyActivate(()=>setConfirm('fairvalue'))}>
                 <div className="top-row">
                   <div className="feat-ico"><Icon name="key" size={24}/></div>
                 </div>
-                <div className="t">Fair Value</div>
+                <div className="t">Analizar precio</div>
                 <div className="d">Estimación del precio de referencia con el modelo Wasi. Identifica sobreprecios y oportunidades.</div>
                 <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
               </div>

@@ -159,7 +159,7 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
             const tier = n >= 250 ? 'xl' : n >= 50 ? 'lg' : n >= 10 ? 'md' : 'sm';
             const size = tier === 'xl' ? 58 : tier === 'lg' ? 50 : tier === 'md' ? 42 : 36;
             return L.divIcon({
-              html: `<div class="cl cl-${tier}"><span>${label}</span></div>`,
+              html: `<div class="cl cl-${tier}" title="${n} avisos en esta zona — acerca el zoom para ver precios"><span>${label}</span></div>`,
               className: 'cluster-pin',
               iconSize: [size, size],
             });
@@ -240,7 +240,30 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
 
   return (
     <div className="listings-split">
-      <div className="ls-map"><div ref={elRef}/></div>
+      <div className="ls-map">
+        <div ref={elRef}/>
+        {/* Leyenda flotante. height:auto evita heredar el 640px de `.ls-map > div`.
+            bottom-left para no chocar con los controles +/- (top-left de Leaflet). */}
+        <div style={{position:'absolute', bottom:14, left:14, zIndex:500, height:'auto',
+                     width:'auto', maxWidth:'calc(100% - 28px)',
+                     background:'rgba(255,255,255,.94)', backdropFilter:'blur(6px)',
+                     border:'1px solid rgba(0,0,0,.08)', borderRadius:10,
+                     padding:'8px 11px', fontSize:11, lineHeight:1.6,
+                     boxShadow:'0 2px 10px rgba(0,0,0,.12)'}}>
+          <div style={{display:'flex', gap:10, flexWrap:'wrap', alignItems:'center'}}>
+            <span style={{display:'inline-flex', alignItems:'center', gap:5}}>
+              <span style={{width:9, height:9, borderRadius:'50%', background:'#15803d'}}/>Ganga
+            </span>
+            <span style={{display:'inline-flex', alignItems:'center', gap:5}}>
+              <span style={{width:9, height:9, borderRadius:'50%', background:'#b45309'}}/>Justo
+            </span>
+            <span style={{display:'inline-flex', alignItems:'center', gap:5}}>
+              <span style={{width:9, height:9, borderRadius:'50%', background:'#b91c1c'}}/>Inflado
+            </span>
+          </div>
+          <div style={{color:'#64748b', marginTop:3}}>El número en un grupo = avisos en esa zona · acerca el zoom para ver precios</div>
+        </div>
+      </div>
       <div className="ls-panel">
         <div className="ls-count">
           {all.length === 0
@@ -376,8 +399,13 @@ const PoiImportanceD3 = ({ data }) => {
         .attr('x2', m.l).transition().duration(650).delay((d, i) => i * 45).attr('x2', d => x(d.pct));
       g.append('circle').attr('cx', m.l).attr('cy', 0).attr('r', 5).attr('fill', (d, i) => color(i))
         .transition().duration(700).delay((d, i) => i * 45).attr('cx', d => x(d.pct));
+      // Etiqueta: peso relativo dentro del entorno (suma 100%, fácil de dimensionar)
+      // y entre paréntesis el % absoluto del modelo. Cae al absoluto si no viene rel.
       g.append('text').attr('x', d => x(d.pct) + 10).attr('dy', '.32em')
-        .attr('class', 'd3-val').text(d => d.pct.toFixed(2) + '%');
+        .attr('class', 'd3-val')
+        .text(d => d.pct_of_env_total != null
+          ? `${d.pct_of_env_total.toFixed(0)}% (${d.pct.toFixed(2)})`
+          : d.pct.toFixed(2) + '%');
     };
     draw();
     let ro;
@@ -388,7 +416,7 @@ const PoiImportanceD3 = ({ data }) => {
 };
 
 // Card auto-contenida con el lollipop de importancia de entorno. Se usa en el
-// resultado de Fair Value (HomeScreen quedó fuera de la nav por rol, así que el
+// resultado de Analizar precio (HomeScreen quedó fuera de la nav por rol, así que el
 // insight de POIs se muestra acá, donde sí es alcanzable). Fetchea por su cuenta.
 const PoiInsightCard = () => {
   const [data, setData] = useS(null);
@@ -403,8 +431,10 @@ const PoiInsightCard = () => {
     <Card>
       <div className="section-h">Qué tipo de entorno pesa más en el precio</div>
       <p className="tiny muted" style={{ marginTop: -4, marginBottom: 8 }}>
-        El entorno aporta ~{totalPct.toFixed(1)}% del peso del modelo
-        ({WASI_STATS.VARIABLES} variables); así se reparte entre categorías:
+        De todo el peso que el modelo da al entorno, así se reparte entre categorías
+        (el número grande es el peso relativo dentro del entorno; entre paréntesis, el
+        % sobre el modelo completo de {WASI_STATS.VARIABLES} variables, que el entorno
+        aporta ~{totalPct.toFixed(1)}% en total).
       </p>
       <PoiImportanceD3 data={data}/>
     </Card>
@@ -577,12 +607,12 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
 
       {/* Aclaración honesta: el veredicto del catálogo es una referencia rápida
           por comparables de zona (mediana de precio por m² del distrito), NO la
-          salida del modelo. El análisis con el modelo vive en Fair Value. */}
+          salida del modelo. El análisis con el modelo vive en Analizar precio. */}
       <div className="banner info" style={{marginBottom:14, display:'flex', alignItems:'flex-start', gap:9}}>
         <Icon name="info" size={15}/>
         <span className="small">
           El veredicto de cada aviso es una <strong>referencia por comparables de la zona</strong>.
-          Para el análisis con el modelo de Wasi, abre <strong>Fair Value</strong>.
+          Para el análisis con el modelo de Wasi, abre <strong>Analizar precio</strong>.
         </span>
       </div>
 
@@ -645,7 +675,7 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   );
 };
 
-/* ListingDetailScreen — detalle + modal contacto + puente a Fair Value +
+/* ListingDetailScreen — detalle + modal contacto + puente a Analizar precio +
    contrafactuales. `role` decide el copy: vendedor ve "cómo subir el precio",
    inquilino ve "qué explica este precio". */
 const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAuthExpired }) => {
@@ -658,7 +688,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
   const [cf, setCf] = useS(null);
   const [cfLoading, setCfLoading] = useS(false);
   const [cfError, setCfError] = useS(false);
-  // Pestañas del detalle: Inmueble (precio+ficha) · Fair Value (re-serving del
+  // Pestañas del detalle: Inmueble (precio+ficha) · Analizar precio (re-serving del
   // modelo) · Entorno (mapa del barrio embebido). Entorno migró aquí desde la
   // nav superior: vive en el contexto del inmueble que se está viendo.
   const [tab, setTab] = useS('inmueble');
@@ -742,7 +772,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
 
       {/* Tab strip — mismo lenguaje visual que el toggle Operación del form. */}
       <div className="row" style={{gap:8, marginBottom:18, flexWrap:'wrap'}}>
-        {[['inmueble','Inmueble','home'], ['fairvalue','Fair Value','chart'], ['entorno','Entorno','pin']].map(([k, label, icon]) => (
+        {[['inmueble','Inmueble','home'], ['fairvalue','Analizar precio','chart'], ['entorno','Entorno','pin']].map(([k, label, icon]) => (
           <Btn key={k} variant={tab===k ? 'primary' : 'outline'} size="sm"
             onClick={()=>setTab(k)} aria-pressed={tab===k}>
             <Icon name={icon} size={14}/> {label}
@@ -815,7 +845,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
           <Card>
             <div className="section-h">Analiza este precio</div>
             <p className="small muted" style={{lineHeight:1.6, marginTop:4}}>
-              Corre el modelo de Fair Value con las características de este inmueble
+              Corre el modelo de Wasi con las características de este inmueble
               para ver si el precio anunciado está sobre o bajo el mercado.
             </p>
             <Btn variant="primary" style={{marginTop:14}}
@@ -825,6 +855,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
                 cocheras: data.cocheras, antiguedad_anios: data.antiguedad_anios,
                 es_estudio: data.es_estudio, amenities: data.amenities,
                 precio: data.price_usd,
+                from_catalog: true,   // este aviso es del catálogo (= set de entrenamiento)
               })}>
               <Icon name="chart" size={14}/> Analizar este precio
             </Btn>
@@ -839,7 +870,7 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
                           dormitorios: data.dormitorios, banos: data.banos,
                           cocheras: data.cocheras || 0,
                           antiguedad_anios: data.antiguedad_anios || 0,
-                          es_estudio: !!data.es_estudio, amenities: [],
+                          es_estudio: !!data.es_estudio, amenities: data.amenities || [],
                           precio: data.price_usd }}
               onAuthExpired={onAuthExpired}/>
           )}
@@ -868,6 +899,6 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
   );
 };
 
-/* PublishScreen (propietario/agente) — clona el form de Fair Value para crear
+/* PublishScreen (propietario/agente) — clona el form de Analizar precio para crear
    un Listing. El botón "Calcular precio sugerido" reusa Api.predict (modelo
    congelado) y guarda fair_value_ref para el veredicto del listing. */

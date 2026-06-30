@@ -208,3 +208,17 @@ def test_predict_no_lima_lanza_400():
     from geo_index import OutOfBoundsError
     with pytest.raises(OutOfBoundsError):
         predict_fair_value(_form(lat=-13.5170, lng=-71.9785))  # Cusco
+
+
+# ─── poi_importance: peso relativo del entorno (S4) ─────────────────────────
+
+def test_poi_importance_incluye_peso_relativo():
+    """Cada categoría trae pct (del modelo) y pct_of_env_total (dentro del
+    entorno). El relativo debe sumar ~100% entre todas las categorías."""
+    data = model_service.poi_importance()
+    assert data, "poi_importance vacío en v2"
+    for item in data:
+        assert "pct" in item and "pct_of_env_total" in item
+        assert 0.0 <= item["pct_of_env_total"] <= 100.0
+    suma_rel = sum(d["pct_of_env_total"] for d in data)
+    assert abs(suma_rel - 100.0) < 0.5, f"peso relativo no suma 100%: {suma_rel}"

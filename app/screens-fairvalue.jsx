@@ -1,4 +1,4 @@
-/* Wasi — Fair Value: wizard, resultado alquiler/venta, Entorno.
+/* Wasi — Analizar precio: wizard, resultado alquiler/venta, Entorno.
    Scripts clásicos con scope global compartido: los aliases useS/useE/useR
    se declaran en screens-core y el orden de carga lo fija index.html. */
 /* ============== 4. FAIR VALUE FORM (wizard 3 pasos) ============== */
@@ -39,13 +39,22 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
       precio: p.precio != null ? String(p.precio) : '',
     };
   });
-  const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
-  const toggleAmenity = (k) => setF(prev => ({
+  // ¿El form viene pre-cargado desde un aviso del catálogo? Ese catálogo es el
+  // mismo set con el que se entrenó el modelo: analizarlo SIN cambios produce un
+  // veredicto sesgado (el modelo "reconoce" el precio → tiende a Justo). En
+  // cuanto el usuario edita cualquier dato deja de ser ese punto y el aviso
+  // honesto desaparece.
+  const [fromCatalog, setFromCatalog] = useS(!!(prefill && prefill.from_catalog));
+  const set = (k, v) => { setFromCatalog(false); setF(prev => ({ ...prev, [k]: v })); };
+  const toggleAmenity = (k) => { setFromCatalog(false); setF(prev => ({
     ...prev,
     amenities: prev.amenities.includes(k)
       ? prev.amenities.filter(x => x !== k)
       : [...prev.amenities, k],
-  }));
+  })); };
+
+  // Destino del buscador de dirección → MapPicker vuela el pin (S4).
+  const [flyTo, setFlyTo] = useS(null);
 
   const pinOk = enLima(f.lat, f.lng);
   const areaNum = Number(f.area);
@@ -107,6 +116,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
         antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
         amenities: f.amenities, precio,
+        from_catalog: fromCatalog,   // aviso del catálogo → confianza Baja + warning (backend)
       });
       // Se pasa la respuesta viva (trae prediction_interval; los cuantiles no
       // se persisten) y el form (alimenta el simulador what-if del resultado).
@@ -137,6 +147,24 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         onBack={onBack}
       />
 
+      {/* Aviso de data leak: este inmueble viene del catálogo, que es el set de
+          entrenamiento del modelo. Analizarlo sin cambios sesga el veredicto. */}
+      {fromCatalog && (
+        <div style={{
+          margin:'0 0 16px', padding:'12px 14px', borderRadius:10,
+          background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.35)',
+          display:'flex', gap:10, alignItems:'flex-start',
+        }}>
+          <Icon name="info" size={16} stroke="var(--warning)"/>
+          <p style={{margin:0, fontSize:12.5, lineHeight:1.55, color:'var(--ink-2)'}}>
+            Este aviso forma parte del catálogo con el que se entrenó el modelo.
+            Si lo analizas sin cambiar nada, el modelo lo reconocerá y el veredicto
+            tenderá a <b>Justo</b>. Para una estimación imparcial, modifica algún
+            dato o ingresa un inmueble nuevo.
+          </p>
+        </div>
+      )}
+
       {/* Toggle Operación: Alquiler (default) | Venta. Al cambiar se limpia el
           precio porque los rangos de alquiler (USD/mes) y venta (USD total) son
           disjuntos. Solo se ofrece en el paso 1 para no cambiar el modelo a
@@ -147,13 +175,13 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
           <Btn
             variant={operacion === 'alquiler' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => { if (operacion !== 'alquiler') { setOperacion('alquiler'); setF(p => ({...p, precio: ''})); setErr(''); } }}
+            onClick={() => { if (operacion !== 'alquiler') { setOperacion('alquiler'); setFromCatalog(false); setF(p => ({...p, precio: ''})); setErr(''); } }}
             aria-pressed={operacion === 'alquiler'}
           >Alquiler</Btn>
           <Btn
             variant={operacion === 'venta' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => { if (operacion !== 'venta') { setOperacion('venta'); setF(p => ({...p, precio: ''})); setErr(''); } }}
+            onClick={() => { if (operacion !== 'venta') { setOperacion('venta'); setFromCatalog(false); setF(p => ({...p, precio: ''})); setErr(''); } }}
             aria-pressed={operacion === 'venta'}
           >Venta</Btn>
         </div>
@@ -178,9 +206,10 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
         <Card className="wizard-card">
           <div className="section-h">1 · Ubicación del inmueble</div>
           <p className="small muted" style={{marginTop:-4, marginBottom:12}}>
-            Arrastra el pin (o haz click) en la ubicación exacta del departamento.
+            Busca la dirección o arrastra el pin en la ubicación exacta del departamento.
           </p>
-          <MapPicker lat={f.lat} lng={f.lng}
+          <AddressSearch onPick={(lat,lng)=>setFlyTo({lat,lng})}/>
+          <MapPicker lat={f.lat} lng={f.lng} flyTo={flyTo}
             onMove={(lat,lng)=>setF(p=>({...p, lat, lng}))}/>
           <div className="row" style={{justifyContent:'space-between', marginTop:12}}>
             <span className="small muted numeric">{f.lat.toFixed(5)}, {f.lng.toFixed(5)}</span>
@@ -203,7 +232,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
             <ToggleRow label="Es un estudio (monoambiente)" checked={f.es_estudio}
               onChange={(v)=>setF(p=>({
                 ...p, es_estudio:v,
-                dormitorios: v ? 0 : p.dormitorios,
+                dormitorios: v ? 0 : Math.max(1, p.dormitorios),   // no-estudio nunca 0 dorm (P-07)
                 banos: v ? p.banos : Math.max(1, p.banos),
               }))}/>
           )}
@@ -213,7 +242,7 @@ const FairValueForm = ({ role, prefill, onBack, onSubmit, onError, onAuthExpired
             <Stepper label="Antigüedad" value={f.antiguedad_anios}
               set={(v)=>set('antiguedad_anios',v)} min={0} max={100} suffix="años"/>
             <Stepper label="Dormitorios" value={f.dormitorios}
-              set={(v)=>set('dormitorios',v)} min={0} max={20}/>
+              set={(v)=>set('dormitorios',v)} min={f.es_estudio?0:1} max={20}/>
             <Stepper label="Baños" value={f.banos}
               set={(v)=>set('banos',v)} min={f.es_estudio?0:1} max={20}/>
             <Stepper label="Cocheras" value={f.cocheras}
@@ -743,6 +772,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
   // Explicación SHAP (TreeSHAP real del modelo). Carga en paralelo al análisis.
   const [explain, setExplain] = useS(null);
   const [explainFailed, setExplainFailed] = useS(false);
+  // Grupo SHAP expandido (drill-down a drivers concretos). Índice o null.
+  const [openGroup, setOpenGroup] = useS(null);
   // Narrativa LLM (Groq/Llama). Carga después del explain; falla silenciosamente.
   const [narrative, setNarrative] = useS(null);
   const [narrativeLoading, setNarrativeLoading] = useS(false);
@@ -764,6 +795,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
     curId.current = analysisId;
     setLoading(true);
     setExplain(null);
+    setOpenGroup(null);
     setNarrative(null);
     setDetail(null);
     setDetailErr('');
@@ -943,6 +975,9 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
       )}
 
       <div className="result-grid">
+        {/* Columna izquierda: gauge + palancas + simulador. Repartir las cards
+            entre ambas columnas evita el hueco blanco al lado de la derecha. */}
+        <div className="stack-20">
         <Card>
           <div className="row" style={{justifyContent:'space-between'}}>
             <div className="section-h" style={{margin:0}}>{isSeller ? 'Tu precio sugerido' : 'Precio de referencia de mercado'}</div>
@@ -1018,6 +1053,50 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             {data.predicted_in_seconds > 0 && <span className="muted"> · Predicción en {data.predicted_in_seconds}s</span>}
           </div>
         </Card>
+
+          {/* Contrafactuales ligeros — sensibilidad a cambios chicos en las
+              features accionables (perturbación numérica, no DiCE). */}
+          {Array.isArray(data.counterfactuals) && data.counterfactuals.length > 0 && (
+            <Card>
+              <div className="row" style={{justifyContent:'space-between'}}>
+                <div className="section-h" style={{margin:0}}>¿Cómo cambiaría tu precio?</div>
+                <Tag variant="outline">Top {data.counterfactuals.length}</Tag>
+              </div>
+              <div className="tiny muted" style={{marginTop:4, marginBottom:10}}>
+                Sensibilidad del precio a un cambio chico en cada característica.
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                {(() => {
+                  // Mini-bar de magnitud relativa: de un vistazo se ve qué palanca pesa más.
+                  const maxAbs = Math.max(...data.counterfactuals.map(c => Math.abs(c.pct_change)), 0.1);
+                  return data.counterfactuals.map((cf, i) => {
+                    const positive = cf.pct_change > 0;
+                    const arrow = positive ? '↑' : '↓';
+                    const color = positive ? 'var(--success)' : 'var(--danger)';
+                    const w = Math.max(6, Math.abs(cf.pct_change) / maxAbs * 100);
+                    return (
+                      <div key={i} style={{padding:'8px 12px', background:'var(--bg-tint)', borderRadius:10}}>
+                        <div className="row" style={{justifyContent:'space-between'}}>
+                          <span className="small">{cf.label}</span>
+                          <span className="numeric" style={{fontWeight:600, color}}>
+                            {usd0(cf.new_price)} <span className="tiny" style={{marginLeft:6, opacity:.8}}>{arrow} {pctFmt(cf.pct_change)}</span>
+                          </span>
+                        </div>
+                        <div style={{height:3, borderRadius:2, background:'var(--line-2)', marginTop:6}}>
+                          <div style={{height:'100%', width:`${w}%`, borderRadius:2, background:color, opacity:.55}}/>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </Card>
+          )}
+
+          {/* Contrafactuales interactivos: solo cuando llegamos del wizard
+              (el historial no guarda el form que generó el análisis). */}
+          {simForm && <WhatIfSimulator baseForm={simForm} onAuthExpired={onAuthExpired}/>}
+        </div>
 
         <div className="stack-20">
           {isSeller ? (
@@ -1115,16 +1194,36 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                     <b className="numeric">${Math.round(explain.base_price)}</b>
                   </div>
 
-                  {/* Waterfall por grupo */}
+                  {/* Waterfall por grupo · clic en un grupo con detalle lo expande */}
                   <div style={{marginTop:12, display:'flex', flexDirection:'column', gap:12}}>
                     {grupos.map((g, i) => {
                       const w = Math.max(4, Math.round(Math.abs(g.contribution_log) / maxAbs * 100));
                       const col = g.positive ? 'var(--success)' : 'var(--danger)';
+                      const drivers = g.drivers || [];
+                      const hasDrivers = drivers.length > 0;
+                      const isOpen = openGroup === i;
                       return (
                         <div key={i} title={g.description}>
-                          <div className="row" style={{justifyContent:'space-between', marginBottom:5}}>
-                            <span className="small" style={{fontWeight:600}}>{g.label}</span>
-                            <b className="numeric" style={{color:col, fontSize:13}}>
+                          <div
+                            className="row"
+                            onClick={hasDrivers ? () => setOpenGroup(isOpen ? null : i) : undefined}
+                            style={{
+                              justifyContent:'space-between', marginBottom:5, gap:8,
+                              cursor: hasDrivers ? 'pointer' : 'default',
+                              userSelect:'none',
+                            }}
+                          >
+                            <span className="small row" style={{fontWeight:600, gap:5, minWidth:0}}>
+                              {hasDrivers && (
+                                <span style={{
+                                  display:'inline-block', transition:'transform .2s',
+                                  transform:isOpen ? 'rotate(90deg)' : 'none',
+                                  color:'var(--ink-3)', fontSize:10,
+                                }}>▶</span>
+                              )}
+                              <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{g.label}</span>
+                            </span>
+                            <b className="numeric" style={{color:col, fontSize:13, flexShrink:0}}>
                               {g.positive ? '+' : '−'}{Math.abs(g.pct_effect).toFixed(1)}%
                             </b>
                           </div>
@@ -1138,6 +1237,28 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
                               {g.positive && <div style={{height:8, width:`${w}%`, background:col, borderRadius:'0 4px 4px 0', opacity:.85, transition:'width .3s'}}/>}
                             </div>
                           </div>
+                          {/* Drill-down: drivers concretos del grupo */}
+                          {isOpen && hasDrivers && (
+                            <div style={{
+                              marginTop:8, marginLeft:15, paddingLeft:11,
+                              borderLeft:'2px solid var(--line)',
+                              display:'flex', flexDirection:'column', gap:6,
+                            }}>
+                              {drivers.map((d, j) => {
+                                const dcol = d.positive ? 'var(--success)' : 'var(--danger)';
+                                return (
+                                  <div key={j} className="row" style={{justifyContent:'space-between', gap:8}}>
+                                    <span className="tiny" style={{color:'var(--ink-2)', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                                      {d.label} <span style={{color:'var(--ink-3)'}}>· {d.value}</span>
+                                    </span>
+                                    <b className="numeric tiny" style={{color:dcol, flexShrink:0}}>
+                                      {d.positive ? '+' : '−'}{Math.abs(d.pct_effect).toFixed(1)}%
+                                    </b>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1151,56 +1272,13 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
 
                   <p style={{margin:'12px 0 0', fontSize:12, color:'var(--ink-3)', lineHeight:1.55}}>
                     Cada barra es la contribución real del modelo (TreeSHAP) a <i>esta</i> predicción.
-                    Los efectos son <b>multiplicativos</b> sobre el precio base, no se suman entre sí.
+                    Toca un grupo para ver los factores concretos que lo explican. Los efectos son
+                    <b> multiplicativos</b> sobre el precio base, no se suman entre sí.
                   </p>
                 </>
               );
             })()}
           </Card>
-
-          {/* Contrafactuales ligeros (Sprint 2.2) — sensibilidad a cambios
-              chicos en las features accionables. NO es DiCE; es perturbación
-              numérica simple para que el usuario vea qué impulsa el precio. */}
-          {Array.isArray(data.counterfactuals) && data.counterfactuals.length > 0 && (
-            <Card>
-              <div className="row" style={{justifyContent:'space-between'}}>
-                <div className="section-h" style={{margin:0}}>¿Cómo cambiaría tu precio?</div>
-                <Tag variant="outline">Top {data.counterfactuals.length}</Tag>
-              </div>
-              <div className="tiny muted" style={{marginTop:4, marginBottom:10}}>
-                Sensibilidad del precio a un cambio chico en cada característica.
-              </div>
-              <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                {(() => {
-                  // Mini-bar de magnitud relativa: de un vistazo se ve qué palanca pesa más.
-                  const maxAbs = Math.max(...data.counterfactuals.map(c => Math.abs(c.pct_change)), 0.1);
-                  return data.counterfactuals.map((cf, i) => {
-                    const positive = cf.pct_change > 0;
-                    const arrow = positive ? '↑' : '↓';
-                    const color = positive ? 'var(--success)' : 'var(--danger)';
-                    const w = Math.max(6, Math.abs(cf.pct_change) / maxAbs * 100);
-                    return (
-                      <div key={i} style={{padding:'8px 12px', background:'var(--bg-tint)', borderRadius:10}}>
-                        <div className="row" style={{justifyContent:'space-between'}}>
-                          <span className="small">{cf.label}</span>
-                          <span className="numeric" style={{fontWeight:600, color}}>
-                            {usd0(cf.new_price)} <span className="tiny" style={{marginLeft:6, opacity:.8}}>{arrow} {pctFmt(cf.pct_change)}</span>
-                          </span>
-                        </div>
-                        <div style={{height:3, borderRadius:2, background:'var(--line-2)', marginTop:6}}>
-                          <div style={{height:'100%', width:`${w}%`, borderRadius:2, background:color, opacity:.55}}/>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </Card>
-          )}
-
-          {/* Contrafactuales interactivos: solo cuando llegamos del wizard
-              (el historial no guarda el form que generó el análisis). */}
-          {simForm && <WhatIfSimulator baseForm={simForm} onAuthExpired={onAuthExpired}/>}
         </div>
       </div>
 
@@ -1279,8 +1357,8 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
             )}
 
             <p style={{margin:'18px 0 0', fontSize:11, color:'var(--ink-3)', lineHeight:1.55}}>
-              Texto generado por IA (Llama 3.3) a partir de la descomposición TreeSHAP del modelo,
-              el veredicto y los POIs reales del entorno. Los porcentajes son multiplicativos.
+              Resumen generado automáticamente a partir del análisis del modelo, el veredicto
+              y los servicios reales del entorno. Los porcentajes indican cuánto pesa cada factor en el precio.
             </p>
           </div>
         )}
@@ -1589,6 +1667,11 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
               </>
             )}
           </Card>
+
+          <p className="tiny muted" style={{margin:'2px 4px 0', lineHeight:1.5}}>
+            Fuentes: servicios cercanos de OpenStreetMap · denuncias del MININTER ·
+            comisarías del CENACOM. Distancias calculadas dentro de 1 km del punto.
+          </p>
 
         </div>
       </div>

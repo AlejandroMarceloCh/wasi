@@ -149,6 +149,7 @@
     myListings: () => request('/listings/mine'),
     getListing: (id) => request('/listings/' + id),
     createListing: (body) => request('/listings', { method: 'POST', body }),
+    deleteListing: (id) => request('/listings/' + id, { method: 'DELETE' }),
     createLead: (id, body) => request('/listings/' + id + '/leads', { method: 'POST', body }),
     listLeads: (id) => request('/listings/' + id + '/leads'),
 

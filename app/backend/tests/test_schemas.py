@@ -35,6 +35,25 @@ def test_banos_cero_con_estudio_ok():
     assert p.banos == 0 and p.es_estudio is True
 
 
+def test_dormitorios_cero_sin_estudio_falla():
+    """P-07: un inmueble no-estudio no puede tener 0 dormitorios."""
+    with pytest.raises(ValidationError):
+        PredictIn(**_base(dormitorios=0, es_estudio=False))
+
+
+def test_dormitorios_cero_con_estudio_ok():
+    """Un estudio/monoambiente sí puede tener 0 dormitorios."""
+    p = PredictIn(**_base(dormitorios=0, banos=1, es_estudio=True))
+    assert p.dormitorios == 0 and p.es_estudio is True
+
+
+def test_antiguedad_cero_es_valida():
+    """Antigüedad 0 = inmueble a estrenar. NO se prohíbe (desviación del plan,
+    que pedía min=1; la fuente real solo objetaba dormitorios=0)."""
+    p = PredictIn(**_base(antiguedad_anios=0))
+    assert p.antiguedad_anios == 0
+
+
 def test_antiguedad_y_precio_fuera_de_rango():
     with pytest.raises(ValidationError):
         PredictIn(**_base(antiguedad_anios=200))
