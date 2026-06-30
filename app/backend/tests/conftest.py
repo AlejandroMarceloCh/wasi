@@ -18,6 +18,9 @@ _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDB.name}"
 # Los tests no necesitan el catálogo masivo de Explorar (3.3k inserts por sesión).
 os.environ["WASI_SKIP_BULK_SEED"] = "1"
+# Rate limiting OFF en tests: _seller_headers/auth_headers registran y loguean
+# muchas veces desde el mismo cliente; un límite real (5/min) rompería la suite.
+os.environ["WASI_RATELIMIT"] = "0"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from main import app  # noqa: E402

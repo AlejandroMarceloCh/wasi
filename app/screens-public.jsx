@@ -158,7 +158,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
               />
             )}
             {err && <div className="field-err banner danger"><Icon name="alert" size={14}/> {err}</div>}
-            <Btn variant="primary" block size="lg" type="submit" disabled={submitting} onClick={onSubmit}>
+            <Btn variant="primary" block size="lg" type="submit" disabled={submitting}>
               {submitting ? 'Procesando…' : (mode==='login' ? 'Iniciar sesión' : 'Crear cuenta')}
             </Btn>
             <div style={{textAlign:'center', fontSize: 13, color:'var(--ink-3)', padding:'4px'}}>

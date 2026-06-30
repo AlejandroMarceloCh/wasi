@@ -8,6 +8,7 @@ import os
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,19 @@ class Settings(BaseSettings):
     jwt_algo: str = "HS256"
     jwt_expire_days: int = 7
     groq_api_key: str = ""
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _jwt_secret_fuerte(cls, v: str) -> str:
+        """Un secreto HS256 corto es crackeable por fuerza bruta: con él
+        cualquiera puede forjar un JWT para cualquier user_id. Mínimo 32 chars.
+        Falla en el arranque (no firma tokens con un secreto débil)."""
+        if len(v) < 32:
+            raise ValueError(
+                "JWT_SECRET debe tener al menos 32 caracteres. "
+                "Generá uno con: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        return v
 
     # env_file por ruta absoluta: el .env se resuelve igual sin importar el cwd
     # desde el que se lance la app o pytest.

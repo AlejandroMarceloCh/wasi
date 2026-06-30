@@ -23,9 +23,11 @@ def _seller_headers(client):
 
 
 def _listing(**kw):
+    # fair_value_ref NO se envía por la API (lo controla el server). Los tests
+    # de veredicto siembran la referencia directo en BD (ver _db_listing).
     d = dict(district=_ZONE_DISTRICT, address="Av. Test 100", lat=-12.121, lng=-77.030,
              area_m2=80, dormitorios=2, banos=2, cocheras=1, antiguedad_anios=5,
-             es_estudio=False, price_usd=1400, fair_value_ref=1200,
+             es_estudio=False, price_usd=1400,
              description="Test", amenities=["ascensor"],
              contact_name="Owner", contact_phone="+51999000111",
              contact_email="owner@wasi.pe")
@@ -33,15 +35,39 @@ def _listing(**kw):
     return d
 
 
+def _db_listing(client, price_usd, fair_value_ref=1200, district=_ZONE_DISTRICT):
+    """Inserta un listing con fair_value_ref planted DIRECTO en BD. La API ya no
+    acepta fair_value_ref del cliente (seguridad), así que para probar el
+    veredicto/sort se siembra la referencia por debajo del endpoint."""
+    from sqlalchemy import select
+    from database import SessionLocal
+    from models import Listing, User
+    _seller_headers(client)  # garantiza que el user seller existe
+    db = SessionLocal()
+    try:
+        seller = db.execute(
+            select(User).where(User.email == "seller_fav@wasi.pe")).scalar_one()
+        l = Listing(
+            owner_id=seller.id, district=district, address="Av. Test 100",
+            lat=-12.121, lng=-77.030, area_m2=80, dormitorios=2, banos=2,
+            cocheras=1, antiguedad_anios=5, es_estudio=False, price_usd=price_usd,
+            fair_value_ref=fair_value_ref, description="Test", amenities="ascensor",
+            contact_name="Owner", contact_phone="+51999000111",
+            contact_email="owner@wasi.pe", status="activo")
+        db.add(l)
+        db.commit()
+        db.refresh(l)
+        return {"id": l.id, "price_usd": l.price_usd, "fair_value_ref": l.fair_value_ref}
+    finally:
+        db.close()
+
+
 def _seed_zone_listings(client, h):
-    """Crea (idempotente por test, pero pueden repetirse entre tests) un set con
-    los 3 veredictos + precios distintos para ordenar. Devuelve los ids."""
-    ganga = client.post("/api/listings", headers=h,
-                        json=_listing(price_usd=1000, fair_value_ref=1200)).json()
-    justo = client.post("/api/listings", headers=h,
-                        json=_listing(price_usd=1250, fair_value_ref=1200)).json()
-    inflado = client.post("/api/listings", headers=h,
-                         json=_listing(price_usd=1400, fair_value_ref=1200)).json()
+    """Set con los 3 veredictos (Ganga/Justo/Inflado) + precios distintos para
+    ordenar, sembrado en BD con fair_value_ref=1200. Devuelve los dicts."""
+    ganga = _db_listing(client, price_usd=1000)
+    justo = _db_listing(client, price_usd=1250)
+    inflado = _db_listing(client, price_usd=1400)
     return ganga, justo, inflado
 
 
@@ -154,9 +180,7 @@ def test_zone_y_sort_combinados(client):
 def test_favorite_guardar_y_listar(client, auth_headers):
     """auth_headers (Inquilino) guarda un listing; aparece en GET /api/favorites
     con su veredicto (zone)."""
-    h = _seller_headers(client)
-    lid = client.post("/api/listings", headers=h,
-                      json=_listing(price_usd=1000, fair_value_ref=1200)).json()["id"]
+    lid = _db_listing(client, price_usd=1000)["id"]   # 1000 vs 1200 -> Ganga
 
     r = client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
     assert r.status_code == 201, r.text

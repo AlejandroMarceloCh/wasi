@@ -1,10 +1,11 @@
 """Endpoints de autenticación: register, login, me."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
+from ratelimit import limiter
 from models import Analysis, Property, Report, User
 from schemas import (
     RegisterIn, LoginIn, AuthOut, UserOut, MeOut, ReportItem, UpdateMeIn,
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthOut, status_code=201)
-def register(payload: RegisterIn, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
     """Crea un usuario nuevo. Devuelve 409 si el email ya existe."""
     existing = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if existing:
@@ -47,7 +49,8 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthOut)
-def login(payload: LoginIn, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)):
     """Verifica credenciales y emite JWT."""
     user = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if not user or not verify_password(payload.password, user.password_hash):

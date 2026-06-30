@@ -304,7 +304,9 @@ class ListingIn(BaseModel):
     antiguedad_anios: int = Field(default=0, ge=0, le=100)
     es_estudio: bool = False
     price_usd: float = Field(gt=0, le=50000)
-    fair_value_ref: Optional[float] = Field(default=None, ge=0)
+    # fair_value_ref NO se acepta del cliente: un vendedor podría enviar un valor
+    # bajo para que su aviso aparezca como "Ganga" y primero en el sort. Se deja
+    # null al crear (sin veredicto) hasta calcularlo server-side. Ver create_listing.
     description: Optional[str] = Field(default="", max_length=2000)
     image_url: Optional[str] = Field(default=None, max_length=512)
     amenities: List[str] = Field(default_factory=list)
@@ -353,8 +355,11 @@ class ListingOut(BaseModel):
     image_url: Optional[str] = None
     amenities: List[str] = Field(default_factory=list)   # se rearma desde el CSV en el router
     contact_name: str
-    contact_phone: str
-    contact_email: str
+    # PII del vendedor: solo se exponen al dueño del listing (mis-propiedades).
+    # En el catálogo público van en None — el comprador contacta vía formulario
+    # de lead, nunca recibe el correo/teléfono directo. Ver _to_out(include_contact).
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     status: str
     zone: Optional[str] = None         # veredicto derivado: Ganga|Justo|Inflado|None
     created_at: datetime

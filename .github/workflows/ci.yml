@@ -28,7 +28,7 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: sqlite:///./wasi_ci.db
-          JWT_SECRET: ci-secret-not-real
+          JWT_SECRET: ci-secret-not-real-min-32-chars-padding-xyz
           GROQ_API_KEY: ""
           WASI_SKIP_BULK_SEED: "1"
         run: python -m pytest -q --tb=short

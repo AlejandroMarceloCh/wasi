@@ -1,8 +1,15 @@
 """Comparables (FR-03): avisos reales como evidencia del Fair Value."""
+import pytest
 from wasi.models.comparables_service import get_comparables_service
+from wasi.paths import DATA_DIR
+
+_COMPARABLES_CSV = DATA_DIR / "comparables.csv"
 
 
 def test_comparables_service_devuelve_cercanos_y_similares():
+    pytest.importorskip("pandas")  # siempre disponible, pero...
+    if not _COMPARABLES_CSV.exists():
+        pytest.skip(f"comparables.csv no encontrado: {_COMPARABLES_CSV}")
     svc = get_comparables_service()
     assert svc.n > 1000  # dataset cargado
     items = svc.nearby(-12.121, -77.030, area=85, dormitorios=2, k=6)

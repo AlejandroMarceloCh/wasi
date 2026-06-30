@@ -19,9 +19,10 @@ def _seller_headers(client):
 
 
 def _listing(**kw):
+    # fair_value_ref NO se envía: lo calcula el server (mediana del distrito).
     d = dict(district="Miraflores", address="Av. Larco 100", lat=-12.121, lng=-77.030,
              area_m2=80, dormitorios=2, banos=2, cocheras=1, antiguedad_anios=5,
-             es_estudio=False, price_usd=1400, fair_value_ref=1200,
+             es_estudio=False, price_usd=1400,
              description="Test", amenities=["ascensor"],
              contact_name="Owner", contact_phone="+51999000111",
              contact_email="owner@wasi.pe")
@@ -36,30 +37,28 @@ def test_create_listing_seller_ok(client):
     d = r.json()
     assert d["district"] == "Miraflores"
     assert d["amenities"] == ["ascensor"]
-    assert d["zone"] == "Inflado"          # 1400 vs 1200 -> +16.7% (> 8%) -> Inflado
 
 
-def test_zone_justo_dentro_de_banda(client):
+def test_create_listing_no_acepta_fair_value_ref_del_cliente(client):
+    """Seguridad: aunque el cliente mande fair_value_ref absurdo (para falsear
+    'Ganga'), el server lo ignora. Sin catálogo base en el distrito -> ref None."""
     h = _seller_headers(client)
-    # 1250 vs 1200 -> +4.2% (dentro de ±8%) -> Justo
-    r = client.post("/api/listings", headers=h, json=_listing(price_usd=1250, fair_value_ref=1200))
+    r = client.post("/api/listings", headers=h,
+                    json=_listing(district="DistritoVacioTest", fair_value_ref=1))
     assert r.status_code == 201
-    assert r.json()["zone"] == "Justo"
-
-
-def test_zone_ganga_bajo_la_banda(client):
-    h = _seller_headers(client)
-    # 1000 vs 1200 -> -16.7% (< -8%) -> Ganga
-    r = client.post("/api/listings", headers=h, json=_listing(price_usd=1000, fair_value_ref=1200))
-    assert r.status_code == 201
-    assert r.json()["zone"] == "Ganga"
-
-
-def test_zone_none_sin_referencia(client):
-    h = _seller_headers(client)
-    r = client.post("/api/listings", headers=h, json=_listing(fair_value_ref=None))
-    assert r.status_code == 201
+    assert r.json()["fair_value_ref"] is None
     assert r.json()["zone"] is None
+
+
+# El veredicto (Ganga/Justo/Inflado) se deriva de price vs fair_value_ref. Se
+# prueba a nivel unitario porque fair_value_ref ya no es inyectable por la API.
+def test_zone_from_price_bands():
+    from routers.listings import _zone_from_price
+    assert _zone_from_price(1400, 1200) == "Inflado"   # +16.7% (> 8%)
+    assert _zone_from_price(1250, 1200) == "Justo"     # +4.2% (dentro de ±8%)
+    assert _zone_from_price(1000, 1200) == "Ganga"     # -16.7% (< -8%)
+    assert _zone_from_price(1200, None) is None         # sin referencia
+    assert _zone_from_price(1200, 0) is None             # referencia inválida
 
 
 def test_create_listing_inquilino_403(client, auth_headers):

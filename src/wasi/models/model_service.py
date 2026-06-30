@@ -246,7 +246,10 @@ class ModelService:
         # Los 3 cuantiles se entrenan por separado y pueden CRUZARSE (P25 > P50)
         # en casos límite. Forzamos monotonía ordenando — fix estándar para
         # quantile regression con modelos independientes.
-        lo, mid, hi = sorted([out.get("25"), out.get("50"), out.get("75")])
+        vals = [out.get("25"), out.get("50"), out.get("75")]
+        if any(v is None for v in vals):
+            return None
+        lo, mid, hi = sorted(vals)
         return {"p25": lo, "p50": mid, "p75": hi}
 
     @property

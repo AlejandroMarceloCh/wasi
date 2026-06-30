@@ -11,6 +11,7 @@ from auth import get_current_user
 from wasi.models.comparables_service import get_comparables_service
 from database import get_db
 from wasi.features.geo_index import OutOfBoundsError, in_bbox
+from wasi.paths import MODELS_V2_DIR
 import wasi.models.ml as ml  # ml.MODEL_R2 / MODEL_MAE_USD / MODEL_MAE_PCT son LAZY via __getattr__
 from wasi.models.ml import counterfactual_full, explain_fair_value, predict_fair_value
 from models import Analysis, AnalysisFactor, Property, Report, User
@@ -39,8 +40,7 @@ def _quantile_coverage_pct() -> float:
     if _QUANTILE_COVERAGE_PCT is None:
         import json
         from pathlib import Path
-        p = (Path(__file__).resolve().parent.parent
-             / "models" / "v2" / "quantile_coverage.json")
+        p = MODELS_V2_DIR / "quantile_coverage.json"
         cov = 0.4274
         if p.exists():
             try:

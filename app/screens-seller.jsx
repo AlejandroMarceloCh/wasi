@@ -487,10 +487,10 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
                         <Icon name="user" size={14} stroke="var(--ink-2)"/> {lead.name}
                       </div>
                       <div className="small muted" style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
-                        <a href={`tel:${encodeURIComponent(lead.phone)}`} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                        <a href={`tel:${lead.phone}`} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
                           {lead.phone}
                         </a>
-                        <a href={`mailto:${encodeURIComponent(lead.email)}`} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <a href={`mailto:${lead.email}`} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Icon name="mail" size={13} stroke="var(--primary)"/> {lead.email}
                         </a>
                       </div>
@@ -721,10 +721,10 @@ const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
                     <Icon name="user" size={14} stroke="var(--ink-2)"/> {lead.name}
                   </div>
                   <div className="small muted" style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
-                    <a href={`tel:${encodeURIComponent(lead.phone)}`} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
+                    <a href={`tel:${lead.phone}`} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>
                       {lead.phone}
                     </a>
-                    <a href={`mailto:${encodeURIComponent(lead.email)}`} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <a href={`mailto:${lead.email}`} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Icon name="mail" size={13} stroke="var(--primary)"/> {lead.email}
                     </a>
                   </div>

@@ -4,8 +4,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 import models  # noqa: F401 — registra las tablas en Base.metadata
+from ratelimit import limiter
 from database import Base, engine, ensure_schema
 from wasi.features.geo_index import get_index
 from wasi.models.model_service import model_service
@@ -40,13 +43,20 @@ async def lifespan(app: FastAPI):
     print("[Wasi] Base de datos lista.")
 
     model_service.load()                 # 3 validaciones de startup; falla dura
-    venta_service.load()                 # modelo de venta (independiente; no falla el arranque)
+    try:
+        venta_service.load()             # modelo de venta (independiente; no falla el arranque)
+    except Exception as e:
+        print(f"[Wasi] venta_service no disponible: {e}")
     get_index()                          # calienta el KD-tree geográfico
     print("[Wasi] Índice geográfico cargado. Backend listo.")
     yield
 
 
 app = FastAPI(title="Wasi API", version="2.0.0", lifespan=lifespan)
+
+# Rate limiting (slowapi): protege /login y /register de fuerza bruta.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS abierto para dev (frontend desde index.html / file:// o vite)
 app.add_middleware(

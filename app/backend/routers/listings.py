@@ -31,6 +31,28 @@ def _ganga_score(l: Listing) -> float:
     return (l.price_usd - l.fair_value_ref) / l.fair_value_ref
 
 
+def _fair_value_ref_server(db: Session, district: str, area_m2: float) -> Optional[float]:
+    """Referencia de precio justo calculada SERVER-SIDE (no manipulable por el
+    cliente). Mediana de USD/m² de los listings activos del mismo distrito ×
+    área del aviso nuevo — mismo método que el seed masivo del catálogo. None si
+    el distrito todavía no tiene avisos con datos válidos (el aviso queda sin
+    veredicto hasta que haya base comparativa)."""
+    rows = db.execute(
+        select(Listing.price_usd, Listing.area_m2).where(
+            Listing.district == district,
+            Listing.status == "activo",
+            Listing.area_m2 > 0,
+            Listing.price_usd > 0,
+        )
+    ).all()
+    ppm2 = sorted(p / a for p, a in rows)
+    if not ppm2:
+        return None
+    n = len(ppm2)
+    med = ppm2[n // 2] if n % 2 else (ppm2[n // 2 - 1] + ppm2[n // 2]) / 2
+    return round(med * area_m2, 0)
+
+
 def _zone_from_price(price: float, fair_ref: Optional[float]) -> Optional[str]:
     """Veredicto Wasi del precio publicado vs la referencia del modelo.
 
@@ -48,7 +70,10 @@ def _zone_from_price(price: float, fair_ref: Optional[float]) -> Optional[str]:
     return "Justo"
 
 
-def _to_out(l: Listing) -> ListingOut:
+def _to_out(l: Listing, include_contact: bool = False) -> ListingOut:
+    """Serializa un Listing. include_contact=True solo para el dueño (mis
+    propiedades / al crear): expone teléfono y correo. En el catálogo público
+    van en None — el comprador contacta vía formulario de lead, no recibe la PII."""
     return ListingOut(
         id=l.id, district=l.district, address=l.address, lat=l.lat, lng=l.lng,
         area_m2=l.area_m2, dormitorios=l.dormitorios, banos=l.banos,
@@ -56,8 +81,10 @@ def _to_out(l: Listing) -> ListingOut:
         es_estudio=l.es_estudio, price_usd=l.price_usd, fair_value_ref=l.fair_value_ref,
         description=l.description, image_url=l.image_url,
         amenities=[c for c in (l.amenities or "").split(",") if c],
-        contact_name=l.contact_name, contact_phone=l.contact_phone,
-        contact_email=l.contact_email, status=l.status,
+        contact_name=l.contact_name,
+        contact_phone=l.contact_phone if include_contact else None,
+        contact_email=l.contact_email if include_contact else None,
+        status=l.status,
         zone=_zone_from_price(l.price_usd, l.fair_value_ref),
         created_at=l.created_at,
     )
@@ -145,7 +172,7 @@ def my_listings(db: Session = Depends(get_db), current: User = Depends(get_curre
         select(Listing).where(Listing.owner_id == current.id)
         .order_by(Listing.created_at.desc())
     ).scalars().all()
-    return [_to_out(l) for l in rows]
+    return [_to_out(l, include_contact=True) for l in rows]
 
 
 @router.post("/listings", response_model=ListingOut, status_code=201)
@@ -160,12 +187,15 @@ def create_listing(
             detail="Solo propietarios o agentes pueden publicar inmuebles.")
     data = payload.model_dump()
     data["amenities"] = ",".join(data.get("amenities") or [])
+    # Referencia del veredicto: server-side desde la mediana del distrito. El
+    # cliente NO la envía (evita que un vendedor falsee su aviso como "Ganga").
+    data["fair_value_ref"] = _fair_value_ref_server(db, payload.district, payload.area_m2)
     l = Listing(owner_id=current.id, **data)
     db.add(l)
     current.last_activity_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(l)
-    return _to_out(l)
+    return _to_out(l, include_contact=True)
 
 
 @router.get("/listings/{listing_id}", response_model=ListingOut)

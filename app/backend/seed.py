@@ -43,6 +43,9 @@ def seed_if_empty(db=None) -> None:
         db = SessionLocal()
     try:
         if db.scalar(select(func.count(District.id))) == 0:
+            if not DATASET.exists():
+                print(f"[seed] dataset no encontrado: {DATASET} — distritos no sembrados")
+                return
             counts = (pd.read_csv(DATASET, usecols=["distrito_oficial"])
                       ["distrito_oficial"].value_counts())
             for nombre, n in counts.items():
