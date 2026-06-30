@@ -10,16 +10,15 @@ pantalla Explorar tenga densidad estilo Zillow (mapa + grid por viewport).
 - Corre solo en el startup del backend; también se puede correr a mano:
     ./venv/bin/python seed_listings_bulk.py
 """
-from pathlib import Path
-
 import pandas as pd
 from sqlalchemy import func, select
 
 from database import SessionLocal
 from models import Listing, User
+from wasi.paths import DATA_DIR
 
 # Dataset incluido en el repo: el catálogo es reproducible desde un clone.
-CSV = Path(__file__).resolve().parent / "data" / "inmuebles_alquiler_clean.csv"
+CSV = DATA_DIR / "inmuebles_alquiler_clean.csv"
 
 # Los avisos del dataset pertenecen al usuario "catálogo", NO a Roberto: así el
 # propietario demo conserva solo sus 2 listings reales (Mis Propiedades/Leads sanos).

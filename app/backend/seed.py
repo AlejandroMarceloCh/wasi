@@ -4,18 +4,17 @@ Idempotente: solo inserta lo que falta. Se ejecuta solo en el startup del
 backend (ver main.py) y también puede correrse a mano:
     ./venv/bin/python seed.py
 """
-from pathlib import Path
-
 import pandas as pd
 from sqlalchemy import func, select
 
 from auth import hash_password
 from database import SessionLocal
 from models import District, Lead, Listing, User
+from wasi.paths import DATA_DIR
 
 # Dataset incluido en el repo (mismo que usa seed_listings_bulk): el conteo de
 # distritos es reproducible desde un clone, sin depender de pipeline/.
-DATASET = Path(__file__).resolve().parent / "data" / "inmuebles_alquiler_clean.csv"
+DATASET = DATA_DIR / "inmuebles_alquiler_clean.csv"
 
 DEMO_EMAIL = "ana@wasi.pe"
 DEMO_PASSWORD = "demo1234"
