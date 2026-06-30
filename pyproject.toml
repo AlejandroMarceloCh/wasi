@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=40"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wasi"
+version = "0.1.0"
+requires-python = ">=3.9,<3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "app/backend"]
+testpaths = ["app/backend/tests"]
