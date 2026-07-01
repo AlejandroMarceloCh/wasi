@@ -7,9 +7,12 @@ Curso DS3022 — Desarrollo de Productos de Datos, UTEC
 Equipo: Leonardo Montoya · Diana Ñañez · Alejandro Marcelo
  
 Repositorio: `https://github.com/AlejandroMarceloCh/wasi`
+
+Trailer Oficial: `https://youtu.be/kPfQ3xvLldw?si=ZVueBqQNU15INZZQ`
  
 Video de prototipo: `https://youtu.be/1fbrG-gOUUM`
- 
+
+
 ---
  
 ## 0. Resumen ejecutivo
