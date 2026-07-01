@@ -484,6 +484,15 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
             </>
           )}
         </div>
+        <div style={{ margin: '20px 0 4px' }}>
+          <a href="https://youtu.be/kPfQ3xvLldw" target="_blank" rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <Icon name="play" size={12}/>
+            </span>
+            Ver trailer
+          </a>
+        </div>
         <div className="home-hero-stats">
           <div>
             <div className="v">{WASI_STATS.ALQ_AVISOS}</div>

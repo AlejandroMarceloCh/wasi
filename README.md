@@ -8,6 +8,8 @@ Equipo: Leonardo Montoya · Diana Ñañez · Alejandro Marcelo
  
 Repositorio: `https://github.com/AlejandroMarceloCh/wasi`
  
+[![Wasi — Trailer oficial](https://img.youtube.com/vi/kPfQ3xvLldw/maxresdefault.jpg)](https://youtu.be/kPfQ3xvLldw)
+
 Video de prototipo: https://youtu.be/1fbrG-gOUUM
  
 ---
