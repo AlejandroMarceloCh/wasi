@@ -12,6 +12,7 @@ Trailer Oficial: `https://youtu.be/kPfQ3xvLldw?si=ZVueBqQNU15INZZQ`
  
 Video de prototipo: `https://youtu.be/1fbrG-gOUUM`
 
+Presentaciones (ténica y valor): `https://drive.google.com/drive/folders/1InR2-JHF5blEL6kOJMV9SYHUwAKi40Q5?usp=sharing`
 
 ---
  
