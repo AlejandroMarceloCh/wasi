@@ -506,14 +506,17 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   const [err, setErr] = useS('');
   const [distritos, setDistritos] = useS([]);
   const [filters, setFilters] = useS({ district: '', min_price: '', max_price: '', min_area: '', max_area: '', dormitorios: 0 });
-  
+  const [operacion, setOperacion] = useS('alquiler');
   const [sort, setSort] = useS('');
-  
+  const [page, setPage] = useS(0);
+  const [total, setTotal] = useS(0);
+  const PAGE_SIZE = 24;
   const [favIds, setFavIds] = useS(() => new Set());
 
-  const load = () => {
+  const load = (toPage) => {
+    const p = toPage != null ? toPage : page;
     setLoading(true); setErr('');
-    const params = {};
+    const params = { operacion, limit: PAGE_SIZE, offset: p * PAGE_SIZE };
     if (filters.district) params.district = filters.district;
     if (filters.min_price) params.min_price = filters.min_price;
     if (filters.max_price) params.max_price = filters.max_price;
@@ -521,8 +524,13 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
     if (filters.max_area) params.max_area = filters.max_area;
     if (filters.dormitorios > 0) params.dormitorios = filters.dormitorios;
     if (sort) params.sort = sort;
-    Api.listListings(params)
-      .then(r => { setData(Array.isArray(r) ? r : []); setLoading(false); })
+    Api.listListingsPaged(params)
+      .then(r => {
+        setData(Array.isArray(r.data) ? r.data : []);
+        setTotal(r.total || 0);
+        setPage(p);
+        setLoading(false);
+      })
       .catch(ex => {
         const msg = handleApiErr(ex, { setErr, onAuthExpired });
         if (typeof onError === 'function') onError(msg);
@@ -530,10 +538,9 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
       });
   };
 
-  useE(() => { load(); }, []);                       
-  
-  
-  useE(() => { if (data) load(); }, [sort]);
+  useE(() => { load(0); }, []);
+  // Reordenar, cambiar operación o filtros vuelve a la página 0.
+  useE(() => { if (data) load(0); }, [sort, operacion]);
   useE(() => {                                       
     Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
@@ -574,18 +581,28 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
         title="Explorar inmuebles"
         subtitle="Avisos publicados con el veredicto de precio de Wasi"/>
 
-      {
-
-}
       <div className="banner info" style={{marginBottom:14, display:'flex', alignItems:'flex-start', gap:9}}>
         <Icon name="info" size={15}/>
         <span className="small">
-          El veredicto de cada aviso es una <strong>referencia por comparables de la zona</strong>.
-          Para el análisis con el modelo de Wasi, abre <strong>Analizar precio</strong>.
+          El veredicto de cada aviso lo calcula el <strong>modelo de Wasi</strong> al publicarse.
+          Abre <strong>Analizar precio</strong> para estimar cualquier inmueble tú mismo.
         </span>
       </div>
 
-      {}
+      <div className="seg" role="tablist" aria-label="Tipo de operación"
+        style={{display:'inline-flex', gap:4, padding:4, background:'var(--surface-2)', borderRadius:12, marginBottom:14}}>
+        {[['alquiler','Alquiler'],['venta','Venta']].map(([op,lbl])=>(
+          <button key={op} type="button" role="tab" aria-selected={operacion===op}
+            onClick={()=>setOperacion(op)}
+            style={{padding:'7px 18px', borderRadius:9, border:'none', cursor:'pointer',
+              fontSize:13.5, fontWeight:700, fontFamily:'inherit',
+              background: operacion===op ? 'var(--primary)' : 'transparent',
+              color: operacion===op ? '#fff' : 'var(--ink-2)'}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
       <Card className="compact" style={{marginBottom:16}}>
         <div className="row" style={{gap:14, alignItems:'flex-end', flexWrap:'wrap'}}>
           <div style={{flex:'1 1 200px', minWidth:160}}>
@@ -625,7 +642,7 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
               onChange={(e)=>set('max_area', e.target.value.replace(/[^0-9]/g,''))}/>
           </div>
           <div style={{flex:'0 0 auto'}}>
-            <Btn variant="primary" onClick={load} disabled={loading}>
+            <Btn variant="primary" onClick={()=>load(0)} disabled={loading}>
               <Icon name="eye" size={14}/> Aplicar filtros
             </Btn>
           </div>
@@ -638,8 +655,40 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
         </div>
       )}
 
-      <ListingsSplitMap listings={data || []} onOpen={onOpenListing}
-        favIds={favIds} onToggleFav={onToggleFav}/>
+      <div className="row" style={{justifyContent:'space-between', marginBottom:10, flexWrap:'wrap', gap:8}}>
+        <span className="small muted">
+          {total} {total === 1 ? 'inmueble' : 'inmuebles'} en {operacion}
+          {total > PAGE_SIZE && <> · página {page + 1} de {Math.ceil(total / PAGE_SIZE)}</>}
+        </span>
+      </div>
+
+      {!loading && data && data.length === 0 ? (
+        <Card style={{textAlign:'center', padding:'48px 24px'}}>
+          <div style={{fontFamily:'Space Grotesk', fontSize:19, fontWeight:700}}>
+            No hay inmuebles con estos filtros
+          </div>
+          <p className="small muted" style={{marginTop:6}}>
+            Prueba con otro distrito, rango de precio, o cambia entre alquiler y venta.
+          </p>
+        </Card>
+      ) : (
+        <ListingsSplitMap listings={data || []} onOpen={onOpenListing}
+          favIds={favIds} onToggleFav={onToggleFav}/>
+      )}
+
+      {total > PAGE_SIZE && (
+        <div className="row" style={{justifyContent:'center', gap:12, marginTop:18}}>
+          <Btn variant="outline" disabled={page === 0 || loading} onClick={()=>load(page - 1)}>
+            <Icon name="back" size={14}/> Anterior
+          </Btn>
+          <span className="small muted" style={{alignSelf:'center'}}>
+            {page + 1} / {Math.ceil(total / PAGE_SIZE)}
+          </span>
+          <Btn variant="outline" disabled={(page + 1) * PAGE_SIZE >= total || loading} onClick={()=>load(page + 1)}>
+            Siguiente <Icon name="fwd" size={14}/>
+          </Btn>
+        </div>
+      )}
     </div>
   );
 };
@@ -717,6 +766,10 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
   );
 
   const z = data.zone;
+  const unit = data.operacion === 'venta' ? 'total' : '/mes';
+  const unitLong = data.operacion === 'venta' ? 'USD total' : 'USD por mes';
+  const detailImg = (typeof safeImageUrl === 'function' && safeImageUrl(data.image_url))
+    || (typeof apartmentPhoto === 'function' && data.id != null ? apartmentPhoto(data.id) : null);
   const amenities = Array.isArray(data.amenities) ? data.amenities : [];
   const amenityLabel = (k) => {
     const found = AMENIDADES.find(a => a.key === k);
@@ -748,14 +801,20 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
 
       {tab === 'inmueble' && (
         <div className="result-grid">
+          {detailImg && (
+            <img src={detailImg} alt={`Foto de ${data.address}`} loading="lazy"
+              onError={(e)=>{ e.target.style.display='none'; }}
+              style={{gridColumn:'1 / -1', width:'100%', maxHeight:340, objectFit:'cover',
+                borderRadius:14, border:'1px solid var(--line)', marginBottom:4}}/>
+          )}
           <Card>
             <div className="row" style={{justifyContent:'space-between', alignItems:'flex-start'}}>
               <div>
                 <div className="numeric" style={{fontFamily:'Space Grotesk', fontWeight:700, fontSize:32}}>
                   ${Math.round(data.price_usd).toLocaleString('en-US')}
-                  <span style={{fontSize:14, color:'var(--ink-3)', fontWeight:500}}> /mes</span>
+                  <span style={{fontSize:14, color:'var(--ink-3)', fontWeight:500}}> {unit}</span>
                 </div>
-                <div className="small muted" style={{marginTop:2}}>USD por mes</div>
+                <div className="small muted" style={{marginTop:2}}>{unitLong}</div>
               </div>
               {z && <Tag variant={ZONE_VARIANT[z] || 'default'}>{z}</Tag>}
             </div>

@@ -58,14 +58,21 @@ function App() {
   
   const [geoCtx, setGeoCtx] = uS({ lat: null, lng: null });
   const [errorMsg, setErrorMsg] = uS('');
-  
+  // Pantalla a la que vuelve el mapa de Entorno según de dónde se abrió
+  // (desde el home no hay análisis previo, así que volver a fairvalue-result
+  // caía en "no hay análisis").
+  const [entornoReturn, setEntornoReturn] = uS(null);
+
   const [currentListingId, setCurrentListingId] = uS(null);
   const [publishPrefill, setPublishPrefill] = uS(null);
-  
-  
+
+
   const [fvPrefill, setFvPrefill] = uS(null);
 
-  const go = (s) => setScreen(s);
+  const go = (s) => {
+    if (s === 'entorno-map') setEntornoReturn(screen);
+    setScreen(s);
+  };
 
   
   
@@ -194,16 +201,16 @@ function App() {
             simForm={fvForm}
             role={userRole}
             onBack={() => setScreen('fairvalue-form')}
-            onContext={() => setScreen('entorno-map')}
+            onContext={() => { setEntornoReturn('fairvalue-result'); setScreen('entorno-map'); }}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
         )}
         {screen === 'entorno-map' && (
           <EntornoMapScreen
-            lat={geoCtx.lat}
-            lng={geoCtx.lng}
-            onBack={() => setScreen('fairvalue-result')}
+            lat={geoCtx.lat != null ? geoCtx.lat : -12.09}
+            lng={geoCtx.lng != null ? geoCtx.lng : -77.03}
+            onBack={() => setScreen(entornoReturn || roleHome)}
             onError={setErrorMsg}
             onAuthExpired={onLogout}
           />

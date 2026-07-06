@@ -32,7 +32,7 @@
   
   const REQUEST_TIMEOUT_MS = 10000;
 
-  async function request(path, { method = 'GET', body, auth = true } = {}) {
+  async function request(path, { method = 'GET', body, auth = true, meta = false } = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (auth) {
       const t = getToken();
@@ -66,6 +66,10 @@
     }
     if (!res.ok) {
       throw new ApiError(res.status, humanizeError(res.status, data), data);
+    }
+    if (meta) {
+      const total = parseInt(res.headers.get('X-Total-Count') || '', 10);
+      return { data, total: Number.isNaN(total) ? (Array.isArray(data) ? data.length : 0) : total };
     }
     return data;
   }
@@ -222,6 +226,15 @@
       });
       const qs = q.toString();
       return request('/listings' + (qs ? '?' + qs : ''));
+    },
+    // Devuelve { data, total } leyendo X-Total-Count para paginar en la UI.
+    listListingsPaged: (params) => {
+      const q = new URLSearchParams();
+      if (params) Object.entries(params).forEach(([k, v]) => {
+        if (v !== '' && v != null) q.append(k, String(v));
+      });
+      const qs = q.toString();
+      return request('/listings' + (qs ? '?' + qs : ''), { meta: true });
     },
     myListings: () => request('/listings/mine'),
     getListing: (id) => request('/listings/' + id),

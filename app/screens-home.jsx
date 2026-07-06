@@ -835,7 +835,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
         <div>
           <h2>¿Listo para ver un precio justo?</h2>
           <p>
-            Entra a Operaciones y haz tu primera estimación. Tarda menos de un minuto
+            Haz tu primera estimación. Tarda menos de un minuto
             y no necesitas registrarte de nuevo.
           </p>
         </div>

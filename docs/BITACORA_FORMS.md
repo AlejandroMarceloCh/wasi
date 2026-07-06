@@ -54,3 +54,18 @@ Piso de calidad permanente: **pytest ≥157 passed, 2 skipped. Cero regresiones.
 - **Resultados de QA:** sintaxis JSX validada con Babel standalone (screens-seller, api, home, fairvalue → OK); app arranca sin crash (screenshot headless del home completo); backend E2E de los flujos consumidos ya verificado en Sprint 1 (venta, PATCH, self-lead, tildes). Pytest se mantiene en 166/2 (Sprint 2 no toca backend).
 - **Riesgos / deuda aceptada:** el click-through interactivo del form (arrastrar pin, subir foto real) no se automatizó — se verificó por sintaxis + boot + contrato de backend; queda como QA manual recomendado. El catálogo aún no muestra el filtro alquiler/venta ni pagina en la UI (Sprint 3).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 3 — Descubrimiento honesto — 2026-07-06
+- **Sprint Goal:** que el catálogo y el home muestren data sana y coherente, con filtro alquiler/venta y paginación real, y que ninguna ruta de navegación caiga en pantallas rotas o mensajes que se contradicen.
+- **Qué se cambió:**
+  - `app/api.js` — `request({meta:true})` devuelve `{data, total}` leyendo `X-Total-Count`; nuevo `listListingsPaged` (el `listListings` array se mantiene para el home).
+  - `app/screens-listings.jsx` — **selector alquiler/venta**; **paginación** real (24/pág, botones anterior/siguiente, contador "N inmuebles · página X de Y") consumiendo el total del backend; empty-state decente cuando no hay resultados; banner corregido ("el veredicto lo calcula el **modelo de Wasi**", antes decía falsamente "referencia por comparables"); **foto en el detalle** (antes no mostraba ninguna) con fallback y onError; unidad de precio del detalle por operación (/mes vs total).
+  - `app/app.jsx` — el mapa de **Entorno** ahora recuerda de dónde se abrió (`entornoReturn`): volver desde el home ya no cae en "no hay análisis"; default de coordenadas a centro de Lima si no hay contexto.
+  - `app/screens-home.jsx` — CTA final ya no invita a "Operaciones" (pantalla inalcanzable); el botón sigue yendo a la estimación real.
+  - (El sanity-filter de "gangas basura" del home se resolvió en el backend en Sprint 1: descuentos > 45% no suben al ranking.)
+- **Decisiones técnicas:** la paginación se apoya en el `X-Total-Count` de Sprint 1 (no se cambió el contrato de array). El home sigue usando `listListings` (array) para el top-gangas; solo Explorar usa la variante paginada. El default alquiler/venta del catálogo es "alquiler".
+- **Resultados de QA:** sintaxis JSX validada (app, listings, home, api → OK). Backend en vivo: paginación alquiler total 3396, venta 2, página 2 devuelve 24 items; filtro operación correcto. Screenshot headless autenticado: home de vendedor renderiza con nav por rol correcta y mapa de distritos con data real, sin crash. Pytest 166/2 (Sprint 3 no toca backend).
+- **Riesgos / deuda aceptada:** persisten inconsistencias menores de conteo entre superficies (hero "40 distritos" vs mapa/catálogo) y datos hardcodeados del hero (HERO_LISTINGS, "Distribución real") — cosmético, se puede pulir en un pase final. El click-through interactivo del paginador/toggle no se automatizó (verificado por backend + sintaxis + boot autenticado).
+- **Estado:** CERRADO ✅
