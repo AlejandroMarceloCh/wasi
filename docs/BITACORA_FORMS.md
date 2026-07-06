@@ -36,3 +36,21 @@ Piso de calidad permanente: **pytest ≥157 passed, 2 skipped. Cero regresiones.
 - **Resultados de QA:** pytest **166 passed / 2 skipped** (157 base + 9 nuevos, cero regresiones). Verificado en vivo (:8001): migración `operacion` aplicada a la BD existente; publicar en "Jesús María" por pin → guardado "Jesus Maria" 201 (antes 422); venta $250k → `fair_value_ref` del modelo de venta (203669), zona Ganga; PATCH precio/estado; self-lead activo → 403; PII oculta en catálogo (phone/email None); filtro operacion=venta/alquiler con X-Total-Count correcto; alquiler=3397 (todos los sembrados migraron a alquiler).
 - **Riesgos / deuda aceptada:** el frontend todavía no manda `operacion` ni pagina (lo hace Sprint 2 y 3); hasta entonces publica siempre alquiler y descarga la primera página nomás. El precio de venta usado como `fair_value_ref` cae a comparables si `venta_service` no está cargado.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 2 — Form de publicar production-grade — 2026-07-06
+- **Sprint Goal:** que un propietario publique en alquiler O venta desde un formulario claro, a prueba de errores, con validación inline, fotos robustas, autocompletado que no pisa lo tecleado, y que pueda editar/pausar sus avisos sin borrarlos.
+- **Qué se cambió:**
+  - `app/api.js` — `updateListing(id, body)` (PATCH), `inboxLeads()`.
+  - `app/screens-seller.jsx` (`PublishScreen` reescrito):
+    - **Selector de operación** alquiler/venta que adapta unidad de precio (/mes vs total), rango, área máxima, textos, y el modelo usado para la referencia (simulate para alquiler, predict-venta para venta — ambos NO persisten análisis; antes `predict` ensuciaba el historial con precio $1).
+    - **Pin "sin ubicar"** al inicio: ya no se fabrica una dirección desde un pin por defecto. El autocompletado por Nominatim corre SOLO tras ubicar el inmueble, **no pisa** lo que el usuario escribió a mano (flags `manual`), normaliza tildes al cruzar contra el dropdown, y cancela requests viejos (`AbortController`).
+    - **Fotos robustas**: `img.onerror` (HEIC/corrupto → mensaje claro), tope de 12 MB, rechazo de no-imágenes, fondo blanco antes de pasar PNG→JPEG (evita fondo negro), estado "Procesando…".
+    - **Validación inline por campo** (prop `error` de Input, `onBlur`/`touched`), botón Publicar deshabilitado hasta que el form es válido, teléfono exige dígitos, contador de descripción.
+    - **Borrador**: el form se persiste en `localStorage` y se restaura si vuelves (back accidental / sesión expirada ya no pierden todo); se limpia al publicar.
+    - `MyListingRow`: **editar precio** inline y **pausar/activar** (PATCH) — antes solo se podía borrar (perdiendo leads); badge "Pausado"; unidad de precio por operación; ícono de borrar corregido (era 'alert').
+- **Decisiones técnicas:** reescritura del componente en vez de parches sueltos (casi todo el flujo cambiaba). Sin bundler nuevo. La edición de listing no mueve ubicación (coherente con la restricción del backend de Sprint 1). El counterfactual solo se muestra para alquiler (el endpoint es de alquiler).
+- **Resultados de QA:** sintaxis JSX validada con Babel standalone (screens-seller, api, home, fairvalue → OK); app arranca sin crash (screenshot headless del home completo); backend E2E de los flujos consumidos ya verificado en Sprint 1 (venta, PATCH, self-lead, tildes). Pytest se mantiene en 166/2 (Sprint 2 no toca backend).
+- **Riesgos / deuda aceptada:** el click-through interactivo del form (arrastrar pin, subir foto real) no se automatizó — se verificó por sintaxis + boot + contrato de backend; queda como QA manual recomendado. El catálogo aún no muestra el filtro alquiler/venta ni pagina en la UI (Sprint 3).
+- **Estado:** CERRADO ✅

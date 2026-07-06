@@ -1,43 +1,71 @@
 
 
+const PUBLISH_DRAFT_KEY = 'wasi.publishDraft';
+const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB de archivo original
+const OP_CFG = {
+  alquiler: { label: 'Alquiler', unit: '/mes', min: 50, max: 50000, phPrice: '900' },
+  venta:    { label: 'Venta',    unit: 'total', min: 20000, max: 5000000, phPrice: '180000' },
+};
+
 const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpired }) => {
   const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
   const [submitting, setSubmitting] = useS(false);
   const [calculating, setCalculating] = useS(false);
-  
-  const [priceUserTyped, setPriceUserTyped] = useS(
-    !!(prefill && prefill.price_usd != null));
-  
+  const [photoErr, setPhotoErr] = useS('');
+  const [photoLoading, setPhotoLoading] = useS(false);
+  const [priceUserTyped, setPriceUserTyped] = useS(!!(prefill && prefill.price_usd != null));
   const [flyTo, setFlyTo] = useS(null);
   const [fairRef, setFairRef] = useS(prefill && prefill.fair_value ? prefill.fair_value : null);
   const [err, setErr] = useS('');
   const [distritos, setDistritos] = useS([]);
-  
-  
+  const [touched, setTouched] = useS({});
   const [cf, setCf] = useS(null);
   const [cfLoading, setCfLoading] = useS(false);
   const [cfError, setCfError] = useS(false);
-  
-  
   const [previewOpen, setPreviewOpen] = useS(false);
-  const [f, setF] = useS({
-    district: (prefill && prefill.district) || '',
-    address: '',
-    lat: (prefill && prefill.lat) || -12.121,
-    lng: (prefill && prefill.lng) || -77.030,
-    area: (prefill && prefill.area != null) ? String(prefill.area) : '80',
-    dormitorios: (prefill && prefill.dormitorios) || 2,
-    banos: (prefill && prefill.banos) || 2,
-    cocheras: (prefill && prefill.cocheras) || 1,
-    antiguedad_anios: (prefill && prefill.antiguedad_anios) || 5,
-    es_estudio: (prefill && prefill.es_estudio) || false,
-    amenities: (prefill && Array.isArray(prefill.amenities)) ? prefill.amenities : [],
-    price_usd: (prefill && prefill.price_usd != null) ? String(prefill.price_usd) : '',
-    description: '',
-    image_url: '',
-    contact_name: '', contact_phone: '', contact_email: '',
+
+  // El pin arranca "sin ubicar": no fabricamos una dirección desde un pin
+  // por defecto. El usuario debe colocar el inmueble (mapa o buscador).
+  const [pinSet, setPinSet] = useS(!!(prefill && prefill.lat));
+  // Campos que el usuario editó a mano → el autocompletado ya no los pisa.
+  const manual = useR({ district: false, address: false });
+  const geoAbort = useR(null);
+
+  const [operacion, setOperacion] = useS('alquiler');
+  const cfg = OP_CFG[operacion];
+
+  const [f, setF] = useS(() => {
+    // Restaurar borrador si no venimos con prefill (evita perder el form ante
+    // un back accidental o una sesión expirada).
+    if (!prefill) {
+      try {
+        const raw = localStorage.getItem(PUBLISH_DRAFT_KEY);
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (d && d.f) return d.f;
+        }
+      } catch (_) {}
+    }
+    return {
+      district: (prefill && prefill.district) || '',
+      address: '',
+      lat: (prefill && prefill.lat) || -12.09,
+      lng: (prefill && prefill.lng) || -77.03,
+      area: (prefill && prefill.area != null) ? String(prefill.area) : '80',
+      dormitorios: (prefill && prefill.dormitorios) || 2,
+      banos: (prefill && prefill.banos) || 2,
+      cocheras: (prefill && prefill.cocheras) || 1,
+      antiguedad_anios: (prefill && prefill.antiguedad_anios) || 5,
+      es_estudio: (prefill && prefill.es_estudio) || false,
+      amenities: (prefill && Array.isArray(prefill.amenities)) ? prefill.amenities : [],
+      price_usd: (prefill && prefill.price_usd != null) ? String(prefill.price_usd) : '',
+      description: '',
+      image_url: '',
+      contact_name: '', contact_phone: '', contact_email: '',
+    };
   });
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
+  const blur = (k) => setTouched(prev => ({ ...prev, [k]: true }));
   const toggleAmenity = (k) => setF(prev => ({
     ...prev,
     amenities: prev.amenities.includes(k)
@@ -45,22 +73,47 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
       : [...prev.amenities, k],
   }));
 
+  // Persistir borrador (operación + campos) mientras se edita.
+  useE(() => {
+    try { localStorage.setItem(PUBLISH_DRAFT_KEY, JSON.stringify({ f, operacion })); } catch (_) {}
+  }, [f, operacion]);
+
   const onPickFile = (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
-    if (!file || !/^image\//.test(file.type)) return;
+    setPhotoErr('');
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      setPhotoErr('Ese archivo no es una imagen. Sube un JPG o PNG.');
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoErr('La imagen pesa demasiado (máximo 12 MB). Prueba con otra.');
+      return;
+    }
+    setPhotoLoading(true);
     const reader = new FileReader();
+    reader.onerror = () => { setPhotoLoading(false); setPhotoErr('No se pudo leer el archivo.'); };
     reader.onload = (ev) => {
       const img = new Image();
+      img.onerror = () => {
+        setPhotoLoading(false);
+        setPhotoErr('No pudimos procesar esa foto. Si es de iPhone (HEIC), conviértela a JPG primero.');
+      };
       img.onload = () => {
-        const maxW = 720;
+        const maxW = 1024;
         const scale = Math.min(1, maxW / img.width);
         const w = Math.round(img.width * scale);
         const h = Math.round(img.height * scale);
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        set('image_url', canvas.toDataURL('image/jpeg', 0.72));
+        const ctx = canvas.getContext('2d');
+        // Fondo blanco: evita que los PNG con transparencia queden con fondo negro al pasar a JPEG.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        set('image_url', canvas.toDataURL('image/jpeg', 0.78));
+        setPhotoLoading(false);
       };
       img.src = ev.target.result;
     };
@@ -71,84 +124,86 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
     Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
 
+  // Autocompletado por pin: SOLO cuando el usuario ya ubicó el inmueble, y sin
+  // pisar lo que escribió a mano. Cancela requests viejos (evita desorden).
   useE(() => {
-    if (!enLima(f.lat, f.lng)) return;
+    if (!pinSet || !enLima(f.lat, f.lng)) return;
     const t = setTimeout(() => {
+      if (geoAbort.current) geoAbort.current.abort();
+      const ctrl = new AbortController();
+      geoAbort.current = ctrl;
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${f.lat}&lon=${f.lng}&format=jsonv2&accept-language=es&zoom=18`;
-      fetch(url).then(r => r.json()).then(data => {
+      fetch(url, { signal: ctrl.signal }).then(r => r.json()).then(data => {
         const a = data.address || {};
         const rawDist = a.suburb || a.city_district || a.neighbourhood || a.city || a.town || '';
         const street = a.road || a.pedestrian || '';
         const num = a.house_number ? ` ${a.house_number}` : '';
         setF(prev => {
           const next = { ...prev };
-          if (rawDist) {
-            const match = distritos.find(d => d.distrito && d.distrito.toLowerCase() === rawDist.toLowerCase());
+          if (rawDist && !manual.current.district) {
+            const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+            const match = distritos.find(d => d.distrito && norm(d.distrito) === norm(rawDist));
             next.district = match ? match.distrito : rawDist;
           }
-          if (street) next.address = `${street}${num}`;
+          if (street && !manual.current.address) next.address = `${street}${num}`;
           return next;
         });
       }).catch(() => {});
     }, 650);
     return () => clearTimeout(t);
-  }, [f.lat, f.lng, distritos]);
+  }, [f.lat, f.lng, distritos, pinSet]);
 
-  const pinOk = enLima(f.lat, f.lng);
+  const onPinMove = (lat, lng) => { setPinSet(true); setF(p => ({ ...p, lat, lng })); };
+
+  const pinOk = pinSet && enLima(f.lat, f.lng);
   const areaNum = Number(f.area);
-  const areaOk = f.area && areaNum >= 10 && areaNum <= 1000;
-  const PRECIO_MIN = 50, PRECIO_MAX = 50000;
+  const areaOk = f.area && areaNum >= 10 && areaNum <= (operacion === 'venta' ? 2000 : 1000);
   const priceNum = Number(f.price_usd);
-  const priceOk = f.price_usd && priceNum >= PRECIO_MIN && priceNum <= PRECIO_MAX;
+  const priceOk = f.price_usd && priceNum >= cfg.min && priceNum <= cfg.max;
   const distOptions = distritos.map(d => ({ value: d.distrito, label: d.distrito }));
-  const formOk = pinOk && areaOk && priceOk
-    && f.district.trim().length >= 2 && f.address.trim().length >= 3
-    && f.contact_name.trim().length >= 2 && f.contact_phone.trim().length >= 6
-    && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim());
+  const nameOk = f.contact_name.trim().length >= 2;
+  const phoneOk = (f.contact_phone.match(/\d/g) || []).length >= 6;
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim());
+  const distOk = f.district.trim().length >= 2;
+  const addrOk = f.address.trim().length >= 3;
+  const formOk = pinOk && areaOk && priceOk && distOk && addrOk && nameOk && phoneOk && emailOk;
 
-  
-  
-  const camposFaltantes = () => {
-    const m = [];
-    if (!pinOk) m.push('ubica el pin dentro de Lima');
-    if (f.district.trim().length < 2) m.push('Distrito');
-    if (f.address.trim().length < 3) m.push('Dirección');
-    if (!areaOk) m.push('Área (10–1000 m²)');
-    if (!priceOk) m.push(`Precio ($${PRECIO_MIN}–$${PRECIO_MAX.toLocaleString('en-US')}/mes)`);
-    if (f.contact_name.trim().length < 2) m.push('Nombre de contacto');
-    if (f.contact_phone.trim().length < 6) m.push('Teléfono (mín. 6 dígitos)');
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim())) m.push('Correo válido');
-    return m;
-  };
+  const fmtMoney = (n) => '$' + Math.round(n).toLocaleString('en-US');
 
-  
-  
+  // Precio sugerido: usa el modelo correcto según operación y NO persiste
+  // análisis (simulate para alquiler; predict-venta ya es no-persistente).
   const calcular = async () => {
     if (!areaOk || !pinOk || calculating) return;
     setErr(''); setCalculating(true);
     try {
-      const res = await Api.predict({
-        lat: f.lat, lng: f.lng, area: areaNum,
-        dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
-        antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
-        amenities: f.amenities, precio: priceNum || 1,
-      });
-      const fv = res.fair_value;
+      let fv;
+      if (operacion === 'venta') {
+        const res = await Api.predictVenta({
+          lat: f.lat, lng: f.lng, area: areaNum,
+          dormitorios: f.dormitorios, banos: Math.max(1, f.banos), cocheras: f.cocheras,
+          antiguedad_anios: f.antiguedad_anios, precio: priceNum || 1,
+        });
+        fv = res.fair_value;
+        setCf(null);
+      } else {
+        const res = await Api.simulate({
+          lat: f.lat, lng: f.lng, area: areaNum,
+          dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
+          antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
+          amenities: f.amenities, precio: priceNum || 1,
+        });
+        fv = res.fair_value;
+        setCf(null); setCfError(false); setCfLoading(true);
+        Api.counterfactual({
+          lat: f.lat, lng: f.lng, area: areaNum,
+          dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
+          antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
+          amenities: f.amenities,
+        }).then(r => { setCf(r); setCfLoading(false); })
+          .catch(() => { setCfError(true); setCfLoading(false); });
+      }
       setFairRef(fv);
-      
-      
       if (fv != null && !priceUserTyped) set('price_usd', String(Math.round(fv)));
-      
-      
-      setCf(null); setCfError(false); setCfLoading(true);
-      Api.counterfactual({
-        lat: f.lat, lng: f.lng, area: areaNum,
-        dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
-        antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
-        amenities: f.amenities,
-      })
-        .then(r => { setCf(r); setCfLoading(false); })
-        .catch(() => { setCfError(true); setCfLoading(false); });
     } catch (ex) {
       const msg = handleApiErr(ex, { setErr, onAuthExpired });
       if (typeof onError === 'function') onError(msg);
@@ -159,21 +214,22 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
 
   const submit = async () => {
     if (submitting) return;
-    
     if (!formOk) {
-      const faltan = camposFaltantes();
-      setErr('Para publicar, completa: ' + faltan.join(' · '));
+      // Marca todo como tocado para que salgan los errores por campo.
+      setTouched({ district: true, address: true, area: true, price: true,
+        contact_name: true, contact_phone: true, contact_email: true });
+      setErr('Revisa los campos marcados antes de publicar.');
       return;
     }
     setErr(''); setSubmitting(true);
     try {
       const listing = await Api.createListing({
+        operacion,
         district: f.district.trim(), address: f.address.trim(),
         lat: f.lat, lng: f.lng, area_m2: areaNum,
         dormitorios: f.dormitorios, banos: f.banos, cocheras: f.cocheras,
         antiguedad_anios: f.antiguedad_anios, es_estudio: f.es_estudio,
         price_usd: priceNum,
-        fair_value_ref: fairRef != null ? fairRef : null,
         description: f.description.trim(),
         image_url: f.image_url.trim() || null,
         amenities: f.amenities,
@@ -181,6 +237,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         contact_phone: f.contact_phone.trim(),
         contact_email: f.contact_email.trim(),
       });
+      try { localStorage.removeItem(PUBLISH_DRAFT_KEY); } catch (_) {}
       if (onPublished && listing && listing.id) onPublished(listing.id);
     } catch (ex) {
       const msg = handleApiErr(ex, { setErr, onAuthExpired });
@@ -217,30 +274,54 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
   return (
     <div className="container fade-in" style={{maxWidth:880}}>
       <PageHeader title="Publicar inmueble"
-        subtitle="Crea el aviso de tu inmueble en alquiler" onBack={onBack}/>
+        subtitle={`Crea el aviso de tu inmueble en ${cfg.label.toLowerCase()}`} onBack={onBack}/>
 
       <Card className="wizard-card">
+        <div className="section-h">Tipo de operación</div>
+        <div className="seg" role="tablist" aria-label="Tipo de operación"
+          style={{display:'inline-flex', gap:4, padding:4, background:'var(--surface-2)', borderRadius:12, marginTop:8}}>
+          {['alquiler','venta'].map(op=>(
+            <button key={op} type="button" role="tab" aria-selected={operacion===op}
+              onClick={()=>{ setOperacion(op); setFairRef(null); setCf(null); if(!priceUserTyped) set('price_usd',''); }}
+              style={{
+                padding:'8px 20px', borderRadius:9, border:'none', cursor:'pointer',
+                fontSize:14, fontWeight:700, fontFamily:'inherit',
+                background: operacion===op ? 'var(--primary)' : 'transparent',
+                color: operacion===op ? '#fff' : 'var(--ink-2)',
+              }}>
+              {OP_CFG[op].label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="wizard-card" style={{marginTop:16}}>
         <div className="section-h">1 · Ubicación</div>
         <p className="small muted" style={{marginTop:-4, marginBottom:12}}>
           Busca la dirección o arrastra el pin en la ubicación exacta del inmueble.
         </p>
-        <AddressSearch onPick={(lat,lng)=>setFlyTo({lat,lng})}/>
-        <MapPicker lat={f.lat} lng={f.lng} flyTo={flyTo}
-          onMove={(lat,lng)=>setF(p=>({...p, lat, lng}))}/>
+        <AddressSearch onPick={(lat,lng)=>{ setPinSet(true); setFlyTo({lat,lng}); }}/>
+        <MapPicker lat={f.lat} lng={f.lng} flyTo={flyTo} onMove={onPinMove}/>
         <div className="row" style={{justifyContent:'space-between', marginTop:12}}>
           <span className="small muted numeric">{f.lat.toFixed(5)}, {f.lng.toFixed(5)}</span>
-          {pinOk
-            ? <Tag variant="success">Dentro de Lima</Tag>
-            : <Tag variant="danger">Fuera de Lima Metropolitana</Tag>}
+          {!pinSet
+            ? <Tag variant="warning">Coloca el pin en tu inmueble</Tag>
+            : (pinOk
+              ? <Tag variant="success">Dentro de Lima</Tag>
+              : <Tag variant="danger">Fuera de Lima Metropolitana</Tag>)}
         </div>
         <div className="grid-2" style={{gap:14, marginTop:14}}>
           {distOptions.length > 0
             ? <Select label="Distrito" options={[{value:'',label:'Selecciona un distrito'}].concat(distOptions)}
-                value={f.district} onChange={(v)=>set('district', v)}/>
+                value={f.district} onChange={(v)=>{ manual.current.district = true; set('district', v); }}/>
             : <Input label="Distrito" placeholder="Miraflores" value={f.district}
-                onChange={(e)=>set('district', e.target.value)}/>}
+                onChange={(e)=>{ manual.current.district = true; set('district', e.target.value); }}
+                onBlur={()=>blur('district')}
+                error={touched.district && !distOk ? 'Indica el distrito.' : ''}/>}
           <Input label="Dirección" placeholder="Av. Larco 345" value={f.address}
-            onChange={(e)=>set('address', e.target.value)}/>
+            onChange={(e)=>{ manual.current.address = true; set('address', e.target.value); }}
+            onBlur={()=>blur('address')}
+            error={touched.address && !addrOk ? 'Escribe la dirección (calle y número).' : ''}/>
         </div>
       </Card>
 
@@ -277,32 +358,34 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         </div>
         {f.area && !areaOk && (
           <div className="small" style={{color:'var(--danger)', marginTop:10}}>
-            El área debe estar entre 10 y 1000 m².
+            El área debe estar entre 10 y {operacion === 'venta' ? 2000 : 1000} m².
           </div>
         )}
         <div className="field" style={{marginTop:16}}>
           <label>Descripción (opcional)</label>
           <div className="input-wrap">
-            <textarea rows={3} placeholder="Departamento luminoso a pasos del parque…"
+            <textarea rows={3} maxLength={2000} placeholder="Departamento luminoso a pasos del parque…"
               value={f.description} onChange={(e)=>set('description', e.target.value)}/>
           </div>
+          <div className="tiny muted" style={{textAlign:'right', marginTop:2}}>{f.description.length}/2000</div>
         </div>
         <div style={{marginTop:14}}>
           <label style={{display:'block', marginBottom:6, fontWeight:600, fontSize:13, color:'var(--ink-2)'}}>Foto del inmueble (opcional)</label>
           <div className="row" style={{gap:10, flexWrap:'wrap', alignItems:'center'}}>
             <label style={{display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', border:'1px solid var(--line)', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:600, background:'var(--surface)'}}>
-              <Icon name="plus" size={14}/> Subir foto
-              <input type="file" accept="image/*" onChange={onPickFile} style={{display:'none'}}/>
+              <Icon name="plus" size={14}/> {photoLoading ? 'Procesando…' : 'Subir foto'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPickFile} style={{display:'none'}}/>
             </label>
             {f.image_url && /^(https?:\/\/|data:image\/)/i.test(f.image_url.trim()) && (
               <span className="row" style={{gap:8, alignItems:'center'}}>
                 <img src={f.image_url} alt="Vista previa" style={{width:54, height:40, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)'}}/>
-                <button type="button" onClick={()=>set('image_url','')} style={{fontSize:12, color:'var(--danger)', background:'none', border:'none', cursor:'pointer', padding:0}}>Quitar</button>
+                <button type="button" onClick={()=>{ set('image_url',''); setPhotoErr(''); }} style={{fontSize:12, color:'var(--danger)', background:'none', border:'none', cursor:'pointer', padding:0}}>Quitar</button>
               </span>
             )}
           </div>
+          {photoErr && <div className="field-err" style={{marginTop:6}}>{photoErr}</div>}
           <p className="tiny muted" style={{margin:'6px 0 8px'}}>
-            Sube una foto desde tu dispositivo, o pega el enlace de una imagen.
+            JPG, PNG o WebP (máx. 12 MB). También puedes pegar el enlace de una imagen.
           </p>
           <Input label="" placeholder="https://…/foto.jpg"
             value={/^data:/i.test(f.image_url) ? '' : f.image_url}
@@ -321,32 +404,30 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
           </Btn>
           {fairRef != null && (
             <Tag variant="accent">
-              Referencia del modelo: ${Math.round(fairRef).toLocaleString('en-US')} /mes
+              Referencia del modelo: {fmtMoney(fairRef)} {cfg.unit}
             </Tag>
           )}
         </div>
         <div className="big-price" style={{marginTop:14}}>
           <span className="big-price-prefix">$</span>
           <input className="big-price-input" value={f.price_usd} inputMode="numeric"
-            placeholder="900" aria-label="Precio publicado en USD por mes"
-            onChange={(e)=>{ setPriceUserTyped(true); set('price_usd', e.target.value.replace(/[^0-9]/g,'')); }}/>
-          <span className="big-price-suffix"><span className="sl">/</span> mes</span>
+            placeholder={cfg.phPrice} aria-label={`Precio publicado en USD ${cfg.unit}`}
+            onChange={(e)=>{ setPriceUserTyped(true); set('price_usd', e.target.value.replace(/[^0-9]/g,'')); }}
+            onBlur={()=>blur('price')}/>
+          <span className="big-price-suffix"><span className="sl">{cfg.unit==='/mes'?'/':''}</span> {cfg.unit==='/mes'?'mes':'total'}</span>
         </div>
         <div className="big-price-foot">
-          <span className="muted">USD por mes</span>
-          <span className="muted">Rango aceptado: ${PRECIO_MIN}–${PRECIO_MAX.toLocaleString('en-US')}</span>
+          <span className="muted">USD {cfg.unit==='/mes'?'por mes':'total'}</span>
+          <span className="muted">Rango: {fmtMoney(cfg.min)}–{fmtMoney(cfg.max)}</span>
         </div>
-        {f.price_usd && !priceOk && (
-          <div className="small" style={{color:'var(--danger)', marginTop:10}}>
-            El precio debe estar entre ${PRECIO_MIN} y ${PRECIO_MAX.toLocaleString('en-US')} USD/mes.
+        {(touched.price || f.price_usd) && !priceOk && (
+          <div className="field-err" style={{marginTop:10}}>
+            El precio debe estar entre {fmtMoney(cfg.min)} y {fmtMoney(cfg.max)} USD {cfg.unit==='/mes'?'/mes':'total'}.
           </div>
         )}
       </Card>
 
-      {
-
-}
-      {fairRef != null && (
+      {operacion === 'alquiler' && fairRef != null && (
         <div style={{marginTop:16}}>
           <CounterfactualPanel cf={cf} loading={cfLoading} error={cfError} isSeller/>
         </div>
@@ -356,14 +437,17 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         <div className="section-h">4 · Contacto</div>
         <div className="grid-2" style={{gap:14, marginTop:6}}>
           <Input label="Nombre de contacto" placeholder="Roberto Pérez" value={f.contact_name}
-            onChange={(e)=>set('contact_name', e.target.value)}/>
+            onChange={(e)=>set('contact_name', e.target.value)} onBlur={()=>blur('contact_name')}
+            error={touched.contact_name && !nameOk ? 'Ingresa el nombre de contacto.' : ''}/>
           <Input label="Teléfono" placeholder="+51 999 888 777" inputMode="tel" value={f.contact_phone}
-            onChange={(e)=>set('contact_phone', e.target.value)}/>
+            onChange={(e)=>set('contact_phone', e.target.value)} onBlur={()=>blur('contact_phone')}
+            error={touched.contact_phone && !phoneOk ? 'El teléfono debe tener al menos 6 dígitos.' : ''}/>
           <Input label="Correo" placeholder="roberto@correo.com" inputMode="email" value={f.contact_email}
-            onChange={(e)=>set('contact_email', e.target.value)}/>
+            onChange={(e)=>set('contact_email', e.target.value)} onBlur={()=>blur('contact_email')}
+            error={touched.contact_email && !emailOk ? 'Ingresa un correo válido.' : ''}/>
         </div>
         {err && (
-          <div className="banner danger" style={{marginTop:14}}>
+          <div className="banner danger" style={{marginTop:14}} role="alert">
             <Icon name="alert" size={14}/> {err}
           </div>
         )}
@@ -375,7 +459,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
             <Btn variant="outline" size="lg" onClick={()=>setPreviewOpen(true)}>
               <Icon name="eye" size={15}/> Vista previa
             </Btn>
-            <Btn variant="primary" size="lg" onClick={submit} disabled={submitting}>
+            <Btn variant="primary" size="lg" onClick={submit} disabled={submitting || !formOk}>
               <Icon name="check" size={16}/> Publicar inmueble
             </Btn>
           </div>
@@ -421,16 +505,20 @@ const fmtLeadDate = (iso) => {
   }
 };
 
-const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpired }) => {
+const MyListingRow = ({ listing, onOpenListing, onDeleted, onChanged, onError, onAuthExpired }) => {
   const [open, setOpen] = useS(false);
   const [leads, setLeads] = useS(null);
   const [loading, setLoading] = useS(false);
   const [err, setErr] = useS('');
   const [loaded, setLoaded] = useS(false);
   const [deleting, setDeleting] = useS(false);
+  const [busy, setBusy] = useS(false);
+  const [editingPrice, setEditingPrice] = useS(false);
+  const [priceVal, setPriceVal] = useS(String(Math.round(Number(listing.price_usd) || 0)));
 
-  
-  
+  const isVenta = listing.operacion === 'venta';
+  const unit = isVenta ? 'total' : '/mes';
+
   const del = (e) => {
     e.stopPropagation();
     if (deleting) return;
@@ -445,6 +533,21 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
         if (typeof onError === 'function') onError(msg);
       });
   };
+
+  const patch = (body, e) => {
+    if (e) e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    Api.updateListing(listing.id, body)
+      .then(() => { setEditingPrice(false); if (typeof onChanged === 'function') onChanged(); })
+      .catch(ex => {
+        const msg = handleApiErr(ex, { setErr, onAuthExpired });
+        if (typeof onError === 'function') onError(msg);
+      })
+      .finally(() => setBusy(false));
+  };
+  const toggleStatus = (e) => patch(
+    { status: listing.status === 'activo' ? 'pausado' : 'activo' }, e);
 
   const loadLeads = (retry) => {
     if ((loaded || loading) && !retry) return;
@@ -483,12 +586,13 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
         <div className="ana-entry-body" style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, fontFamily: 'Space Grotesk' }}>{listing.address}</div>
           <div className="small muted" style={{ marginTop: 2 }}>
-            {listing.district} · <b>${price}</b> /mes
+            {listing.district} · <b>${price}</b> {unit}
             {count != null && (
               <> · {count} {count === 1 ? 'consulta' : 'consultas'}</>
             )}
           </div>
         </div>
+        {listing.status === 'pausado' && <Tag variant="warning">Pausado</Tag>}
         {listing.zone && <Tag variant={ZONE_VARIANT[listing.zone] || 'default'}>{listing.zone}</Tag>}
         <Icon name={open ? 'back' : 'fwd'} size={16} stroke="var(--ink-3)"
               style={open ? { transform: 'rotate(-90deg)' } : undefined}/>
@@ -555,8 +659,27 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
             </div>
           )}
 
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
-            {!loading && !err && leads && leads.length > 0 && onOpenListing && (
+          {editingPrice && (
+            <div className="row" style={{ gap: 8, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}
+                 onClick={(e) => e.stopPropagation()}>
+              <span style={{ fontWeight: 700 }}>$</span>
+              <input className="input" value={priceVal} inputMode="numeric"
+                aria-label="Nuevo precio"
+                onChange={(e) => setPriceVal(e.target.value.replace(/[^0-9]/g, ''))}
+                style={{ width: 130, padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 8 }}/>
+              <span className="small muted">{unit}</span>
+              <Btn variant="primary" size="sm" disabled={busy || !priceVal}
+                onClick={() => patch({ price_usd: Number(priceVal) })}>
+                {busy ? 'Guardando…' : 'Guardar'}
+              </Btn>
+              <button type="button" onClick={() => setEditingPrice(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--ink-3)', fontSize: 13, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          )}
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            {onOpenListing && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onOpenListing(listing.id); }}
@@ -565,13 +688,23 @@ const MyListingRow = ({ listing, onOpenListing, onDeleted, onError, onAuthExpire
                 Ver inmueble <Icon name="fwd" size={13} stroke="var(--primary)"/>
               </button>
             )}
+            {!editingPrice && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); setEditingPrice(true); }}
+                style={{ padding: 0, background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Editar precio
+              </button>
+            )}
+            <button type="button" onClick={toggleStatus} disabled={busy}
+              style={{ padding: 0, background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+              {listing.status === 'activo' ? 'Pausar' : 'Activar'}
+            </button>
             <button
               type="button"
               onClick={del}
               disabled={deleting}
               style={{ marginLeft: 'auto', padding: 0, background: 'none', border: 'none', color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              <Icon name="alert" size={13} stroke="var(--danger)"/> {deleting ? 'Borrando…' : 'Borrar'}
+              <Icon name="close" size={13} stroke="var(--danger)"/> {deleting ? 'Borrando…' : 'Borrar'}
             </button>
           </div>
         </div>
@@ -663,6 +796,7 @@ const MyListingsScreen = ({ onBack, onOpenListing, onPublish, onError, onAuthExp
               listing={l}
               onOpenListing={onOpenListing}
               onDeleted={load}
+              onChanged={load}
               onError={onError}
               onAuthExpired={onAuthExpired}
             />

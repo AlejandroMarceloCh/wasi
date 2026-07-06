@@ -226,9 +226,11 @@
     myListings: () => request('/listings/mine'),
     getListing: (id) => request('/listings/' + id),
     createListing: (body) => request('/listings', { method: 'POST', body }),
+    updateListing: (id, body) => request('/listings/' + id, { method: 'PATCH', body }),
     deleteListing: (id) => request('/listings/' + id, { method: 'DELETE' }),
     createLead: (id, body) => request('/listings/' + id + '/leads', { method: 'POST', body }),
     listLeads: (id) => request('/listings/' + id + '/leads'),
+    inboxLeads: () => request('/leads'),
 
     
     favorites: () => request('/favorites'),
