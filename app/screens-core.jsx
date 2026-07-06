@@ -160,7 +160,8 @@ const AddressSearch = ({ onPick, placeholder }) => {
                      background:'var(--surface)', border:'1px solid var(--line)', borderRadius:10,
                      boxShadow:'0 8px 24px rgba(0,0,0,.10)', overflow:'hidden'}}>
           {sug.map((s, i) => (
-            <button key={i} type="button" onMouseDown={() => pick(s)}
+            <button key={i} type="button"
+              onMouseDown={(e) => e.preventDefault()} onClick={() => pick(s)}
               style={{display:'flex', gap:8, alignItems:'center', width:'100%', textAlign:'left',
                       padding:'9px 12px', background:'none', border:'none', cursor:'pointer',
                       borderTop: i ? '1px solid var(--line)' : 'none'}}>

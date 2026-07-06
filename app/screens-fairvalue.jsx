@@ -1600,7 +1600,8 @@ const EntornoMapScreen = ({ lat, lng, onBack, onError, onAuthExpired, embedded =
           {sugOpen && suggestions.length > 0 && (
             <div className="efm-suggestions">
               {suggestions.map((s, i) => (
-                <button key={i} className="efm-sug-item" onMouseDown={() => handleSelectSuggestion(s)}>
+                <button key={i} className="efm-sug-item"
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => handleSelectSuggestion(s)}>
                   <Icon name="pin" size={14} stroke="var(--ink-3)"/>
                   <div style={{minWidth:0}}>
                     <span className="efm-sug-name">{s.name}</span>

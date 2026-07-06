@@ -2363,3 +2363,47 @@
 .whatif-val{ text-align:right; }
 .d3-simbars .d3-cat{ font-size:12.5px; fill:var(--ink-2); }
 .d3-simbars .d3-val{ font-size:12.5px; font-weight:600; fill:var(--ink); }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     Sprint 5 — Navegación móvil, accesibilidad y responsive del wizard
+  ───────────────────────────────────────────────────────────────────── */
+
+  /* Barra inferior: oculta en desktop, visible cuando las tabs del topnav
+     desaparecen (≤980px). Sin esto, Leads/Explorar eran inalcanzables en móvil. */
+  .bottom-nav{ display:none; }
+  @media (max-width: 980px){
+    .bottom-nav{
+      display:flex; position:fixed; bottom:0; left:0; right:0; z-index:60;
+      background:var(--surface); border-top:1px solid var(--line);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+      box-shadow:0 -2px 12px -6px rgba(0,0,0,.18);
+    }
+    .bottom-nav button{
+      flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+      align-items:center; gap:3px;
+      background:none; border:none; cursor:pointer; padding:6px 1px;
+      color:var(--ink-3); font-family:inherit; font-size:10px; font-weight:600;
+      min-height:52px; border-radius:10px;
+    }
+    .bottom-nav button span{
+      max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .bottom-nav button.active{ color:var(--primary); }
+    /* Deja aire para que la barra no tape el contenido ni el footer */
+    main{ padding-bottom: 84px; }
+  }
+
+  /* Foco visible y accesible en todo control interactivo (varios lo removían). */
+  a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  .efm-sug-item:focus-visible, .pick-chip:focus-visible{
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+
+  /* Wizard de pasos: no desbordar en pantallas angostas. */
+  @media (max-width: 480px){
+    .wizard-steps .step .lbl{ display:none; }
+    .wizard-steps{ gap:6px; }
+    .grid-2{ grid-template-columns: 1fr; }
+    .big-price-input{ max-width: 100%; }
+  }

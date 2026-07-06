@@ -207,26 +207,36 @@ const Glossary = ({ term, children, custom }) => {
   );
 };
 
-const Input = ({ label, suffix, error, ...rest }) => (
-  <div className="field">
-    {label && <label>{label}</label>}
-    <div className="input-wrap">
-      <input {...rest}/>
-      {suffix && <span className="suffix">{suffix}</span>}
-    </div>
-    {error && <div className="field-err">{error}</div>}
-  </div>
-);
+let _fieldSeq = 0;
+const useFieldId = (rest) => useMemo(
+  () => (rest && rest.id) || `fld-${++_fieldSeq}`, []);
 
-const Select = ({ label, options, value, onChange, placeholder }) => (
-  <div className="field">
-    {label && <label>{label}</label>}
-    <select value={value || ''} onChange={(e)=>onChange(e.target.value)}>
-      {placeholder && <option value="" disabled>{placeholder}</option>}
-      {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
-    </select>
-  </div>
-);
+const Input = ({ label, suffix, error, ...rest }) => {
+  const id = useFieldId(rest);
+  return (
+    <div className="field">
+      {label && <label htmlFor={id}>{label}</label>}
+      <div className="input-wrap">
+        <input id={id} aria-invalid={error ? 'true' : undefined} {...rest}/>
+        {suffix && <span className="suffix">{suffix}</span>}
+      </div>
+      {error && <div className="field-err">{error}</div>}
+    </div>
+  );
+};
+
+const Select = ({ label, options, value, onChange, placeholder }) => {
+  const id = useFieldId({});
+  return (
+    <div className="field">
+      {label && <label htmlFor={id}>{label}</label>}
+      <select id={id} value={value || ''} onChange={(e)=>onChange(e.target.value)}>
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
+      </select>
+    </div>
+  );
+};
 
 const Switch = ({ checked, onChange, label }) => (
   <div className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}
@@ -401,17 +411,17 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
   
   const isSeller = user?.role === 'Propietario' || user?.role === 'Agente inmobiliario';
   const tabs = isSeller ? [
-    { key: 'inicio', label: 'Inicio', icon: 'home' },
-    { key: 'mis-propiedades', label: 'Mis propiedades', icon: 'map' },
-    { key: 'fairvalue', label: 'Analizar precio', icon: 'chart' },
-    { key: 'leads', label: 'Leads', icon: 'mail' },
-    { key: 'profile', label: 'Perfil', icon: 'user' },
+    { key: 'inicio', label: 'Inicio', short: 'Inicio', icon: 'home' },
+    { key: 'mis-propiedades', label: 'Mis propiedades', short: 'Avisos', icon: 'map' },
+    { key: 'fairvalue', label: 'Analizar precio', short: 'Analizar', icon: 'chart' },
+    { key: 'leads', label: 'Leads', short: 'Leads', icon: 'mail' },
+    { key: 'profile', label: 'Perfil', short: 'Perfil', icon: 'user' },
   ] : [
-    { key: 'inicio', label: 'Inicio', icon: 'home' },
-    { key: 'explorar', label: 'Explorar', icon: 'map' },
-    { key: 'fairvalue', label: 'Analizar precio', icon: 'chart' },
-    { key: 'guardados', label: 'Guardados', icon: 'heart' },
-    { key: 'profile', label: 'Perfil', icon: 'user' },
+    { key: 'inicio', label: 'Inicio', short: 'Inicio', icon: 'home' },
+    { key: 'explorar', label: 'Explorar', short: 'Explorar', icon: 'map' },
+    { key: 'fairvalue', label: 'Analizar precio', short: 'Analizar', icon: 'chart' },
+    { key: 'guardados', label: 'Guardados', short: 'Guardados', icon: 'heart' },
+    { key: 'profile', label: 'Perfil', short: 'Perfil', icon: 'user' },
   ];
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -483,6 +493,19 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
           </div>
         </div>
       </nav>
+
+      {!isPublic && (
+        <nav className="bottom-nav" aria-label="Navegación principal">
+          {tabs.map(t => (
+            <button key={t.key} className={active === t.key ? 'active' : ''}
+              aria-current={active === t.key ? 'page' : undefined}
+              onClick={() => onNavigate(t.key)}>
+              <Icon name={t.icon} size={20}/>
+              <span>{t.short || t.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {}
       <Modal

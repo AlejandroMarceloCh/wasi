@@ -83,3 +83,27 @@ Piso de calidad permanente: **pytest ≥157 passed, 2 skipped. Cero regresiones.
 - **Resultados de QA:** sintaxis JSX validada (app, profile, seller, api → OK); app arranca sin crash tras tocar el hot path de app.jsx (screenshot). El endpoint agregado de inbox ya está cubierto por `test_inbox_leads_agregado` (Sprint 1). Pytest 166/2.
 - **Riesgos / deuda aceptada:** el rate-limit humano del 429 ya se resolvió en Sprint 0 (parser). No se agregó recuperación de contraseña ni verificación de email (fuera de alcance de esta ronda; requiere email transaccional). El posible `activeTab` huérfano tras cambio de rol no se observó en el boot; queda para QA manual.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 5 — Móvil + accesibilidad — 2026-07-06
+- **Sprint Goal:** que la app sea usable en un celular real (navegación primaria siempre alcanzable) y que los controles cumplan lo básico de accesibilidad.
+- **Qué se cambió:**
+  - `app/components.jsx` — **barra de navegación inferior** (`.bottom-nav`) que aparece ≤980px, donde las tabs del topnav se ocultaban: antes Leads/Explorar eran inalcanzables en móvil. Etiquetas cortas para que entren las 5. **Labels asociados** en `Input`/`Select` (`htmlFor`/`id` autogenerado con `useMemo`), `aria-invalid` en inputs con error.
+  - `app/styles.css` — CSS del bottom-nav (fixed, safe-area, `flex:1 1 0`), `padding-bottom` del main para no tapar contenido; **foco visible** (`:focus-visible` con outline en todos los controles, varios lo removían); wizard responsive en ≤480px (oculta labels de pasos, grids a 1 columna).
+  - `app/screens-core.jsx` y `app/screens-fairvalue.jsx` — sugerencias de dirección ahora operables por **teclado** (`onMouseDown preventDefault` + `onClick`, antes solo `onMouseDown` que Enter no dispara).
+- **Decisiones técnicas:** no se agregó bundler/build (la restricción del plan se mantiene; el ítem "build real" del auditor queda como decisión pendiente del usuario, no se tocó sin aprobación). El bottom-nav reusa el mismo array de tabs del topnav (una sola fuente de verdad por rol).
+- **Resultados de QA:** sintaxis JSX validada (components, core, fairvalue → OK). Screenshot móvil (390px) muestra el bottom-nav renderizado; `--dump-dom` confirma los 5 botones (Inicio, Explorar, Analizar, Guardados, Perfil) con flexbox. Pytest 166/2.
+- **Riesgos / deuda aceptada:** quedan a11y menores no críticos (focus trap en modales, aria-live del banner global, pausa del carrusel del hero) y el **build de producción** (React dev + Babel en runtime) sigue pendiente por ser decisión del usuario sobre romper "sin bundler". Verificación interactiva táctil (tap real) no automatizada.
+- **Estado:** CERRADO ✅
+
+---
+
+## Cierre — resumen de la ronda
+
+6 sprints ejecutados sobre los hallazgos de `AUDITORIA_INTEGRAL_2026-07-05.md`.
+Los 6 bloqueantes resueltos: venta e2e (S1+S2+S3), tildes de distrito (S1), gangas
+basura (S1), editar/pausar (S1+S2), navegación móvil (S5), errores `[object Object]`
+(S0). Backend: 166 tests verdes (+9). Pendiente por decisión del usuario: build de
+producción (romper el setup sin-bundler) y Postgres en Render. Deuda menor documentada
+por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
