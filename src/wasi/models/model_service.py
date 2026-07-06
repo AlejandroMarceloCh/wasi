@@ -7,7 +7,7 @@ con la clase `ModelService`, nunca con el `.joblib` directamente.
 
 ────────────────────────────────────────────────────────────────────────────
 CUANDO LEO ENTREGUE UNA VERSIÓN NUEVA DEL MODELO:
-  1. Copiar los .joblib nuevos a app/backend/models/
+  1. Copiar los .joblib nuevos a models/
   2. ./venv/bin/python scripts/generate_model_artefacts.py
      (regenera feature_order.json, manifest.json, golden_prediction.json)
   3. Reiniciar el backend.

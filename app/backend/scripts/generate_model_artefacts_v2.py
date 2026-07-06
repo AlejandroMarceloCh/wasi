@@ -20,7 +20,8 @@ import sys
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-MODELS_V2 = BACKEND / "models" / "v2"
+from wasi.paths import MODELS_V2_DIR
+MODELS_V2 = MODELS_V2_DIR
 
 ARTEFACTOS_V2 = [
     "modelo_final_v2.joblib",
@@ -73,9 +74,9 @@ def main() -> int:
         json.dumps(manifest, indent=2, ensure_ascii=False))
     print(f"  manifest_v2.json          — version {version} · {len(hashes)} artefactos")
 
-    from model_service import model_service
-    from geo_index import geo_lookup
-    from ml_v2 import build_features_v2
+    from wasi.models.model_service import model_service
+    from wasi.features.geo_index import geo_lookup
+    from wasi.models.ml_v2 import build_features_v2
 
     model_service.load()
     if model_service.mode != "v2":

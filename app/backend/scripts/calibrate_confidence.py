@@ -21,8 +21,8 @@ import pandas as pd
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-from geo_index import IDW_COLS, POI_TYPES, _haversine_m, _to_unit_sphere, get_index
-from model_service import model_service
+from wasi.features.geo_index import IDW_COLS, POI_TYPES, _haversine_m, _to_unit_sphere, get_index
+from wasi.models.model_service import model_service
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 

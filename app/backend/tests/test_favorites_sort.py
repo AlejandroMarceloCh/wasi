@@ -175,7 +175,8 @@ def test_favorite_idempotente_no_duplica(client, auth_headers):
     """Guardar dos veces el mismo listing: la segunda da 200 (no 201) y no
     duplica en la lista."""
     h = _seller_headers(client)
-    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    lid = client.post("/api/listings", headers=h,
+                      json=_listing(district="Miraflores")).json()["id"]
 
     r1 = client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
     assert r1.status_code == 201
@@ -188,7 +189,8 @@ def test_favorite_idempotente_no_duplica(client, auth_headers):
 
 def test_favorite_quitar(client, auth_headers):
     h = _seller_headers(client)
-    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    lid = client.post("/api/listings", headers=h,
+                      json=_listing(district="Miraflores")).json()["id"]
     client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
 
     d = client.delete(f"/api/favorites/{lid}", headers=auth_headers)
@@ -213,7 +215,8 @@ def test_favorite_sin_token_401(client):
 def test_favorites_aislados_por_usuario(client, auth_headers):
     """Los favoritos de un usuario no aparecen para otro."""
     h = _seller_headers(client)
-    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    lid = client.post("/api/listings", headers=h,
+                      json=_listing(district="Miraflores")).json()["id"]
     client.post("/api/favorites", headers=auth_headers, json={"listing_id": lid})
 
     favs_seller = client.get("/api/favorites", headers=h).json()

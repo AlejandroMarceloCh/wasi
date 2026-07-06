@@ -39,8 +39,8 @@ def main() -> int:
     from sqlalchemy import select
     from database import SessionLocal
     from models import Listing
-    from ml import predict_fair_value
-    from model_service import model_service
+    from wasi.models.ml import predict_fair_value
+    from wasi.models.model_service import model_service
 
     model_service.load()
 
@@ -103,9 +103,10 @@ def main() -> int:
         "muestra_max_por_distrito": MAX_POR_DISTRITO,
         "distritos": resultado,
     }
-    path = BACKEND / "models" / "v2" / "calibration_by_district.json"
+    from wasi.paths import MODELS_V2_DIR, REPO_ROOT
+    path = MODELS_V2_DIR / "calibration_by_district.json"
     path.write_text(json.dumps(out, indent=2, ensure_ascii=False))
-    print(f"\nEscrito {path.relative_to(BACKEND)} · {len(resultado)} distritos")
+    print(f"\nEscrito {path.relative_to(REPO_ROOT)} · {len(resultado)} distritos")
     return 0
 
 if __name__ == "__main__":

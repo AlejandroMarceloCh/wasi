@@ -47,6 +47,49 @@ def test_explain_analisis_inexistente_404(client, auth_headers):
     r = client.get("/api/fairvalue/explain/999999", headers=auth_headers)
     assert r.status_code == 404
 
+def test_explain_error_interno_no_filtra_detalle(client, auth_headers, monkeypatch):
+    import routers.fairvalue as fairvalue_router
+
+    pred = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    assert pred.status_code == 200
+    aid = pred.json()["analysis_id"]
+
+    def boom(_form):
+        raise RuntimeError("/tmp/private/model/path stack trace interno")
+
+    monkeypatch.setattr(fairvalue_router, "explain_fair_value", boom)
+    r = client.get(f"/api/fairvalue/explain/{aid}", headers=auth_headers)
+    assert r.status_code == 503
+    detail = r.json()["detail"]
+    assert detail == "La explicación del modelo no está disponible en este momento."
+    assert "/tmp/private" not in detail
+    assert "stack trace" not in detail
+
+def test_narrative_errors_internos_no_filtran_detalle(client, auth_headers, monkeypatch):
+    import routers.fairvalue as fairvalue_router
+    from database import settings
+
+    pred = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    assert pred.status_code == 200
+    aid = pred.json()["analysis_id"]
+
+    def boom(_form):
+        raise RuntimeError("/tmp/private/model/path stack trace interno")
+
+    monkeypatch.setattr(settings, "groq_api_key", "test-key")
+    monkeypatch.setattr(fairvalue_router, "explain_fair_value", boom)
+
+    for path in (
+        f"/api/fairvalue/narrative/{aid}",
+        f"/api/fairvalue/narrative/{aid}/detailed",
+    ):
+        r = client.get(path, headers=auth_headers)
+        assert r.status_code == 503
+        detail = r.json()["detail"]
+        assert detail == "La explicación del modelo no está disponible en este momento."
+        assert "/tmp/private" not in detail
+        assert "stack trace" not in detail
+
 def test_predict_pin_fuera_de_lima_400(client, auth_headers):
     r = client.post("/api/fairvalue/predict", headers=auth_headers,
                     json=_payload(lat=-13.5, lng=-77.0))

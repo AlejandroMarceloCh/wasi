@@ -324,6 +324,14 @@ cd wasi
  
 # Setup (una sola vez: crea venv e instala dependencias)
 make setup
+
+# Config local obligatoria
+cp app/backend/.env.example app/backend/.env
+python -c "import secrets; print('JWT_SECRET=' + secrets.token_urlsafe(48))"
+# Pegar el JWT_SECRET generado en app/backend/.env.
+# Para demo local con usuarios conocidos, dejar:
+# WASI_ENABLE_DEMO_SEED=1
+# WASI_SKIP_BULK_SEED=1
  
 # Levantar (dos terminales)
 make backend     # FastAPI en http://localhost:8000
@@ -333,7 +341,9 @@ make frontend    # Estático en http://localhost:5500
 make test
 ```
  
-Demo local: `http://localhost:5500` · usuario `ana@wasi.pe` / `demo1234`.
+Demo local: `http://localhost:5500` · usuario `ana@wasi.pe` / `demo1234`, solo si `WASI_ENABLE_DEMO_SEED=1`.
+
+En staging/produccion mantener `WASI_ENABLE_DEMO_SEED=0`, configurar `JWT_SECRET` con un valor aleatorio de al menos 32 caracteres y definir `WASI_CORS_ORIGINS` con los origenes reales permitidos.
  
 **Orden de reproducción del pipeline de ML:**
  

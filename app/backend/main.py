@@ -13,7 +13,7 @@ from database import Base, engine, ensure_schema
 from wasi.features.geo_index import get_index
 from wasi.models.model_service import model_service
 from wasi.models.venta_service import venta_service
-from seed import seed_if_empty
+from seed import demo_seed_enabled, seed_if_empty
 from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import entorno as entorno_router
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     ensure_schema()
     seed_if_empty()
 
-    if not os.environ.get("WASI_SKIP_BULK_SEED"):
+    if demo_seed_enabled() and not os.environ.get("WASI_SKIP_BULK_SEED"):
         try:
             from seed_listings_bulk import seed_bulk
             seed_bulk()
@@ -54,7 +54,7 @@ app = FastAPI(title="Wasi API", version="2.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors = os.environ.get("WASI_CORS_ORIGINS", "*")
+_cors = os.environ.get("WASI_CORS_ORIGINS", "http://localhost:5500")
 _origins = ["*"] if _cors.strip() == "*" else [o.strip() for o in _cors.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,

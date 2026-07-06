@@ -20,14 +20,15 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @limiter.limit("10/minute")
 def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
     """Crea un usuario nuevo. Devuelve 409 si el email ya existe."""
-    existing = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
+    email = str(payload.email).strip().lower()
+    existing = db.execute(select(User).where(func.lower(User.email) == email)).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
     role = payload.role or "Inquilino"
     if role not in VALID_ROLES:
         raise HTTPException(status_code=422, detail=f"Rol inválido. Opciones: {', '.join(sorted(VALID_ROLES))}")
     user = User(
-        email=payload.email,
+        email=email,
         name=payload.name,
         password_hash=hash_password(payload.password),
         plan="free",
@@ -48,7 +49,8 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
 @limiter.limit("5/minute")
 def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)):
     """Verifica credenciales y emite JWT."""
-    user = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
+    email = str(payload.email).strip().lower()
+    user = db.execute(select(User).where(func.lower(User.email) == email)).scalar_one_or_none()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
     token = create_access_token(user.id, user.email)
@@ -107,7 +109,7 @@ def update_me(
 ):
     """Actualiza campos editables del perfil (nombre, rol)."""
     if payload.name is not None:
-        current.name = payload.name.strip()
+        current.name = payload.name
     if payload.role is not None:
         if payload.role not in VALID_ROLES:
             raise HTTPException(

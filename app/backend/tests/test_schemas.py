@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from schemas import PredictIn
+from schemas import CounterfactualIn, PredictIn
 
 def _base(**kw):
     d = dict(lat=-12.1, lng=-77.0, area=80, dormitorios=2, banos=2,
@@ -38,6 +38,12 @@ def test_dormitorios_cero_con_estudio_ok():
     """Un estudio/monoambiente sí puede tener 0 dormitorios."""
     p = PredictIn(**_base(dormitorios=0, banos=1, es_estudio=True))
     assert p.dormitorios == 0 and p.es_estudio is True
+
+def test_counterfactual_dormitorios_cero_sin_estudio_falla():
+    d = _base(dormitorios=0, es_estudio=False)
+    d.pop("precio")
+    with pytest.raises(ValidationError):
+        CounterfactualIn(**d)
 
 def test_antiguedad_cero_es_valida():
     """Antigüedad 0 = inmueble a estrenar. NO se prohíbe (desviación del plan,

@@ -12,6 +12,7 @@ para esas columnas se espera divergencia controlada, no igualdad.
 Uso:  ./venv/bin/python scripts/validate_build_features.py
 """
 from pathlib import Path
+import os
 import sys
 
 import numpy as np
@@ -19,10 +20,11 @@ import pandas as pd
 
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
+os.environ.setdefault("DPD_FORCE_V1", "1")
 
-from geo_index import POI_TYPES
-from ml import AMENITY_CHIPS, build_features
-from model_service import model_service
+from wasi.features.geo_index import POI_TYPES
+from wasi.models.ml import AMENITY_CHIPS, build_features
+from wasi.models.model_service import model_service
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
 

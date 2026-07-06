@@ -15,6 +15,7 @@ Uso:  ./venv/bin/python scripts/validate_pipeline.py
 from pathlib import Path
 import hashlib
 import json
+import os
 import sys
 
 import numpy as np
@@ -22,13 +23,15 @@ import pandas as pd
 
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
+os.environ.setdefault("DPD_FORCE_V1", "1")
 
-from geo_index import POI_TYPES
-from ml import AMENITY_CHIPS, build_features
-from model_service import model_service
+from wasi.features.geo_index import POI_TYPES
+from wasi.models.ml import AMENITY_CHIPS, build_features
+from wasi.models.model_service import model_service
+from wasi.paths import MODELS_DIR, REPO_ROOT
 
 PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
-GATES = BACKEND.parent.parent / "gates"
+GATES = Path(os.environ.get("WASI_GATES_DIR", str(REPO_ROOT / "gates")))
 CHIP_FEATS = set(AMENITY_CHIPS.values())
 
 def main() -> int:
@@ -37,7 +40,7 @@ def main() -> int:
     raw = pd.read_csv(PIPELINE_DATA / "inmuebles_clean_v1.csv")
     feat_order = model_service.feature_order
 
-    fo = json.loads((BACKEND / "models" / "feature_order.json").read_text())
+    fo = json.loads((MODELS_DIR / "feature_order.json").read_text())
     canon = ",".join(f"{f['name']}:{f['dtype']}" for f in fo["features"])
     hash_esperado = hashlib.sha256(canon.encode()).hexdigest()
 

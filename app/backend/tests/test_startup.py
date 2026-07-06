@@ -5,10 +5,12 @@ v1 (manifest/golden de la versión RandomForest); v2 valida contra sus
 propios artefactos (manifest_v2/golden_v2).
 """
 import json
+import shutil
 
 import pytest
 
-from wasi.models.model_service import MODELS, USE_V2, ModelService
+import wasi.models.model_service as model_service_module
+from wasi.models.model_service import MODELS, MODELS_V2, USE_V2, ModelService
 
 def test_startup_exito():
     """Camino feliz: el modelo carga (v1 con 74 features o v2 con ~95)."""
@@ -53,3 +55,30 @@ def test_startup_falla_golden_incorrecto():
             ModelService().load()
     finally:
         path.write_text(backup)
+
+@pytest.mark.skipif(not USE_V2, reason="manifest_v2.json solo se valida en modo v2")
+def test_startup_v2_falla_manifest_adulterado(monkeypatch, tmp_path):
+    """v2: un hash que no coincide debe impedir cargar el modelo."""
+    data = json.loads((MODELS_V2 / "manifest_v2.json").read_text())
+    primer = next(iter(data["artefactos"]))
+    shutil.copy2(MODELS_V2 / primer, tmp_path / primer)
+    data["artefactos"][primer] = "0" * 64
+    (tmp_path / "manifest_v2.json").write_text(json.dumps(data))
+
+    monkeypatch.setattr(model_service_module, "MODELS_V2", tmp_path)
+    with pytest.raises(RuntimeError):
+        ModelService().load()
+
+@pytest.mark.skipif(not USE_V2, reason="golden_prediction_v2.json solo se valida en modo v2")
+def test_startup_v2_falla_golden_incorrecto(monkeypatch, tmp_path):
+    """v2: un expected adulterado debe impedir cargar el modelo."""
+    ms = ModelService()
+    ms.load()
+
+    data = json.loads((MODELS_V2 / "golden_prediction_v2.json").read_text())
+    data["casos"][0]["expected"] *= 1.5
+    (tmp_path / "golden_prediction_v2.json").write_text(json.dumps(data))
+
+    monkeypatch.setattr(model_service_module, "MODELS_V2", tmp_path)
+    with pytest.raises(RuntimeError):
+        ms._check_golden_v2()

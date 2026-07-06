@@ -14,9 +14,27 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6)
     role: Optional[str] = "Inquilino"
 
+    @field_validator("email", mode="after")
+    @classmethod
+    def _email_lower(cls, v: EmailStr) -> str:
+        return str(v).strip().lower()
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _name_no_vacio(cls, v: str) -> str:
+        name = v.strip()
+        if len(name) < 2:
+            raise ValueError("name debe tener al menos 2 caracteres")
+        return name
+
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _email_lower(cls, v: EmailStr) -> str:
+        return str(v).strip().lower()
 
 class UserOut(BaseModel):
     model_config = {"from_attributes": True}
@@ -42,6 +60,16 @@ class UpdateMeIn(BaseModel):
     """Campos editables del perfil. Todos opcionales: se actualiza lo enviado."""
     name: Optional[str] = Field(default=None, min_length=2, max_length=120)
     role: Optional[str] = None
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _name_no_vacio_tras_strip(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        name = v.strip()
+        if len(name) < 2:
+            raise ValueError("name debe tener al menos 2 caracteres")
+        return name
 
 class MeOut(BaseModel):
     user: UserOut
@@ -145,9 +173,11 @@ class CounterfactualIn(BaseModel):
     amenities: List[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _banos_no_cero_sin_estudio(self):
+    def _no_cero_sin_estudio(self):
         if self.banos == 0 and not self.es_estudio:
             raise ValueError("banos solo puede ser 0 si es_estudio = true")
+        if self.dormitorios == 0 and not self.es_estudio:
+            raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
         return self
 
 class CounterfactualItem(BaseModel):
@@ -277,6 +307,11 @@ class ListingIn(BaseModel):
     contact_phone: str = Field(min_length=6, max_length=32)
     contact_email: EmailStr
 
+    @field_validator("contact_email", mode="after")
+    @classmethod
+    def _contact_email_lower(cls, v: EmailStr) -> str:
+        return str(v).strip().lower()
+
     @field_validator("image_url")
     @classmethod
     def _image_url_segura(cls, v: Optional[str]) -> Optional[str]:
@@ -335,6 +370,11 @@ class LeadIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     email: EmailStr
     message: Optional[str] = Field(default="", max_length=1000)
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _email_lower(cls, v: EmailStr) -> str:
+        return str(v).strip().lower()
 
 class LeadOut(BaseModel):
     model_config = {"from_attributes": True}

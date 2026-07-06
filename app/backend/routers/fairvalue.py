@@ -319,9 +319,11 @@ def explain(
     }
     try:
         res = explain_fair_value(form)
-    except RuntimeError as e:
-
-        raise HTTPException(status_code=503, detail=str(e))
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="La explicación del modelo no está disponible en este momento.",
+        )
     return ExplainOut(
         base_price=res["base_price"],
         predicted_price=res["predicted_price"],
@@ -419,8 +421,11 @@ def narrative(
     form = _form_from_property(a.property)
     try:
         res = explain_fair_value(form)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="La explicación del modelo no está disponible en este momento.",
+        )
 
     groups = res["groups"]
     distrito = res["distrito"]
@@ -511,8 +516,11 @@ def narrative_detailed(
     form = _form_from_property(p)
     try:
         res = explain_fair_value(form)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="La explicación del modelo no está disponible en este momento.",
+        )
 
     groups = res["groups"]
     distrito = res["distrito"]

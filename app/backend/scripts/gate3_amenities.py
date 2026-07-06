@@ -19,10 +19,12 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from wasi.paths import MODELS_DIR, REPO_ROOT
+
 BACKEND = Path(__file__).resolve().parent.parent
-MODELS = BACKEND / "models"
-PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
-GATES = BACKEND.parent.parent / "gates"
+MODELS = MODELS_DIR
+PIPELINE_DATA = REPO_ROOT / "pipeline" / "data" / "processed"
+GATES = REPO_ROOT / "gates"
 
 UMBRAL_PP = 2.0
 

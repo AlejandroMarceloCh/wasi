@@ -16,6 +16,10 @@ sys.path.insert(0, str(BACKEND))
 _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDB.name}"
 
+os.environ["JWT_SECRET"] = "pytest-secret-not-real-min-32-chars-padding-xyz"
+
+os.environ["WASI_ENABLE_DEMO_SEED"] = "1"
+
 os.environ["WASI_SKIP_BULK_SEED"] = "1"
 
 os.environ["WASI_RATELIMIT"] = "0"

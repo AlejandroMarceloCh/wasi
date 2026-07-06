@@ -29,8 +29,8 @@ from auth import hash_password
 from database import SessionLocal, Base, engine
 import models
 from models import Listing, User
-from model_service import model_service
-from ml import predict_fair_value
+from wasi.models.model_service import model_service
+from wasi.models.ml import predict_fair_value
 
 CSV = BACKEND.parent.parent / "pipeline" / "data" / "processed" / "inmuebles_clean_v2.csv"
 XTEST = BACKEND.parent.parent / "pipeline" / "data" / "processed" / "X_test.csv"

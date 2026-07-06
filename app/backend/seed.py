@@ -1,9 +1,14 @@
-"""Seed inicial de la BD: distritos (desde el dataset) + usuario demo.
+"""Seed inicial de la BD: distritos y, solo en demo explicito, usuarios demo.
 
-Idempotente: solo inserta lo que falta. Se ejecuta solo en el startup del
-backend (ver main.py) y también puede correrse a mano:
+Idempotente: solo inserta lo que falta. Se ejecuta en el startup del backend
+(ver main.py) y también puede correrse a mano:
     ./venv/bin/python seed.py
+
+Los usuarios con passwords conocidos se crean solo cuando
+WASI_ENABLE_DEMO_SEED=1. En cualquier otro entorno solo se cargan distritos.
 """
+import os
+
 import pandas as pd
 from sqlalchemy import func, select
 
@@ -22,6 +27,10 @@ SELLER_PASSWORD = "demo1234"
 
 CATALOG_EMAIL = "catalogo@wasi.pe"
 CATALOG_PASSWORD = "demo1234"
+
+def demo_seed_enabled() -> bool:
+    """Activa seeds con credenciales conocidas solo de forma explicita."""
+    return os.environ.get("WASI_ENABLE_DEMO_SEED", "0") == "1"
 
 def _coverage(n: int) -> str:
     if n >= 500:
@@ -47,18 +56,23 @@ def seed_if_empty(db=None) -> None:
                                 coverage_level=_coverage(int(n))))
             print(f"[seed] {len(counts)} distritos cargados desde el dataset")
 
+        if not demo_seed_enabled():
+            db.commit()
+            print("[seed] usuarios demo deshabilitados (WASI_ENABLE_DEMO_SEED != 1)")
+            return
+
         ya = db.scalar(select(func.count(User.id)).where(User.email == DEMO_EMAIL))
         if not ya:
             db.add(User(email=DEMO_EMAIL, name="Ana Demo",
                         password_hash=hash_password(DEMO_PASSWORD), plan="pro"))
-            print(f"[seed] usuario demo (inquilino): {DEMO_EMAIL} / {DEMO_PASSWORD}")
+            print(f"[seed] usuario demo (inquilino): {DEMO_EMAIL}")
 
         ya_seller = db.scalar(select(func.count(User.id)).where(User.email == SELLER_EMAIL))
         if not ya_seller:
             db.add(User(email=SELLER_EMAIL, name="Roberto Demo",
                         password_hash=hash_password(SELLER_PASSWORD),
                         plan="pro", role="Propietario"))
-            print(f"[seed] usuario demo (propietario): {SELLER_EMAIL} / {SELLER_PASSWORD}")
+            print(f"[seed] usuario demo (propietario): {SELLER_EMAIL}")
 
         ya_catalog = db.scalar(select(func.count(User.id)).where(User.email == CATALOG_EMAIL))
         if not ya_catalog:

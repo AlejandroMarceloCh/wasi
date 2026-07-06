@@ -1,7 +1,7 @@
 """
 Auditoría de artefactos del modelo de Leo  ·  Fase 0.5 del PLAN.
 
-Carga cada .joblib de app/backend/models/ e imprime su estructura interna:
+Carga cada .joblib de models/ e imprime su estructura interna:
 tipo, n_features, nombres, dtypes, features con log1p y forma de outlier_caps.
 El modelo principal es Random Forest (04_random_forest.joblib).
 
@@ -14,9 +14,11 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from wasi.paths import MODELS_DIR, REPO_ROOT
+
 BACKEND = Path(__file__).resolve().parent.parent
-MODELS = BACKEND / "models"
-PIPELINE_DATA = BACKEND.parent.parent / "pipeline" / "data" / "processed"
+MODELS = MODELS_DIR
+PIPELINE_DATA = REPO_ROOT / "pipeline" / "data" / "processed"
 
 def sep(titulo: str) -> None:
     print("\n" + "=" * 70)

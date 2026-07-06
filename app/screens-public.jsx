@@ -84,7 +84,7 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
   const [mode, setMode] = useS(initialMode);
   useE(() => setMode(initialMode), [initialMode]);
   
-  const [form, setForm] = useS({ email:'ana@wasi.pe', password:'demo1234', name:'', role:'Inquilino' });
+  const [form, setForm] = useS({ email:'', password:'', name:'', role:'Inquilino' });
   const [submitting, setSubmitting] = useS(false);
   const [err, setErr] = useS('');
 
@@ -170,4 +170,3 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
     </div>
   );
 };
-
