@@ -108,11 +108,14 @@ class Report(Base):
     analysis = relationship("Analysis", back_populates="report")
 
 class Listing(Base):
-    """Inmueble publicado por un propietario/agente para alquiler. Arranca el
-    flywheel de oferta. fair_value_ref se captura del modelo al publicar."""
+    """Inmueble publicado por un propietario/agente para alquiler o venta.
+    Arranca el flywheel de oferta. fair_value_ref se captura del modelo
+    (de alquiler o de venta según `operacion`) al publicar."""
     __tablename__ = "listings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    operacion: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="alquiler", server_default="alquiler")
     district: Mapped[str] = mapped_column(String(128), nullable=False)
     address: Mapped[str] = mapped_column(String(255), nullable=False)
     lat: Mapped[float] = mapped_column(Float, nullable=False)
@@ -126,7 +129,7 @@ class Listing(Base):
     price_usd: Mapped[float] = mapped_column(Float, nullable=False)
     fair_value_ref: Mapped[float] = mapped_column(Float, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    image_url: Mapped[str] = mapped_column(String(512), nullable=True)
+    image_url: Mapped[str] = mapped_column(Text, nullable=True)
     amenities: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     contact_name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_phone: Mapped[str] = mapped_column(String(32), nullable=False)

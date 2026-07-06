@@ -71,7 +71,8 @@ def ensure_schema() -> None:
     acá. Agnóstico del motor (SQLite y PostgreSQL soportan ADD COLUMN).
     """
     insp = inspect(engine)
-    if "users" not in insp.get_table_names():
+    tables = insp.get_table_names()
+    if "users" not in tables:
         return
     cols = {c["name"] for c in insp.get_columns("users")}
     if "role" not in cols:
@@ -80,3 +81,22 @@ def ensure_schema() -> None:
                 "ALTER TABLE users ADD COLUMN role VARCHAR(32) "
                 "NOT NULL DEFAULT 'Inquilino'"
             ))
+
+    if "listings" in tables:
+        lcols = {c["name"] for c in insp.get_columns("listings")}
+        # operacion: los listings sembrados son de alquiler → default retrocompatible.
+        if "operacion" not in lcols:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE listings ADD COLUMN operacion VARCHAR(16) "
+                    "NOT NULL DEFAULT 'alquiler'"
+                ))
+        # image_url: ampliar de VARCHAR(512) a TEXT para las fotos base64.
+        # SQLite ignora la longitud (no requiere ALTER); PostgreSQL sí.
+        if engine.dialect.name == "postgresql":
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE listings ALTER COLUMN image_url TYPE TEXT"))
+            except Exception:
+                pass  # ya era TEXT o el motor no lo permite; no es fatal

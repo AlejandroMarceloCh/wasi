@@ -301,18 +301,37 @@ class PredictVentaOut(BaseModel):
 class SaveOut(BaseModel):
     report_id: int
 
+VALID_OPERACION = {"alquiler", "venta"}
+# Un alquiler mensual razonable llega a ~$50k; una venta a millones.
+PRICE_MAX_ALQUILER = 50_000
+PRICE_MAX_VENTA = 5_000_000
+
+
+def _image_url_ok(v: Optional[str]) -> Optional[str]:
+    """Acepta URLs http(s) o imágenes subidas embebidas (data:image/...).
+    Rechaza javascript:, data:text, etc. para evitar XSS al renderear en
+    <img> (data:image solo pinta píxeles, no ejecuta script)."""
+    if v is None or v == "":
+        return v
+    low = v.lower()
+    if low.startswith(("http://", "https://")) or low.startswith("data:image/"):
+        return v
+    raise ValueError("La foto debe ser una URL http(s) o una imagen subida.")
+
+
 class ListingIn(BaseModel):
+    operacion: str = "alquiler"
     district: str = Field(min_length=2, max_length=128)
     address: str = Field(min_length=3, max_length=255)
     lat: float
     lng: float
-    area_m2: float = Field(ge=10, le=1000)
+    area_m2: float = Field(ge=10, le=2000)
     dormitorios: int = Field(ge=0, le=20)
     banos: int = Field(ge=0, le=20)
     cocheras: int = Field(default=0, ge=0, le=20)
     antiguedad_anios: int = Field(default=0, ge=0, le=100)
     es_estudio: bool = False
-    price_usd: float = Field(gt=0, le=50000)
+    price_usd: float = Field(gt=0, le=PRICE_MAX_VENTA)
 
     description: Optional[str] = Field(default="", max_length=2000)
     image_url: Optional[str] = Field(default=None, max_length=1_500_000)
@@ -320,6 +339,22 @@ class ListingIn(BaseModel):
     contact_name: str = Field(min_length=2, max_length=255)
     contact_phone: str = Field(min_length=6, max_length=32)
     contact_email: EmailStr
+
+    @field_validator("operacion", mode="after")
+    @classmethod
+    def _operacion_valida(cls, v: str) -> str:
+        v = (v or "alquiler").strip().lower()
+        if v not in VALID_OPERACION:
+            raise ValueError("La operación debe ser 'alquiler' o 'venta'.")
+        return v
+
+    @field_validator("contact_phone", mode="after")
+    @classmethod
+    def _phone_digits(cls, v: str) -> str:
+        """El teléfono debe tener al menos 6 dígitos reales (no 'abcdef')."""
+        if sum(c.isdigit() for c in v) < 6:
+            raise ValueError("El teléfono debe tener al menos 6 dígitos.")
+        return v.strip()
 
     @field_validator("contact_email", mode="after")
     @classmethod
@@ -329,28 +364,70 @@ class ListingIn(BaseModel):
     @field_validator("image_url")
     @classmethod
     def _image_url_segura(cls, v: Optional[str]) -> Optional[str]:
-        """Acepta URLs http(s) o imágenes subidas embebidas (data:image/...).
-        Rechaza javascript:, data:text, etc. para evitar XSS al renderear en
-        <img> (data:image solo pinta píxeles, no ejecuta script)."""
-        if v is None or v == "":
-            return v
-        low = v.lower()
-        if low.startswith(("http://", "https://")) or low.startswith("data:image/"):
-            return v
-        raise ValueError("image_url debe ser http(s):// o una imagen subida (data:image/)")
+        return _image_url_ok(v)
 
     @model_validator(mode="after")
-    def _no_cero_sin_estudio(self):
+    def _reglas_negocio(self):
         if self.banos == 0 and not self.es_estudio:
-            raise ValueError("banos solo puede ser 0 si es_estudio = true")
+            raise ValueError("Los baños solo pueden ser 0 si es un estudio.")
         if self.dormitorios == 0 and not self.es_estudio:
-            raise ValueError("dormitorios solo puede ser 0 si es_estudio = true")
+            raise ValueError("Los dormitorios solo pueden ser 0 si es un estudio.")
+        tope = PRICE_MAX_VENTA if self.operacion == "venta" else PRICE_MAX_ALQUILER
+        if self.price_usd > tope:
+            raise ValueError(
+                f"El precio de {self.operacion} no puede superar "
+                f"${tope:,.0f}.".replace(",", " "))
         return self
+
+
+class ListingUpdateIn(BaseModel):
+    """Campos editables de un listing ya publicado. Todos opcionales: se
+    actualiza solo lo enviado. La ubicación (lat/lng/district) NO se edita
+    acá — cambiar de ubicación es re-publicar, para no descuadrar el
+    fair_value_ref congelado y la validación distrito↔pin."""
+    price_usd: Optional[float] = Field(default=None, gt=0, le=PRICE_MAX_VENTA)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    image_url: Optional[str] = Field(default=None, max_length=1_500_000)
+    amenities: Optional[List[str]] = None
+    contact_name: Optional[str] = Field(default=None, min_length=2, max_length=255)
+    contact_phone: Optional[str] = Field(default=None, min_length=6, max_length=32)
+    contact_email: Optional[EmailStr] = None
+    status: Optional[str] = None
+
+    @field_validator("status", mode="after")
+    @classmethod
+    def _status_valido(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if v not in {"activo", "pausado", "alquilado", "vendido"}:
+            raise ValueError("Estado inválido.")
+        return v
+
+    @field_validator("contact_phone", mode="after")
+    @classmethod
+    def _phone_digits(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if sum(c.isdigit() for c in v) < 6:
+            raise ValueError("El teléfono debe tener al menos 6 dígitos.")
+        return v.strip()
+
+    @field_validator("contact_email", mode="after")
+    @classmethod
+    def _email_lower(cls, v):
+        return str(v).strip().lower() if v is not None else v
+
+    @field_validator("image_url")
+    @classmethod
+    def _image_ok(cls, v: Optional[str]) -> Optional[str]:
+        return _image_url_ok(v)
 
 class ListingOut(BaseModel):
     model_config = {"from_attributes": True}
 
     id: int
+    operacion: str = "alquiler"
     district: str
     address: str
     lat: float
@@ -399,6 +476,24 @@ class LeadOut(BaseModel):
 
     id: int
     listing_id: int
+    name: str
+    phone: str
+    email: str
+    message: str
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
+
+class InboxLeadOut(BaseModel):
+    """Lead con el contexto de su inmueble, para la bandeja agregada del
+    propietario (un solo request en vez de N+1)."""
+    id: int
+    listing_id: int
+    listing_address: str
+    listing_district: str
+    listing_operacion: str = "alquiler"
     name: str
     phone: str
     email: str

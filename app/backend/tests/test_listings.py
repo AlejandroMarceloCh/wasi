@@ -290,3 +290,79 @@ def test_delete_listing_ajeno_404(client, auth_headers):
 
     r = client.delete(f"/api/listings/{created['id']}", headers=auth_headers)
     assert r.status_code == 404
+
+
+# ── Sprint 1: operación venta, edición/estado, tildes, self-lead ──────────
+
+def test_publicar_venta_operacion_persistida(client):
+    h = _seller_headers(client)
+    r = client.post("/api/listings", headers=h, json=_listing(
+        operacion="venta", price_usd=200000, address="Av. Venta 1"))
+    assert r.status_code == 201
+    assert r.json()["operacion"] == "venta"
+
+def test_venta_permite_precio_alto_alquiler_no(client):
+    h = _seller_headers(client)
+    # alquiler con precio de venta -> rechazado
+    r = client.post("/api/listings", headers=h, json=_listing(
+        operacion="alquiler", price_usd=200000))
+    assert r.status_code == 422
+    # misma cifra en venta -> aceptado
+    r2 = client.post("/api/listings", headers=h, json=_listing(
+        operacion="venta", price_usd=200000, address="Av. Venta 2"))
+    assert r2.status_code == 201
+
+def test_distrito_con_tilde_coincide_con_pin(client):
+    h = _seller_headers(client)
+    # el pin cae en Miraflores; enviar "Miráflores" (tilde) debe coincidir
+    r = client.post("/api/listings", headers=h, json=_listing(district="Miráflores"))
+    assert r.status_code == 201
+
+def test_patch_edita_precio_y_estado(client):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    r = client.patch(f"/api/listings/{lid}", headers=h, json={"price_usd": 999})
+    assert r.status_code == 200 and r.json()["price_usd"] == 999
+    r2 = client.patch(f"/api/listings/{lid}", headers=h, json={"status": "pausado"})
+    assert r2.status_code == 200 and r2.json()["status"] == "pausado"
+
+def test_patch_solo_dueno(client, auth_headers):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    # auth_headers es otro usuario (inquilino) -> 404
+    r = client.patch(f"/api/listings/{lid}", headers=auth_headers, json={"price_usd": 1})
+    assert r.status_code == 404
+
+def test_dueno_no_puede_autolead(client):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    r = client.post(f"/api/listings/{lid}/leads", headers=h, json={
+        "name": "Yo", "phone": "+51999000111", "email": "owner@wasi.pe",
+        "message": "hola"})
+    assert r.status_code == 403
+
+def test_telefono_debe_tener_digitos(client):
+    h = _seller_headers(client)
+    r = client.post("/api/listings", headers=h, json=_listing(contact_phone="abcdef"))
+    assert r.status_code == 422
+
+def test_catalogo_filtra_por_operacion_y_expone_total(client):
+    h = _seller_headers(client)
+    client.post("/api/listings", headers=h, json=_listing(
+        operacion="venta", price_usd=150000, address="Av. Venta 3"))
+    r = client.get("/api/listings?operacion=venta", headers=h)
+    assert r.status_code == 200
+    assert "x-total-count" in {k.lower() for k in r.headers.keys()}
+    assert all(x["operacion"] == "venta" for x in r.json())
+
+def test_inbox_leads_agregado(client, auth_headers):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    client.post(f"/api/listings/{lid}/leads", headers=auth_headers, json={
+        "name": "Ana", "phone": "+51999111222", "email": "ana@wasi.pe",
+        "message": "interesada"})
+    r = client.get("/api/leads", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) >= 1
+    assert body[0]["listing_address"] and body[0]["listing_id"] == lid
