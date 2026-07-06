@@ -814,28 +814,17 @@ const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
 
   const load = () => {
     setLoading(true); setErr('');
-    Api.myListings()
-      .then((listings) => {
-        const arr = Array.isArray(listings) ? listings : [];
-        if (arr.length === 0) return [];
-        
-        
-        return Promise.all(arr.map((l) =>
-          Api.listLeads(l.id)
-            .then((leads) => (Array.isArray(leads) ? leads : []).map((lead) => ({ lead, listing: l })))
-            .catch(() => [])
-        )).then((groups) => groups.flat());
-      })
-      .then((flat) => {
-        
-        
-        const ts = (v) => {
-          if (!v) return 0;
-          const t = new Date(v).getTime();
-          return isNaN(t) ? 0 : t;
-        };
-        flat.sort((a, b) => ts(b.lead.created_at) - ts(a.lead.created_at));
-        setItems(flat);
+    // Un solo request agregado (antes era N+1: un fetch por propiedad, y los
+    // fallos parciales se tragaban en silencio ocultando leads reales).
+    Api.inboxLeads()
+      .then((rows) => {
+        const arr = Array.isArray(rows) ? rows : [];
+        setItems(arr.map((r) => ({
+          lead: { id: r.id, name: r.name, phone: r.phone, email: r.email,
+                  message: r.message, created_at: r.created_at },
+          listing: { id: r.listing_id, address: r.listing_address,
+                     district: r.listing_district, operacion: r.listing_operacion },
+        })));
       })
       .catch((ex) => {
         const msg = handleApiErr(ex, { setErr, onAuthExpired });

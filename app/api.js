@@ -65,6 +65,12 @@
       try { data = JSON.parse(text); } catch { data = { detail: text }; }
     }
     if (!res.ok) {
+      // Sesión muerta: limpiar el token para que la app quede coherentemente
+      // deslogueada (las pantallas ya redirigen vía onAuthExpired). Solo en
+      // requests autenticados, para no borrar sesión por un 401 de login.
+      if (res.status === 401 && auth) {
+        try { clearSession(); } catch (_) {}
+      }
       throw new ApiError(res.status, humanizeError(res.status, data), data);
     }
     if (meta) {

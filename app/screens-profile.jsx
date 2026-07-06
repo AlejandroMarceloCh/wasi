@@ -15,7 +15,7 @@ const PROFILE_FAQS = [
     a: `Puede pasar. Auditamos la calibración por distrito y el sesgo mediano está dentro de ±2% en las zonas premium: el modelo es fiel a los ${WASI_STATS.ALQ_AVISOS} avisos con los que se entrenó, pero el stock premium más nuevo está subrepresentado en esa muestra. La siguiente versión de datos prioriza justamente ese segmento.` },
 ];
 
-const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSaved, onAuthExpired }) => {
+const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSaved, onUserChanged, onAuthExpired }) => {
   
   const cached = (window.Api && window.Api.getUser()) || {};
   const [me, setMe] = useS(null);
@@ -75,7 +75,7 @@ const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings, onSave
     if (nm.length < 2) { setFormErr('El nombre debe tener al menos 2 caracteres.'); return; }
     setSaving(true); setFormErr('');
     Api.updateMe({ name: nm, role: form.role })
-      .then(r => { setMe(r); setModal(null); })
+      .then(r => { setMe(r); setModal(null); if (typeof onUserChanged === 'function') onUserChanged(); })
       .catch(ex => setFormErr((ex && ex.message) || 'No se pudo guardar el perfil.'))
       .finally(() => setSaving(false));
   };

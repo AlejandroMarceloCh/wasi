@@ -68,6 +68,7 @@ function App() {
 
 
   const [fvPrefill, setFvPrefill] = uS(null);
+  const [userVersion, setUserVersion] = uS(0);
 
   const go = (s) => {
     if (s === 'entorno-map') setEntornoReturn(screen);
@@ -142,7 +143,11 @@ function App() {
 
   const isPublic = PUBLIC_SCREENS.has(screen);
   const activeTab = SCREEN_TO_TAB(screen);
-  
+
+  // userVersion (declarado arriba) fuerza re-leer el usuario cuando el perfil
+  // cambia (p. ej. el rol), para que la navegación del TopNav se actualice al
+  // instante en vez de quedar stale hasta la siguiente interacción.
+  void userVersion;
   const currentUser = (window.Api && window.Api.getUser()) || { name: 'Ana' };
   const userRole = currentUser.role || 'Inquilino';
   const isSeller = userRole === 'Propietario' || userRole === 'Agente inmobiliario';
@@ -278,6 +283,7 @@ function App() {
             onOpenAnalysis={onOpenAnalysis}
             onMyListings={() => setScreen('mis-publicaciones')}
             onSaved={() => setScreen('saved')}
+            onUserChanged={() => setUserVersion(v => v + 1)}
             onAuthExpired={onLogout}
           />
         )}

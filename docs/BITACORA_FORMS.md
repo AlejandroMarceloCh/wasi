@@ -69,3 +69,17 @@ Piso de calidad permanente: **pytest ≥157 passed, 2 skipped. Cero regresiones.
 - **Resultados de QA:** sintaxis JSX validada (app, listings, home, api → OK). Backend en vivo: paginación alquiler total 3396, venta 2, página 2 devuelve 24 items; filtro operación correcto. Screenshot headless autenticado: home de vendedor renderiza con nav por rol correcta y mapa de distritos con data real, sin crash. Pytest 166/2 (Sprint 3 no toca backend).
 - **Riesgos / deuda aceptada:** persisten inconsistencias menores de conteo entre superficies (hero "40 distritos" vs mapa/catálogo) y datos hardcodeados del hero (HERO_LISTINGS, "Distribución real") — cosmético, se puede pulir en un pase final. El click-through interactivo del paginador/toggle no se automatizó (verificado por backend + sintaxis + boot autenticado).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 4 — Cuenta y sesión — 2026-07-06
+- **Sprint Goal:** que cambiar de rol actualice la navegación al instante, que la bandeja de leads deje de perder consultas por fallos parciales, y que una sesión muerta deje la app en un estado coherente.
+- **Qué se cambió:**
+  - `app/app.jsx` — `userVersion` fuerza re-leer el usuario tras editar el perfil, así el TopNav cambia de tabs (Inquilino↔Propietario) al instante en vez de quedar stale; se pasa `onUserChanged` a ProfileScreen.
+  - `app/screens-profile.jsx` — al guardar el perfil dispara `onUserChanged()`.
+  - `app/screens-seller.jsx` (`LeadsScreen`) — usa el endpoint agregado `Api.inboxLeads()` (un request) en vez del N+1 (un fetch por propiedad con fallos silenciados que ocultaban leads reales).
+  - `app/api.js` — un 401 en request autenticado limpia la sesión (`clearSession`) para que la app quede coherentemente deslogueada; el mensaje ya es humano ("Tu sesión expiró…", Sprint 0).
+- **Decisiones técnicas:** el 401 solo limpia sesión en requests con `auth` (no en login, para no borrar por credenciales malas). La navegación post-401 la siguen manejando los `onAuthExpired` de cada pantalla; acá solo se garantiza que el token muerto no se reutilice.
+- **Resultados de QA:** sintaxis JSX validada (app, profile, seller, api → OK); app arranca sin crash tras tocar el hot path de app.jsx (screenshot). El endpoint agregado de inbox ya está cubierto por `test_inbox_leads_agregado` (Sprint 1). Pytest 166/2.
+- **Riesgos / deuda aceptada:** el rate-limit humano del 429 ya se resolvió en Sprint 0 (parser). No se agregó recuperación de contraseña ni verificación de email (fuera de alcance de esta ronda; requiere email transaccional). El posible `activeTab` huérfano tras cambio de rol no se observó en el boot; queda para QA manual.
+- **Estado:** CERRADO ✅
