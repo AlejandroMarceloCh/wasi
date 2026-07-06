@@ -486,8 +486,8 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
         </div>
         <div style={{ margin: '20px 0 4px' }}>
           <a href="https://youtu.be/kPfQ3xvLldw" target="_blank" rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--ink-3)', textDecoration: 'none' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
               <Icon name="play" size={12}/>
             </span>
             Ver trailer
@@ -796,7 +796,7 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <PoiImportanceD3 data={poiData}/>
-            <p style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)' }}>
+            <p style={{ marginTop: 12, fontSize: 11, color: 'var(--ink-3)' }}>
               Importancia agregada por categoría — suma de todas las features POI
               de cada tipo dividida entre la importancia total del modelo.
             </p>

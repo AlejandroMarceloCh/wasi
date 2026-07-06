@@ -461,7 +461,7 @@ const VentaResult = ({ data, role, onBack, onContext }) => {
       />
 
       {warnings.length > 0 && (
-        <div className="banner warning" style={{marginBottom:14}}>
+        <div className="banner warn" style={{marginBottom:14}}>
           <Icon name="alert" size={14}/> <span>{warnings.join(' · ')}</span>
         </div>
       )}
@@ -993,7 +993,7 @@ const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role, onBac
       />
 
       {warnings.length > 0 && (
-        <div className="banner warning" style={{marginBottom:14}}>
+        <div className="banner warn" style={{marginBottom:14}}>
           <Icon name="alert" size={14}/> <span>{warnings.join(' · ')}</span>
         </div>
       )}

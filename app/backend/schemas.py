@@ -3,10 +3,20 @@
 El contrato de FairValue (PredictIn/PredictOut) está CONGELADO — ver
 PLAN.md sección 9. No cambiar campos sin reabrir el Gate 2.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator, model_validator
+
+
+def _iso_utc(dt: datetime) -> str:
+    """Serializa datetimes como ISO-8601 UTC explícito (sufijo Z).
+
+    Los modelos guardan UTC naive; sin el sufijo, `new Date()` en el frontend
+    los interpreta como hora local y las fechas salen corridas +5h en Lima."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -78,6 +88,10 @@ class MeOut(BaseModel):
     analyses_count: int
     reports_count: int
     reports: List[ReportItem]
+
+    @field_serializer("last_activity_at")
+    def _ser_last_activity(self, dt: datetime) -> str:
+        return _iso_utc(dt)
 
 class DashStats(BaseModel):
     analyses_count: int
@@ -360,6 +374,10 @@ class ListingOut(BaseModel):
     zone: Optional[str] = None
     created_at: datetime
 
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
+
 class FavoriteIn(BaseModel):
     """Guardar un inmueble en favoritos. Solo necesita el id del listing;
     el user sale del token."""
@@ -386,6 +404,10 @@ class LeadOut(BaseModel):
     email: str
     message: str
     created_at: datetime
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
 
 class ExplainDriver(BaseModel):
     label: str

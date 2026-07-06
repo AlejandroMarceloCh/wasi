@@ -21,11 +21,20 @@
       var t = localStorage.getItem('wasi.theme');
       if(t === 'dark') document.documentElement.setAttribute('data-theme','dark');
     }catch(e){}
-    /* Override de backend SOLO para demo local: entra con #api8001 para apuntar
-       el frontend a un backend Wasi corriendo en :8001 (cuando :8000 está ocupado
-       por otro proyecto). Inerte sin el hash → no afecta el setup normal ni prod. */
+    /* Override de backend para demo local: #api8001 apunta el frontend a un
+       backend Wasi en :8001 (cuando :8000 está ocupado por otro proyecto) y
+       #api8000 vuelve al default. La elección se PERSISTE en localStorage para
+       que un refresh o un link compartido sin hash no manden los requests a
+       otro backend. Inerte fuera de localhost. */
     try{
-      if((location.hash||'').indexOf('api8001') >= 0) window.WASI_API_BASE = 'http://localhost:8001';
+      var h = location.hash || '';
+      if(h.indexOf('api8001') >= 0){
+        window.WASI_API_BASE = 'http://localhost:8001';
+        localStorage.setItem('wasi.apibase', 'http://localhost:8001');
+      } else if(h.indexOf('api8000') >= 0){
+        window.WASI_API_BASE = 'http://localhost:8000';
+        localStorage.setItem('wasi.apibase', 'http://localhost:8000');
+      }
     }catch(e){}
   })();
 </script>

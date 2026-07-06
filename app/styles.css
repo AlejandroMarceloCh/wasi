@@ -750,6 +750,7 @@
   /* Generic helpers */
   .row{display:flex; align-items:center; gap:10px}
   .grow{flex:1}
+  .stack-8{display:flex; flex-direction:column; gap:8px}
   .stack-12{display:flex; flex-direction:column; gap:12px}
   .stack-16{display:flex; flex-direction:column; gap:16px}
   .stack-20{display:flex; flex-direction:column; gap:20px}
@@ -2052,6 +2053,22 @@
       inset 0 1px 0 rgba(255,255,255,.8),
       0 1px 2px rgba(15,23,42,.04),
       0 24px 48px -28px rgba(15,23,42,.12);
+  }
+  /* Dark mode: las cards con gradiente claro hardcodeado dejaban texto
+     var(--ink) casi blanco sobre fondo claro (ilegible). Se les da una
+     superficie oscura coherente con los tokens del tema. */
+  [data-theme="dark"] .wizard-card{
+    background: linear-gradient(155deg, var(--surface) 0%, var(--surface-2) 100%);
+    border-color: var(--line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), var(--shadow-md);
+  }
+  [data-theme="dark"] .bc-card,
+  [data-theme="dark"] .home-module-mock,
+  [data-theme="dark"] .home-module-mock.accent,
+  [data-theme="dark"] .home-howit,
+  [data-theme="dark"] .hero-mock-card.fair{
+    background: var(--surface-2);
+    border-color: var(--line);
   }
   .wizard-card .section-h{
     font-size: 11px; font-weight: 800;
