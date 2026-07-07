@@ -739,6 +739,10 @@ const ListingDetailScreen = ({ listingId, role, onBack, onAnalyze, onError, onAu
   
   useE(() => {
     if (!data || typeof data.lat !== 'number' || typeof data.lng !== 'number') return;
+    // El counterfactual solo aplica a alquiler (el endpoint corre el modelo de
+    // alquiler). En venta las palancas /mes serían incoherentes con el precio
+    // total, así que no se pide.
+    if (data.operacion === 'venta') { setCf(null); setCfLoading(false); return; }
     let cancel = false;
     setCf(null); setCfError(false); setCfLoading(true);
     Api.counterfactual({

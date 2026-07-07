@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 import wasi.models.ml as ml
 from wasi.models.model_service import model_service
+from wasi.models.venta_service import venta_service
 from wasi.paths import DATA_DIR, MODELS_DIR
 
 router = APIRouter(prefix="/api", tags=["observability"])
@@ -32,6 +33,7 @@ class HealthOut(BaseModel):
     status: str
     model_mode: str
     model_version: str
+    venta_model_loaded: bool
     uptime_seconds: int
 
 class ModelMetrics(BaseModel):
@@ -79,14 +81,21 @@ def distritos_zona():
 
 @router.get("/health", response_model=HealthOut)
 def health(response: Response):
-    """Liveness probe. No requiere auth. 503 si el modelo no está cargado."""
+    """Liveness probe. No requiere auth. 503 si el modelo (alquiler) no está
+    cargado. El estado de venta se reporta pero no tumba el health: el producto
+    principal funciona aunque venta esté caído."""
     is_ok = model_service.is_loaded
     if not is_ok:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    try:
+        venta_ok = venta_service.is_loaded()
+    except Exception:
+        venta_ok = False
     return HealthOut(
         status="ok" if is_ok else "degraded",
         model_mode=model_service.mode,
         model_version=model_service.version,
+        venta_model_loaded=venta_ok,
         uptime_seconds=int(time.time() - _STARTED_AT),
     )
 

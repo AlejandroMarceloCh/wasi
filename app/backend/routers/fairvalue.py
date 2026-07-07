@@ -298,7 +298,29 @@ def get_analysis(
     a = db.get(Analysis, analysis_id)
     if not a or a.user_id != current.id:
         raise HTTPException(status_code=404, detail="Análisis no encontrado")
-    return _analysis_to_out(a)
+    out = _analysis_to_out(a)
+    # Paridad con el predict en vivo: recomputa counterfactuals + intervalo desde
+    # las features guardadas de la propiedad (no se persisten, se re-sirven del
+    # modelo congelado). Antes, reabrir un análisis del historial perdía la card
+    # "¿Cómo cambiaría tu precio?" y el rango P25-P75.
+    p = a.property
+    if p is not None:
+        form = {
+            "lat": p.lat, "lng": p.lng, "area": p.area_m2,
+            "dormitorios": p.dormitorios, "banos": p.banos,
+            "cocheras": p.cocheras, "antiguedad_anios": p.antiguedad_anios,
+            "es_estudio": p.es_estudio,
+            "amenities": [c for c in (p.amenities or "").split(",") if c],
+            "precio": float(a.announced_price),
+        }
+        try:
+            res = predict_fair_value(form)
+            out.counterfactuals = [Counterfactual(**cf) for cf in res.get("counterfactuals", [])]
+            pi = res.get("prediction_interval")
+            out.prediction_interval = PredictionInterval(**pi) if pi else None
+        except Exception:
+            pass  # si el modelo no puede recomputar, se devuelve el análisis base
+    return out
 
 @router.get("/fairvalue/explain/{analysis_id}", response_model=ExplainOut)
 def explain(

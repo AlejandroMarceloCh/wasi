@@ -154,3 +154,18 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** app arranca sin crash en localhost (screenshot, dev React + fresh). Backend intacto (168/2). En producción cargaría React min + assets cacheables.
 - **Riesgos / deuda aceptada:** requests redundantes del resultado de FairValue (~6 llamadas: analysis+explain+narrative+poi+comparables+simulate) — optimización diferida (requiere refactor del flujo, bajo riesgo actual). Bundler esbuild = gate abierto.
 - **Estado:** CERRADO ✅ (con gate de bundler pendiente de decisión)
+
+---
+
+## Sprint 9 — Coherencia de backend y datos — 2026-07-07
+- **Sprint Goal:** que los datos servidos sean completos y coherentes — el historial de análisis no pierda contenido, el health sea honesto sobre venta, y el counterfactual no cruce modelos.
+- **Hallazgos cerrados:** T023/T031 (getAnalysis paridad), T029 (health venta), T098 (counterfactual venta).
+- **Qué se cambió:**
+  - `routers/fairvalue.py` — `get_analysis` recomputa counterfactuals + prediction_interval desde las features guardadas de la propiedad; antes reabrir un análisis del historial perdía la card "¿Cómo cambiaría tu precio?" y el rango P25-P75. El fair_value persistido no se altera (solo se re-sirven las palancas y el intervalo del modelo congelado).
+  - `routers/health.py` — el health check ahora reporta `venta_model_loaded`; el estado de venta se informa pero no tumba el liveness (el producto principal funciona aunque venta esté caído).
+  - `screens-listings.jsx` — el detalle de un inmueble de **venta** ya NO pide counterfactual (el endpoint corre el modelo de alquiler; las palancas /mes serían incoherentes con el precio total).
+  - `tests/` — +2 tests: paridad de getAnalysis (counterfactuals + intervalo), health reporta venta.
+- **Decisiones técnicas:** recomputar en `get_analysis` en vez de persistir counterfactuals/intervalo (evita cambio de esquema; el costo es una inferencia extra en un GET del historial, aceptable). El health no falla por venta caído porque venta es secundario.
+- **Resultados de QA:** pytest **170 passed / 2 skipped** (168 + 2). Verificado en vivo: health → `venta_model_loaded: true`; reabrir análisis → 5 counterfactuals + intervalo presentes.
+- **Riesgos / deuda aceptada:** MOVIDO al Sprint 10 (toca pipeline de datos): recuperar los 415 avisos de Babilonia (`clean_ventas.py` los descarta por `cocheras`/`banos` NaN) y alinear scripts de auditoría/calibración a v2 (apuntan a v1). `sort=ganga`/`zone` sigue cargando el catálogo en memoria (deriva la zona en Python); optimización con precompute diferida.
+- **Estado:** CERRADO ✅

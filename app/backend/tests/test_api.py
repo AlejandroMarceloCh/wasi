@@ -188,3 +188,20 @@ def test_entorno_summary_sin_km_del_mar(client, auth_headers):
     summary = r.json()["summary"]
     assert "del mar" not in summary.lower()
     assert "km del mar" not in summary.lower()
+
+
+def test_get_analysis_paridad_counterfactuals_intervalo(client, auth_headers):
+    """Sprint 9: reabrir un análisis del historial recupera counterfactuals y
+    prediction_interval (antes se perdían)."""
+    pred = client.post("/api/fairvalue/predict", headers=auth_headers, json=_payload())
+    aid = pred.json()["analysis_id"]
+    r = client.get(f"/api/analyses/{aid}", headers=auth_headers)
+    assert r.status_code == 200
+    d = r.json()
+    assert len(d.get("counterfactuals") or []) > 0
+    assert d.get("prediction_interval") is not None
+
+
+def test_health_reporta_venta(client):
+    r = client.get("/api/health")
+    assert "venta_model_loaded" in r.json()
