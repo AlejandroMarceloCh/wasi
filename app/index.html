@@ -40,18 +40,42 @@
 </script>
 <div id="root"></div>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script>
+  /* React: build de DESARROLLO en localhost (mejores mensajes de error) y de
+     PRODUCCIÓN (minificado, ~40% más liviano y rápido) en cualquier despliegue.
+     Antes se cargaba development siempre → costoso en producción. */
+  (function () {
+    var dev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    var react = dev
+      ? { src: 'https://unpkg.com/react@18.3.1/umd/react.development.js',
+          sri: 'sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L' }
+      : { src: 'https://unpkg.com/react@18.3.1/umd/react.production.min.js',
+          sri: 'sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z' };
+    var dom = dev
+      ? { src: 'https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js',
+          sri: 'sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm' }
+      : { src: 'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js',
+          sri: 'sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1' };
+    [react, dom].forEach(function (r) {
+      document.write('<script src="' + r.src + '" integrity="' + r.sri +
+        '" crossorigin="anonymous"><\/script>');
+    });
+  })();
+</script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script src="https://unpkg.com/d3@7/dist/d3.min.js" crossorigin=""></script>
 
 <script>
-  /* Cache-busting — setup sin build: cada carga trae los archivos frescos.
-     Evita que el navegador sirva .js/.jsx cacheados tras un cambio. */
+  /* Versión de assets. En localhost usa Date.now() (siempre fresco, cómodo para
+     desarrollar). En producción usa una versión FIJA → el navegador cachea los
+     .js/.jsx entre visitas en vez de re-descargar y re-transpilar todo cada vez.
+     BUMP esta versión en cada deploy que cambie el frontend. */
+  var WASI_ASSET_VERSION = '2026-07-07';
   (function () {
-    var v = Date.now();
+    var dev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    var v = dev ? Date.now() : WASI_ASSET_VERSION;
     document.write('<script src="api.js?v=' + v + '"><\/script>');
     document.write('<script src="aliases_lima.js?v=' + v + '"><\/script>');
     document.write('<script src="stats.js?v=' + v + '"><\/script>');

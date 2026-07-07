@@ -140,3 +140,17 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** sintaxis JSX + JS validada (components, home, listings, seller, stats → OK). Backend intacto (pytest 168/2). Pendiente: pase Sonnet de regresión consolidado.
 - **Riesgos / deuda aceptada:** el conteo "real" de distritos cubiertos es ambiguo en la data (mapa 29, catálogo 39); se alineó al mapa visible del home. La cobertura real se revisa en el trabajo de datos del Sprint 10. El "+28% sobreprecio detectado" del hero sigue siendo claim de marketing (bajo riesgo, no medido).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 8 — Performance y arranque — 2026-07-07
+- **Sprint Goal:** reducir el costo de arranque en producción sin romper el setup ni el loop de desarrollo local.
+- **Hallazgos cerrados:** T096 (React dev en prod, cache-busting Date.now()). Parcial: requests redundantes de FairValue (diferido).
+- **Qué se cambió:**
+  - `index.html` — React se carga en build de **producción minificado** fuera de localhost (~40% más liviano, sin warnings dev en el hilo principal) y en **desarrollo** en localhost (mejores mensajes de error). SRI recalculado para los archivos de producción.
+  - `index.html` — cache-busting: `Date.now()` **solo en localhost** (fresco para desarrollar); en producción usa `WASI_ASSET_VERSION` **fija** → el navegador cachea .js/.jsx entre visitas en vez de re-descargar y re-transpilar todo cada vez. Se bumpea la versión en cada deploy de frontend.
+- **Decisiones técnicas:** se resolvió por detección de hostname (localhost = dev) para no sacrificar el loop de desarrollo. Babel standalone se mantiene (transpila en cliente); eliminarlo es el gate de bundler (abajo).
+- **⚠ GATE PENDIENTE (decisión del usuario):** un **build real con esbuild** (transpilar los .jsx a un bundle en deploy en vez de Babel-en-cliente) eliminaría el mayor costo restante de TTI. NO se hizo porque rompe el patrón "sin build" y es decisión del usuario. El cambio de este sprint ya da la mayor parte del beneficio sin bundler.
+- **Resultados de QA:** app arranca sin crash en localhost (screenshot, dev React + fresh). Backend intacto (168/2). En producción cargaría React min + assets cacheables.
+- **Riesgos / deuda aceptada:** requests redundantes del resultado de FairValue (~6 llamadas: analysis+explain+narrative+poi+comparables+simulate) — optimización diferida (requiere refactor del flujo, bajo riesgo actual). Bundler esbuild = gate abierto.
+- **Estado:** CERRADO ✅ (con gate de bundler pendiente de decisión)
