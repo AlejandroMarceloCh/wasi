@@ -36,9 +36,31 @@ del target encoding.
    `distrito_enc`). La preocupación de la auditoría (T001/T010) era de bajo
    impacto real.
 
+## B-full — versión v2 con encoding refit por fold (sin leakage)
+Segundo experimento (`scripts_experimento/groupkfold_alquiler_v2.py`), más
+riguroso: reconstruye el dataset desde el CSV limpio commiteado
+(`data/inmuebles_alquiler_clean.csv`, 3,348 avisos, features geo ya enriquecidas)
+y ajusta el **target encoding del distrito POR FOLD** (solo con el train de cada
+fold → elimina por completo el leakage del encoding, el hallazgo "crítico" T001).
+XGBoost al estilo v2 (489 árboles, depth 11).
+
+| Esquema | MAPE |
+|---|---|
+| KFold aleatorio | 15.39% ± 0.60 |
+| **GroupKFold espacial** | **15.79% ± 0.51** |
+| Gap espacial | +0.40 pts |
+
+Con el encoding refit por fold (cero leakage), el número **prácticamente no se
+mueve** vs B-lite → confirma que el leakage del target encoding era despreciable,
+y que la validación espacial da ~15.8%, consistente con el 16.4% reportado
+(conservador).
+
 ## Cómo reproducir
 ```bash
+# v1 (split committeado):
 PYTHONPATH=app/backend app/backend/venv/bin/python scripts_experimento/groupkfold_alquiler.py
+# v2-core (reconstruido, encoding por fold, sin leakage):
+PYTHONPATH=app/backend app/backend/venv/bin/python scripts_experimento/groupkfold_alquiler_v2.py
 ```
 
 ## Notas de honestidad

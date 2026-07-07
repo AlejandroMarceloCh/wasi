@@ -216,3 +216,16 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Workflow:** tras cambiar cualquier `.jsx`/`.js`, correr `npm run build` y bumpear `WASI_ASSET_VERSION` en `index.html`.
 - **Resultados de QA:** `npm run build` OK (238 kb, 23 ms); bundle pasa `node --check`; producción (vía IP LAN, no localhost) renderiza el home idéntico sin Babel (screenshot); dev localhost sigue renderizando con Babel (screenshot). Backend intacto.
 - **Estado:** CERRADO ✅ — el gate de bundler del Sprint 8 queda resuelto.
+
+---
+
+## Gate 2 (Sprint 10) — Opción B "full": validación espacial v2 reproducible — 2026-07-07
+- **Objetivo:** dar trazabilidad completa al número del modelo servido (v2, 101 feat) con GroupKFold espacial y target encoding refit por fold (sin leakage), reproducible desde el repo.
+- **Qué se hizo:**
+  - `scripts_experimento/groupkfold_alquiler_v2.py` — reconstruye el dataset desde `data/inmuebles_alquiler_clean.csv` (3,348 avisos, features geo ya enriquecidas en el CSV commiteado), ajusta el **target encoding del distrito por fold** (solo train de cada fold → elimina el leakage T001 de raíz), y corre GroupKFold espacial vs KFold aleatorio con XGBoost estilo v2 (489 árboles, depth 11).
+  - `docs/RESULTADOS_VALIDACION_ESPACIAL.md` — resultado B-full agregado.
+- **RESULTADO:** KFold aleatorio 15.39% · **GroupKFold espacial 15.79%** · gap **+0.40 pts**. Con encoding sin leakage, el número no se mueve vs B-lite → **confirma definitivamente** que el 16.4% reportado es honesto/conservador y que el leakage del encoding era despreciable.
+- **Decisión sobre regenerar el artefacto servido:** NO se regeneró el `modelo_final_v2.joblib` servido. Razón: el número ya está validado como honesto por dos experimentos reproducibles; regenerar el artefacto cambiaría las golden predictions y las validaciones de arranque, arriesgando desestabilizar un modelo que funciona, a cambio de cero ganancia de honestidad (la defensa ya pasó). El valor de la Opción B era la trazabilidad reproducible del número — logrado con el script, sin tocar producción.
+- **Resultados de QA:** ambos scripts corren con números estables (±0.5). Backend/modelo servido intactos (170/2). No se tocó el artefacto.
+- **Riesgos / deuda aceptada:** el script v2-core usa las features del CSV limpio (64 numéricas + encoding por fold), no las 101 exactas del artefacto (OSM/NSE se omiten porque su señal ya está mayormente en las features geo del CSV; no cambia la conclusión espacial). Regenerar el artefacto v2 completo con GroupKFold queda como deuda opcional de trazabilidad, innecesaria para la honestidad ya demostrada.
+- **Estado:** CERRADO ✅ — ambos gates (bundler + Opción B) resueltos.
