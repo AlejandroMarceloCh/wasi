@@ -1,11 +1,11 @@
 
 
 window.WASI_STATS = {
-  ALQ_MAPE: '16.4',          
-  ALQ_MAPE_RANDOM: '15.7',   
-  ALQ_AVISOS: '3,348',       
-  DISTRITOS: '40',           
-  VARIABLES: '101',          
-  VENTA_MAPE: '15.8',        
-  VENTA_AVISOS: '6,271',     
+  ALQ_MAPE: '16.4',          // MAPE alquiler (ver Sprint 10: esquema de validación)
+  ALQ_MAPE_RANDOM: '15.7',   // MAPE con split aleatorio
+  ALQ_AVISOS: '3,348',       // avisos del set de entrenamiento (no del catálogo live)
+  DISTRITOS: '29',           // distritos con cobertura de zona (coincide con el mapa del home)
+  VARIABLES: '101',          // features del modelo v2
+  VENTA_MAPE: '15.8',        // MAPE venta (GroupKFold espacial)
+  VENTA_AVISOS: '6,271',     // avisos de entrenamiento venta
 };

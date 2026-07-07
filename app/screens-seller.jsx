@@ -473,6 +473,7 @@ const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpi
         <div style={{maxWidth:320, margin:'0 auto'}}>
           <ListingCard listing={{
             id: 0,
+            operacion,
             price_usd: priceNum || parseFloat(f.price_usd) || 0,
             image_url: f.image_url.trim() || null,
             address: f.address.trim() || 'Dirección del inmueble',

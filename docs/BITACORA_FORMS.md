@@ -123,3 +123,20 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** pytest **168 passed / 2 skipped** (166 + 2 nuevos). Verificado en vivo (:8001, WASI_RATELIMIT=1): catálogo devuelve contact_name/phone/email = None; 35 predicts seguidos → 30×200 luego 429 (límite 30/min correcto). Pendiente: pase Sonnet de regresión (consolidado al final de la ronda de sprints).
 - **Riesgos / deuda aceptada:** T022 (enumeración de emails en registro) mitigado solo parcialmente con rate-limit 10/min; el fix real requiere verificación de email (email transaccional, deferido). JWT sin refresh/revocación queda como deuda de infra.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 7 — Credibilidad de UX — 2026-07-07
+- **Sprint Goal:** que nada en la UI mienta ni confunda — mocks etiquetados, unidad de precio correcta por operación, números del hero consistentes con lo visible, mapa estable al paginar.
+- **Hallazgos cerrados:** T091, T081 (/mes vs total), T072 (mock histograma), T095 (distritos), T074/T098 (mapa fitBounds). T077 verificado como falso positivo.
+- **Qué se cambió:**
+  - `components.jsx` — `ListingCard` muestra la unidad de precio según `operacion` (venta → "total", alquiler → "/mes"); antes venta se veía como "/mes".
+  - `screens-seller.jsx` — la vista previa de publicación pasa `operacion` a la card.
+  - `screens-home.jsx` — el histograma del hero pasó de titularse "Distribución real" a "Ejemplo ilustrativo" + disclaimer ("Analiza tu inmueble para ver datos reales"); era una gaussiana sintética presentada como dato real.
+  - `screens-listings.jsx` — el mapa de Explorar solo re-encuadra (`fitBounds`) cuando cambia el filtro/operación (`fitKey`), NO al paginar; antes saltaba de zona en cada página y el usuario creía ver los 3,396 avisos en el mapa.
+  - `stats.js` — `DISTRITOS` 40 → 29 (coincide con el mapa "¿En qué distritos conviene alquilar?" del home); comentarios que aclaran que `ALQ_AVISOS` es el set de entrenamiento, no el catálogo live.
+- **Decisiones técnicas:** `ALQ_AVISOS 3,348` se mantiene (es honesto: es el set de entrenamiento, etiquetado "avisos analizados"; el catálogo live es otro concepto). El `MAPE 16.4` NO se tocó aquí — su esquema de validación es el gate del Sprint 10.
+- **Verificación de falso positivo (T077):** el efecto de explain/narrative en `FairValueResult` YA tiene guard (`cancel` flag + `curId.current === reqId`), y `narrativeMode` es constante derivada, no estado. No hay race; no se cambió nada.
+- **Resultados de QA:** sintaxis JSX + JS validada (components, home, listings, seller, stats → OK). Backend intacto (pytest 168/2). Pendiente: pase Sonnet de regresión consolidado.
+- **Riesgos / deuda aceptada:** el conteo "real" de distritos cubiertos es ambiguo en la data (mapa 29, catálogo 39); se alineó al mapa visible del home. La cobertura real se revisa en el trabajo de datos del Sprint 10. El "+28% sobreprecio detectado" del hero sigue siendo claim de marketing (bajo riesgo, no medido).
+- **Estado:** CERRADO ✅

@@ -132,6 +132,7 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
   const z = listing.zone;
   const open = () => onOpen && onOpen(listing.id);
   const price = Math.round(listing.price_usd).toLocaleString('en-US');
+  const priceUnit = listing.operacion === 'venta' ? ' total' : ' /mes';
   const specs = listing.es_estudio ? 'Estudio' : `${listing.dormitorios} dorm`;
   const imgSrc = safeImageUrl(listing.image_url)
     || (listing.id != null ? apartmentPhoto(listing.id) : null);
@@ -167,7 +168,7 @@ const ListingCard = ({ listing, onOpen, isFav, onToggleFav }) => {
       </div>
       <div className="lcz-body">
         <div className="lcz-price numeric">
-          ${price}<span className="lcz-per"> /mes</span>
+          ${price}<span className="lcz-per">{priceUnit}</span>
         </div>
         <div className="lcz-addr">{listing.address}</div>
         <div className="lcz-dist small muted">{listing.district}</div>

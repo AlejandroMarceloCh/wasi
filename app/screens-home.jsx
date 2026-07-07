@@ -570,10 +570,13 @@ const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
 
         <div className="histogram-card">
           <div key={'hh-head-' + heroIdx} className="head">
-            Distribución real · {current.dist} · {current.area} m²
+            Ejemplo ilustrativo · {current.dist} · {current.area} m²
           </div>
           <div key={'hh-' + heroIdx} className="histogram-anim">
             <HomeHistogram fair={current.fair} anuncio={current.anuncio}/>
+          </div>
+          <div className="tiny muted" style={{marginTop:6, textAlign:'center'}}>
+            Demostración del veredicto. Analiza tu inmueble para ver datos reales.
           </div>
         </div>
       </div>

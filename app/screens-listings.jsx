@@ -109,8 +109,9 @@ const priceIcon = (listing, active) => {
   });
 };
 
-const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
+const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav, fitKey }) => {
   const elRef = useR(null), mapRef = useR(null), layerRef = useR(null), markersRef = useR({});
+  const lastFitKey = useR(null);
   const [active, setActive] = useS(null);
   
   const [bounds, setBounds] = useS(null);
@@ -189,11 +190,17 @@ const ListingsSplitMap = ({ listings, onOpen, favIds, onToggleFav }) => {
       ms.push(m);
       pts.push([l.lat, l.lng]);
     }
-    if (layerRef.current.addLayers) layerRef.current.addLayers(ms);  
+    if (layerRef.current.addLayers) layerRef.current.addLayers(ms);
     else ms.forEach(m => layerRef.current.addLayer(m));
-    if (pts.length) mapRef.current.fitBounds(pts, { padding: [40, 40], maxZoom: 14 });
-    else setBounds(mapRef.current.getBounds());
-  }, [listings]);
+    // Solo re-encuadrar cuando cambia el filtro (fitKey), NO al paginar: antes
+    // el mapa saltaba de zona en cada página y el usuario creía ver todo.
+    if (pts.length && fitKey !== lastFitKey.current) {
+      mapRef.current.fitBounds(pts, { padding: [40, 40], maxZoom: 14 });
+      lastFitKey.current = fitKey;
+    } else if (!pts.length) {
+      setBounds(mapRef.current.getBounds());
+    }
+  }, [listings, fitKey]);
 
   
   const setPinActive = (id, on) => {
@@ -673,7 +680,8 @@ const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
         </Card>
       ) : (
         <ListingsSplitMap listings={data || []} onOpen={onOpenListing}
-          favIds={favIds} onToggleFav={onToggleFav}/>
+          favIds={favIds} onToggleFav={onToggleFav}
+          fitKey={`${operacion}|${filters.district}|${filters.min_price}|${filters.max_price}|${filters.min_area}|${filters.max_area}|${filters.dormitorios}|${sort}`}/>
       )}
 
       {total > PAGE_SIZE && (
