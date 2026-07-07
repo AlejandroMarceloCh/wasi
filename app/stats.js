@@ -1,8 +1,9 @@
 
 
 window.WASI_STATS = {
-  ALQ_MAPE: '16.4',          // MAPE alquiler (ver Sprint 10: esquema de validación)
-  ALQ_MAPE_RANDOM: '15.7',   // MAPE con split aleatorio
+  ALQ_MAPE: '16.4',          // MAPE alquiler reportado (conservador). Validación espacial
+                             // reproducible ~15.7% → docs/RESULTADOS_VALIDACION_ESPACIAL.md
+  ALQ_MAPE_RANDOM: '15.7',   // MAPE con split aleatorio (~gap espacial de solo +0.5 pts)
   ALQ_AVISOS: '3,348',       // avisos del set de entrenamiento (no del catálogo live)
   DISTRITOS: '29',           // distritos con cobertura de zona (coincide con el mapa del home)
   VARIABLES: '101',          // features del modelo v2

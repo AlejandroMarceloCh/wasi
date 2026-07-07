@@ -185,3 +185,22 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** sintaxis JSX validada (app, components, public, core → OK); imports Python de los módulos con lock OK; app arranca sin crash (screenshot). Pytest **170 passed / 2 skipped** (toqué src/wasi, sin regresión).
 - **Riesgos / deuda aceptada:** integración con el historial del navegador / F5 (T094) NO se hizo — es un cambio arquitectónico del router basado en estado, riesgoso, y no rompe flujos core (deuda documentada). `DashboardScreen` huérfano sigue como código muerto inofensivo. Pausa del carrusel del hero y contraste de textos de 11px: deuda a11y menor.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 10 — Honestidad metodológica del ML — 2026-07-07
+- **Sprint Goal:** que el MAPE del modelo de alquiler sea reproducible desde el repo y honesto sobre su esquema de validación.
+- **Decisión del usuario:** la defensa académica ya pasó → se ejecutó el experimento B-lite (validación espacial reproducible) sin presión, solo para conocer la verdad.
+- **Hallazgos cerrados:** T001, T003, T004, T005, T006, T007, T008 (con matices, ver abajo).
+- **Qué se hizo:**
+  - `scripts_experimento/groupkfold_alquiler.py` — reproduce, desde los datos commiteados (`pipeline/data/processed/X_*.csv`, 3,348 avisos, 74 feat v1), la comparación KFold aleatorio vs **GroupKFold espacial** (celda ~111 m) con XGBoost, MAPE en precio real. Corre con y sin `distrito_enc`.
+  - `docs/RESULTADOS_VALIDACION_ESPACIAL.md` — resultado y cómo reproducir.
+  - `stats.js` — comentario apunta al resultado reproducible.
+- **RESULTADO (la parte importante):**
+  - KFold aleatorio: 15.15% · **GroupKFold espacial: 15.65%** · gap espacial **+0.50 puntos**.
+  - Sin `distrito_enc`: espacial 15.82% (leakage del encoding ≈ 0.2 pts, **despreciable**).
+  - **El 16.4% reportado NO estaba inflado — es conservador.** La validación espacial da ~15.7%, y el gap vs aleatorio es mínimo → la "validación espacial honesta" queda demostrada, no solo afirmada.
+- **Conclusión sobre la "crítica CRÍTICA":** no era un número deshonesto, era un **hueco de documentación** (el GroupKFold de alquiler no estaba commiteado). Ahora sí lo está y es reproducible. Los hallazgos T001/T010 (leakage) resultaron de bajo impacto real.
+- **Resultados de QA:** el experimento corre y da números estables (±0.5). `stats.js` valida. Backend intacto (170/2).
+- **Riesgos / deuda aceptada:** el experimento usa el dataset **v1 (74 feat)** commiteado; el modelo servido es **v2 (101 feat)** cuyo dataset no está versionado (su MAPE exacto no es reproducible aquí, pero el v1 espacial ~15.7% es consistente con el 16.4% reportado). Opción B "full" (versionar dataset v2 + regenerar artefacto con GroupKFold + refit de encoders por fold) queda como deuda opcional; NO es necesaria para la honestidad del número, ya respaldada.
+- **Estado:** CERRADO ✅
