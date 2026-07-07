@@ -107,3 +107,19 @@ basura (S1), editar/pausar (S1+S2), navegación móvil (S5), errores `[object Ob
 (S0). Backend: 166 tests verdes (+9). Pendiente por decisión del usuario: build de
 producción (romper el setup sin-bundler) y Postgres en Render. Deuda menor documentada
 por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
+
+---
+
+## Sprint 6 — Seguridad y abuso — 2026-07-07
+- **Sprint Goal:** cerrar los vectores de abuso y privacidad reales; ningún endpoint crítico sin rate-limit y ninguna PII sensible expuesta en el catálogo público.
+- **Hallazgos cerrados:** T040 (rate-limits), T026 (PII contact_name), T036 (JWT algo), T022 (parcial).
+- **Qué se cambió:**
+  - `routers/fairvalue.py` — rate-limit en los 4 endpoints ML: predict 30/min, predict-venta 30/min, simulate 60/min, counterfactual 60/min (inferencia XGBoost cara → evita DoS por inferencias ilimitadas).
+  - `routers/listings.py` — rate-limit en create_listing (20/min) y create_lead (15/min, evita spam de consultas a propietarios); `_to_out` ahora oculta `contact_name` en el catálogo público (solo el dueño lo ve, igual que teléfono/correo).
+  - `schemas.py` — `ListingOut.contact_name` → Optional (para poder ocultarlo a terceros).
+  - `database.py` — validator de arranque para `jwt_algo` (whitelist HS256/384/512; bloquea 'none' y algoritmos mal configurados).
+  - `tests/test_listings.py` — +2 tests: contact_name oculto en catálogo, visible para el dueño.
+- **Decisiones técnicas:** el frontend NO muestra `contact_name` en catálogo/detalle (solo lo usa el vendedor al publicar), así que ocultarlo no rompe UX. El JWT ya usaba lista blanca en `decode` (`algorithms=[jwt_algo]`); el validator agrega defensa en profundidad al arranque.
+- **Resultados de QA:** pytest **168 passed / 2 skipped** (166 + 2 nuevos). Verificado en vivo (:8001, WASI_RATELIMIT=1): catálogo devuelve contact_name/phone/email = None; 35 predicts seguidos → 30×200 luego 429 (límite 30/min correcto). Pendiente: pase Sonnet de regresión (consolidado al final de la ronda de sprints).
+- **Riesgos / deuda aceptada:** T022 (enumeración de emails en registro) mitigado solo parcialmente con rate-limit 10/min; el fix real requiere verificación de email (email transaccional, deferido). JWT sin refresh/revocación queda como deuda de infra.
+- **Estado:** CERRADO ✅

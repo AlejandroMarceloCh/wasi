@@ -3,11 +3,12 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from ratelimit import limiter
 from wasi.models.comparables_service import get_comparables_service
 from database import get_db
 from wasi.features.geo_index import OutOfBoundsError, in_bbox
@@ -83,7 +84,9 @@ def _analysis_to_out(a: Analysis) -> PredictOut:
     )
 
 @router.post("/fairvalue/predict", response_model=PredictOut)
+@limiter.limit("30/minute")
 def predict(
+    request: Request,
     payload: PredictIn,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
@@ -144,7 +147,9 @@ def predict(
     return out
 
 @router.post("/fairvalue/simulate", response_model=SimulateOut)
+@limiter.limit("60/minute")
 def simulate(
+    request: Request,
     payload: PredictIn,
     current: User = Depends(get_current_user),
 ):
@@ -167,7 +172,9 @@ def simulate(
     )
 
 @router.post("/fairvalue/predict-venta", response_model=PredictVentaOut)
+@limiter.limit("30/minute")
 def predict_venta(
+    request: Request,
     payload: PredictVentaIn,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -214,7 +221,9 @@ def predict_venta(
     )
 
 @router.post("/fairvalue/counterfactual", response_model=CounterfactualOut)
+@limiter.limit("60/minute")
 def counterfactual(
+    request: Request,
     payload: CounterfactualIn,
     current: User = Depends(get_current_user),
 ):

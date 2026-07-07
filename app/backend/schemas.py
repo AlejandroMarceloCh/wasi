@@ -443,7 +443,7 @@ class ListingOut(BaseModel):
     description: str
     image_url: Optional[str] = None
     amenities: List[str] = Field(default_factory=list)
-    contact_name: str
+    contact_name: Optional[str] = None
 
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None

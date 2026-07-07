@@ -32,8 +32,17 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError(
                 "JWT_SECRET debe tener al menos 32 caracteres. "
-                "Generá uno con: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+                "Genera uno con: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
             )
+        return v
+
+    @field_validator("jwt_algo")
+    @classmethod
+    def _jwt_algo_permitido(cls, v: str) -> str:
+        """Solo algoritmos HMAC simétricos. Evita 'none' (tokens sin firma) o
+        un algoritmo asimétrico mal configurado que rompería la verificación."""
+        if v not in {"HS256", "HS384", "HS512"}:
+            raise ValueError("JWT_ALGO debe ser HS256, HS384 o HS512.")
         return v
 
     model_config = SettingsConfigDict(

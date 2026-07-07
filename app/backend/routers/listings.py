@@ -3,13 +3,14 @@ import unicodedata
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from ratelimit import limiter
 from wasi.features.geo_index import OutOfBoundsError, geo_lookup
 from wasi.models.ml import ZONE_BAND_PCT, predict_fair_value
 from wasi.models.venta_service import venta_service
@@ -153,8 +154,9 @@ def _same_district(a: str, b: str) -> bool:
 
 def _to_out(l: Listing, include_contact: bool = False) -> ListingOut:
     """Serializa un Listing. include_contact=True solo para el dueño (mis
-    propiedades / al crear): expone teléfono y correo. En el catálogo público
-    van en None — el comprador contacta vía formulario de lead, no recibe la PII."""
+    propiedades / al crear): expone nombre, teléfono y correo de contacto. En el
+    catálogo público van en None — el comprador contacta vía formulario de lead,
+    no recibe la PII del propietario (nombre incluido)."""
     return ListingOut(
         id=l.id, operacion=getattr(l, "operacion", "alquiler") or "alquiler",
         district=l.district, address=l.address, lat=l.lat, lng=l.lng,
@@ -163,7 +165,7 @@ def _to_out(l: Listing, include_contact: bool = False) -> ListingOut:
         es_estudio=l.es_estudio, price_usd=l.price_usd, fair_value_ref=l.fair_value_ref,
         description=l.description, image_url=l.image_url,
         amenities=[c for c in (l.amenities or "").split(",") if c],
-        contact_name=l.contact_name,
+        contact_name=l.contact_name if include_contact else None,
         contact_phone=l.contact_phone if include_contact else None,
         contact_email=l.contact_email if include_contact else None,
         status=l.status,
@@ -277,7 +279,9 @@ def my_listings(db: Session = Depends(get_db), current: User = Depends(get_curre
     return [_to_out(l, include_contact=True) for l in rows]
 
 @router.post("/listings", response_model=ListingOut, status_code=201)
+@limiter.limit("20/minute")
 def create_listing(
+    request: Request,
     payload: ListingIn,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
@@ -363,7 +367,8 @@ def delete_listing(listing_id: int, db: Session = Depends(get_db),
     return None
 
 @router.post("/listings/{listing_id}/leads", response_model=LeadOut, status_code=201)
-def create_lead(listing_id: int, payload: LeadIn,
+@limiter.limit("15/minute")
+def create_lead(request: Request, listing_id: int, payload: LeadIn,
                 db: Session = Depends(get_db), current: User = Depends(get_current_user)):
     """Inquilino contacta al propietario. Materializa la Capa 2 (leads)."""
     l = db.get(Listing, listing_id)

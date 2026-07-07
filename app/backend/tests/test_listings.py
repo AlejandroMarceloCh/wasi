@@ -366,3 +366,24 @@ def test_inbox_leads_agregado(client, auth_headers):
     body = r.json()
     assert len(body) >= 1
     assert body[0]["listing_address"] and body[0]["listing_id"] == lid
+
+
+# ── Sprint 6: PII de contacto oculta en catálogo ──────────────────────────
+
+def test_contact_name_oculto_en_catalogo(client, auth_headers):
+    h = _seller_headers(client)
+    client.post("/api/listings", headers=h, json=_listing(address="Av. PII 1"))
+    # catálogo público (inquilino): sin nombre/telefono/correo del dueño
+    r = client.get("/api/listings", headers=auth_headers)
+    assert r.status_code == 200
+    for item in r.json():
+        assert item["contact_name"] is None
+        assert item["contact_phone"] is None
+        assert item["contact_email"] is None
+
+def test_contact_name_visible_para_dueno(client):
+    h = _seller_headers(client)
+    client.post("/api/listings", headers=h, json=_listing(address="Av. PII 2"))
+    r = client.get("/api/listings/mine", headers=h)
+    assert r.status_code == 200
+    assert any(x["contact_name"] for x in r.json())
