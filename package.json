@@ -1,0 +1,12 @@
+{
+  "name": "wasi-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build de producción del frontend de Wasi (esbuild).",
+  "scripts": {
+    "build": "node scripts/build_frontend.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

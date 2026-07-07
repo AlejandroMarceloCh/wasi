@@ -62,7 +62,19 @@
     });
   })();
 </script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>
+  /* Babel standalone SOLO en desarrollo (localhost): transpila los .jsx en el
+     navegador. En producción se usa el bundle pre-transpilado (app/dist), así
+     que no hace falta cargar Babel (~3 MB) ni transpilar en cliente. */
+  (function () {
+    var dev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (dev) {
+      document.write('<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" ' +
+        'integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" ' +
+        'crossorigin="anonymous"><\/script>');
+    }
+  })();
+</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script src="https://unpkg.com/d3@7/dist/d3.min.js" crossorigin=""></script>
@@ -76,6 +88,13 @@
   (function () {
     var dev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     var v = dev ? Date.now() : WASI_ASSET_VERSION;
+    if (!dev) {
+      /* Producción: un solo bundle pre-transpilado y minificado (app/dist).
+         Regenerar con `npm run build` tras cambiar cualquier .jsx/.js. */
+      document.write('<script src="dist/bundle.min.js?v=' + v + '"><\/script>');
+      return;
+    }
+    /* Desarrollo (localhost): carga por archivo con Babel, fresco en cada visita. */
     document.write('<script src="api.js?v=' + v + '"><\/script>');
     document.write('<script src="aliases_lima.js?v=' + v + '"><\/script>');
     document.write('<script src="stats.js?v=' + v + '"><\/script>');

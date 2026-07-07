@@ -204,3 +204,15 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** el experimento corre y da números estables (±0.5). `stats.js` valida. Backend intacto (170/2).
 - **Riesgos / deuda aceptada:** el experimento usa el dataset **v1 (74 feat)** commiteado; el modelo servido es **v2 (101 feat)** cuyo dataset no está versionado (su MAPE exacto no es reproducible aquí, pero el v1 espacial ~15.7% es consistente con el 16.4% reportado). Opción B "full" (versionar dataset v2 + regenerar artefacto con GroupKFold + refit de encoders por fold) queda como deuda opcional; NO es necesaria para la honestidad del número, ya respaldada.
 - **Estado:** CERRADO ✅
+
+---
+
+## Gate 1 (Sprint 8) — Bundler esbuild — 2026-07-07
+- **Objetivo:** eliminar el mayor costo de arranque restante (Babel transpilando ~6,000 líneas en el navegador) con un build real, SIN romper el loop de desarrollo local.
+- **Qué se hizo:**
+  - `package.json` + `scripts/build_frontend.mjs` — build con **esbuild**: concatena los 12 archivos de `app/` en el orden exacto de carga (comparten globals por scope de script, no usan imports), transforma el JSX con React clásico (React global) y minifica → un único `app/dist/bundle.min.js` (238 kb).
+  - `app/index.html` — en **producción** carga React min + `dist/bundle.min.js` (sin Babel, sin transpilar en cliente); en **localhost** mantiene Babel + carga por archivo (fresco para desarrollar). Babel (~3 MB) ya no se descarga en producción.
+  - `.gitignore` — `node_modules/` ignorado; el bundle SÍ se commitea para que el deploy estático (Render) no necesite build step.
+- **Workflow:** tras cambiar cualquier `.jsx`/`.js`, correr `npm run build` y bumpear `WASI_ASSET_VERSION` en `index.html`.
+- **Resultados de QA:** `npm run build` OK (238 kb, 23 ms); bundle pasa `node --check`; producción (vía IP LAN, no localhost) renderiza el home idéntico sin Babel (screenshot); dev localhost sigue renderizando con Babel (screenshot). Backend intacto.
+- **Estado:** CERRADO ✅ — el gate de bundler del Sprint 8 queda resuelto.
