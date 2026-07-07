@@ -169,3 +169,19 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** pytest **170 passed / 2 skipped** (168 + 2). Verificado en vivo: health → `venta_model_loaded: true`; reabrir análisis → 5 counterfactuals + intervalo presentes.
 - **Riesgos / deuda aceptada:** MOVIDO al Sprint 10 (toca pipeline de datos): recuperar los 415 avisos de Babilonia (`clean_ventas.py` los descarta por `cocheras`/`banos` NaN) y alinear scripts de auditoría/calibración a v2 (apuntan a v1). `sort=ganga`/`zone` sigue cargando el catálogo en memoria (deriva la zona en Python); optimización con precompute diferida.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 11 — Accesibilidad y pulido — 2026-07-07
+- **Sprint Goal:** cerrar la deuda de a11y y las puntas de robustez que quedaron; la app navegable por teclado y sin races de red al desmontar.
+- **Hallazgos cerrados:** T092/T034 (aria-live), T085 (focus-trap modal), T088 (anchors sin href), T089 (AbortController), T049/T052 (thread-safety).
+- **Qué se cambió:**
+  - `app.jsx` — `ErrorBanner` con `role="alert"` + `aria-live="assertive"` + focusable y cerrable por teclado (Enter/Espacio); los lectores de pantalla ahora anuncian los errores.
+  - `components.jsx` — `Modal` con **focus-trap** (Tab/Shift+Tab circulan dentro), **foco inicial** al primer control, **restauración del foco** al elemento previo al cerrar, y `aria-label` desde el título. Logo del TopNav ahora focusable por teclado (`role=button`, `tabIndex`, onKeyDown).
+  - `screens-public.jsx` — el link "Regístrate/Inicia sesión" pasó de `<a>` (no focusable) a `<button>` con estilo de enlace.
+  - `screens-core.jsx` — `AddressSearch` cancela el fetch en vuelo con `AbortController` al re-teclear o desmontar (evita que una respuesta vieja pise las sugerencias nuevas).
+  - `src/wasi/features/osm_lookup.py` y `display_pois.py` — singletons lazy con **doble chequeo + lock** (`threading.Lock`); bajo carga concurrente ya no se construye el índice dos veces.
+- **Decisiones técnicas:** el focus-trap es propio (sin dependencia nueva). Los locks usan double-checked locking para no pagar el lock en el camino caliente (índice ya construido).
+- **Resultados de QA:** sintaxis JSX validada (app, components, public, core → OK); imports Python de los módulos con lock OK; app arranca sin crash (screenshot). Pytest **170 passed / 2 skipped** (toqué src/wasi, sin regresión).
+- **Riesgos / deuda aceptada:** integración con el historial del navegador / F5 (T094) NO se hizo — es un cambio arquitectónico del router basado en estado, riesgoso, y no rompe flujos core (deuda documentada). `DashboardScreen` huérfano sigue como código muerto inofensivo. Pausa del carrusel del hero y contraste de textos de 11px: deuda a11y menor.
+- **Estado:** CERRADO ✅

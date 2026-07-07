@@ -160,9 +160,11 @@ const AuthScreen = ({ onAuth, initialMode = 'login', onError }) => {
             </Btn>
             <div style={{textAlign:'center', fontSize: 13, color:'var(--ink-3)', padding:'4px'}}>
               {mode==='login' ? '¿Nuevo en Wasi? ' : '¿Ya tienes cuenta? '}
-              <a style={{color:'var(--primary)', fontWeight:600, cursor:'pointer'}} onClick={()=>setMode(mode==='login' ? 'register' : 'login')}>
+              <button type="button" className="linklike"
+                style={{color:'var(--primary)', fontWeight:600, cursor:'pointer', background:'none', border:'none', padding:0, font:'inherit'}}
+                onClick={()=>setMode(mode==='login' ? 'register' : 'login')}>
                 {mode==='login' ? 'Regístrate' : 'Inicia sesión'}
-              </a>
+              </button>
             </div>
           </div>
         </form>

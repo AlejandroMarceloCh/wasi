@@ -122,13 +122,16 @@ const AddressSearch = ({ onPick, placeholder }) => {
   useE(() => {
     const query = q.trim();
     if (query.length < 3) { setSug([]); setOpen(false); return; }
+    const ctrl = new AbortController();
     const tid = setTimeout(() => {
-      fetch(PHOTON(resolveAlias(query), 5))
+      fetch(PHOTON(resolveAlias(query), 5), { signal: ctrl.signal })
         .then(r => r.json())
         .then(data => { const s = parse(data); setSug(s); setOpen(s.length > 0); })
         .catch(() => {});
     }, 400);
-    return () => clearTimeout(tid);
+    // Cancela el request en vuelo al re-teclear o desmontar (evita que una
+    // respuesta vieja pise las sugerencias nuevas).
+    return () => { clearTimeout(tid); ctrl.abort(); };
   }, [q]);
 
   return (

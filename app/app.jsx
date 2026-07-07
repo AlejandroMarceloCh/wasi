@@ -30,6 +30,10 @@ const ErrorBanner = ({ msg, onClose }) => {
   return (
     <div
       onClick={onClose}
+      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onClose && onClose(); } }}
+      role="alert"
+      aria-live="assertive"
+      tabIndex={0}
       className="banner danger"
       style={{
         position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',

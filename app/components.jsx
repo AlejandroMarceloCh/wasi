@@ -442,7 +442,9 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
     <>
       <nav className={`topnav ${isPublic ? 'public' : ''}`}>
         <div className="container">
-          <a className="logo" onClick={onLogo} style={{cursor:'pointer'}}>
+          <a className="logo" onClick={onLogo} style={{cursor:'pointer'}}
+            role="button" tabIndex={0} aria-label="Ir al inicio"
+            onKeyDown={onKeyActivate(onLogo)}>
             <div className="logo-mark">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 20V10l8-6 8 6v10"/>
@@ -533,14 +535,39 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
 };
 
 const Modal = ({ open, onClose, hero, accent, icon, iconVariant, title, subtitle, tag, children, footer, maxWidth }) => {
+  const modalRef = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape' && onClose) onClose(); };
+    const prevFocus = document.activeElement;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && onClose) { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      // Focus-trap: mantener el foco dentro del modal.
+      const box = modalRef.current;
+      if (!box) return;
+      const foc = box.querySelectorAll(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!foc.length) return;
+      const first = foc[0], last = foc[foc.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+    // Foco inicial dentro del modal.
+    const t = setTimeout(() => {
+      const box = modalRef.current;
+      if (box) {
+        const f = box.querySelector(
+          'input, select, textarea, button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+        if (f) f.focus();
+      }
+    }, 0);
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      clearTimeout(t);
+      if (prevFocus && prevFocus.focus) prevFocus.focus();  // restaurar foco al cerrar
     };
   }, [open]);
 
@@ -561,11 +588,13 @@ const Modal = ({ open, onClose, hero, accent, icon, iconVariant, title, subtitle
   return ReactDOM.createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
+        ref={modalRef}
         className="modal"
         style={maxWidth ? { maxWidth } : undefined}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-label={typeof title === 'string' ? title : 'Ventana'}
       >
         {hero ? (
           <div className={`modal-hero ${accent ? 'accent' : ''}`}>

@@ -142,10 +142,16 @@ class DisplayPOIIndex:
             out.append({"kind": cat, "label": label, "points": pts})
         return out
 
+import threading
+
 _INDEX: DisplayPOIIndex | None = None
+_INDEX_LOCK = threading.Lock()
 
 def get_display_pois() -> DisplayPOIIndex:
     global _INDEX
     if _INDEX is None:
-        _INDEX = DisplayPOIIndex()
+        # Doble chequeo con lock: evita construir el indice dos veces bajo carga concurrente.
+        with _INDEX_LOCK:
+            if _INDEX is None:
+                _INDEX = DisplayPOIIndex()
     return _INDEX
