@@ -1,0 +1,9 @@
+export const WASI_STATS = {
+  ALQ_MAPE: '16.4',
+  ALQ_MAPE_RANDOM: '15.7',
+  ALQ_AVISOS: '3,348',
+  DISTRITOS: '29',
+  VARIABLES: '101',
+  VENTA_MAPE: '15.8',
+  VENTA_AVISOS: '6,271',
+};

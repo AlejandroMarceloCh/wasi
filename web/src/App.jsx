@@ -1,46 +1,88 @@
-import { resolveApiBase } from './shared/api/base.js';
+import { useEffect, useState } from 'react';
+import { Api } from './shared/api/client.js';
+import { Btn, Card, Icon, Modal, Tag } from './shared/ui/components.jsx';
 
 function App() {
-  const apiBase = resolveApiBase();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [apiState, setApiState] = useState({ status: 'loading', count: 0, message: 'Consultando distritos...' });
+
+  useEffect(() => {
+    let alive = true;
+    Api.distritosZona()
+      .then((rows) => {
+        if (!alive) return;
+        setApiState({
+          status: 'ok',
+          count: Array.isArray(rows) ? rows.length : 0,
+          message: 'API conectada',
+        });
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setApiState({
+          status: 'error',
+          count: 0,
+          message: err?.message || 'No se pudo conectar al backend',
+        });
+      });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div className="app-shell" data-screen-label="Wasi · Vite">
       <main>
         <section className="container" style={{ paddingTop: 48, paddingBottom: 48 }}>
-          <div className="stack-16" style={{ maxWidth: 760 }}>
+          <div className="stack-16" style={{ maxWidth: 820 }}>
             <div className="logo">
               <div className="logo-mark lg">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 20V10l8-6 8 6v10" />
-                  <circle cx="15" cy="14" r="2.2" fill="currentColor" />
-                  <path d="M15 16.2v2.8" stroke="white" strokeWidth="1.4" />
-                </svg>
+                <Icon name="home" size={24} stroke="#fff" />
               </div>
               <span style={{ fontSize: 30, color: 'var(--ink)' }}>Wasi</span>
             </div>
 
-            <div className="card" style={{ padding: 24 }}>
-              <div className="tag tag-primary" style={{ marginBottom: 16 }}>
-                Sprint V0
-              </div>
-              <h1 style={{ marginTop: 0 }}>Frontend Vite en construcción</h1>
+            <Card style={{ padding: 24 }}>
+              <Tag variant="primary" style={{ marginBottom: 16 }}>Sprint V1</Tag>
+              <h1 style={{ marginTop: 0 }}>Capa shared migrada</h1>
               <p className="lede">
-                Este nuevo frontend vive en <code>web/</code>. La app anterior en <code>app/</code> sigue intacta hasta el cutover.
+                Vite ya renderiza primitivas compartidas y usa el cliente API modular contra el backend real.
               </p>
               <div className="grid-2" style={{ marginTop: 20 }}>
-                <div className="card compact" style={{ padding: 16 }}>
-                  <div className="tiny muted">API local configurada</div>
-                  <div className="numeric" style={{ fontWeight: 700 }}>{apiBase}</div>
-                </div>
-                <div className="card compact" style={{ padding: 16 }}>
-                  <div className="tiny muted">Estado</div>
-                  <div style={{ fontWeight: 700 }}>Vite renderizando</div>
-                </div>
+                <Card className="compact" style={{ padding: 16 }}>
+                  <div className="tiny muted">API base</div>
+                  <div className="numeric" style={{ fontWeight: 700 }}>{Api.BASE}</div>
+                </Card>
+                <Card className="compact" style={{ padding: 16 }}>
+                  <div className="tiny muted">Distritos zona</div>
+                  <div style={{ fontWeight: 700 }}>
+                    {apiState.status === 'ok' ? `${apiState.count} cargados` : apiState.message}
+                  </div>
+                </Card>
               </div>
-            </div>
+              <div className="row" style={{ marginTop: 20 }}>
+                <Btn variant="primary" onClick={() => setModalOpen(true)}>
+                  Probar modal <Icon name="arrow" size={16} />
+                </Btn>
+                <Btn variant="outline" onClick={() => Api.clearSession()}>
+                  Probar botón
+                </Btn>
+              </div>
+            </Card>
           </div>
         </section>
       </main>
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        icon={<Icon name="check" size={20} />}
+        title="Modal compartido"
+        subtitle="Renderizado desde shared/ui/components.jsx"
+        footer={<Btn variant="primary" onClick={() => setModalOpen(false)}>Cerrar</Btn>}
+      >
+        <p className="small muted" style={{ margin: 0 }}>
+          Este modal valida portal, foco, botones e iconos dentro de Vite.
+        </p>
+      </Modal>
     </div>
   );
 }

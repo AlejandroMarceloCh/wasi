@@ -18,3 +18,39 @@
   - En Sprint V1, `resolveApiBase()` debe integrarse con `shared/api/client.js` para exportar `Api` completo.
   - `web/.env` queda local para desarrollo; no debe contener secretos.
 - Estado: CERRADO ✅
+
+## Sprint V1 — Capa shared — 2026-07-08
+- Sprint Goal: migrar la capa compartida a modulos ES en `web/src/shared/`, con cliente API real, helpers/lib, primitivas UI, mapa Leaflet crudo y `ListingCard`, dejando la app Vite renderizando.
+- Que se migro:
+  - `app/api.js` → `web/src/shared/api/client.js` + `web/src/shared/api/base.js`.
+  - `app/stats.js` → `web/src/shared/lib/stats.js`.
+  - `app/aliases_lima.js` → `web/src/shared/lib/aliases_lima.js`.
+  - Helpers (`enLima`, `handleApiErr`, `onKeyActivate`, `safeImageUrl`, `apartmentPhoto`, `ZONE_VARIANT`) → `web/src/shared/lib/helpers.js`.
+  - Primitivas de `app/components.jsx` → `web/src/shared/ui/components.jsx`.
+  - `MapPicker`, `AddressSearch` → `web/src/shared/map/map-components.jsx` usando `import L from 'leaflet'`.
+  - `ListingCard` → `web/src/shared/listings/ListingCard.jsx`.
+  - `AMENIDADES` → `web/src/shared/lib/amenities.js`.
+- Decisiones:
+  - Se mantuvo JavaScript/JSX y Leaflet crudo.
+  - `resolveApiBase()` preserva prioridad de override manual: `#api8001/#api8000`, `window.WASI_API_BASE`, `localStorage['wasi.apibase']`, `VITE_API_BASE`, fallback local/prod.
+  - `Loading` y `Stepper` quedaron en `shared/ui`; `ListingCard` quedo con implementacion real en `shared/listings`.
+  - Para QA de API real se uso Vite en `http://localhost:5500/`, que coincide con el CORS actual del backend sin tocar backend.
+- QA:
+  - Arranque OK: `npm run dev -- --host localhost --port 5500 --strictPort`.
+  - Render OK: Playwright cargo `http://localhost:5500/` y capturo `/tmp/wasi-v1-final.png`.
+  - API real OK: `Api.distritosZona()` mostro `29 cargados`.
+  - Build OK: `npm run build` paso con `42 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - `git diff --check -- web`: OK.
+  - Protocolo Anticagadas: agente Codex de revision con prompt equivalente al de Sonnet.
+  - Hallazgos iniciales QA y resolucion:
+    - Alta: faltaba `Loading` en `shared/ui`; se migro y exporto.
+    - Media: `Stepper` estaba en `shared/map`; se movio a `shared/ui`.
+    - Media: faltaban helpers en `shared/lib`; se movieron `safeImageUrl`, `apartmentPhoto`, `ZONE_VARIANT`.
+    - Media: `VITE_API_BASE` tenia prioridad sobre hash/localStorage; se corrigio la prioridad para preservar la app vieja.
+    - Baja: `ListingCard` solo reexportaba desde UI; ahora tiene implementacion real en `shared/listings`.
+  - QA final: agente aprobo V1 y confirmo que `npm run build` pasa.
+- Deuda:
+  - En V2, reemplazar el placeholder por router parcial y migrar auth usando estos imports.
+  - Vite debe seguir arrancando en `localhost:5500` mientras backend CORS no incluya otros puertos de dev.
+- Estado: CERRADO ✅
