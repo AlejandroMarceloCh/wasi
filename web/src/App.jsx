@@ -1,88 +1,107 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Api } from './shared/api/client.js';
-import { Btn, Card, Icon, Modal, Tag } from './shared/ui/components.jsx';
+import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
+import { AuthScreen } from './features/auth/AuthScreen.jsx';
+import { SplashScreen } from './features/auth/SplashScreen.jsx';
+
+const TAB_TO_SCREEN = {
+  inicio: 'home',
+  explorar: 'listings',
+  guardados: 'saved',
+  'mis-propiedades': 'mis-publicaciones',
+  leads: 'leads',
+  fairvalue: 'fairvalue-form',
+  profile: 'profile',
+};
+
+const SCREEN_TO_TAB = (s) => {
+  if (s === 'home') return 'inicio';
+  if (s.startsWith('fairvalue')) return 'fairvalue';
+  if (s.startsWith('listing')) return 'explorar';
+  if (s === 'saved') return 'guardados';
+  if (s === 'mis-publicaciones') return 'mis-propiedades';
+  if (s === 'leads') return 'leads';
+  if (s === 'profile') return 'profile';
+  return null;
+};
+
+const PUBLIC_SCREENS = new Set(['splash', 'auth-login', 'auth-register']);
+
+const computeRoleHome = (isNew) => {
+  if (!isNew) return 'home';
+  const u = Api.getUser() || {};
+  const seller = u.role === 'Propietario' || u.role === 'Agente inmobiliario';
+  return seller ? 'mis-publicaciones' : 'listings';
+};
+
+const PlaceholderScreen = ({ screen, userRole, onLogout }) => (
+  <div className="container fade-in" style={{ paddingTop: 32 }}>
+    <PageHeader
+      title="Pantalla pendiente de migración"
+      subtitle={`Sprint V2 mantiene auth funcional. Siguiente pantalla: ${screen}.`}
+      tag={<span className="tag tag-outline">{userRole}</span>}
+      actions={<Btn variant="outline" onClick={onLogout}><Icon name="logout" size={15}/> Cerrar sesión</Btn>}
+    />
+    <Card style={{ padding: 20 }}>
+      <p className="small muted" style={{ margin: 0 }}>
+        Esta ruta queda como placeholder hasta su sprint correspondiente. La app vieja en <code>app/</code> sigue siendo el fallback funcional.
+      </p>
+    </Card>
+  </div>
+);
 
 function App() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [apiState, setApiState] = useState({ status: 'loading', count: 0, message: 'Consultando distritos...' });
+  const [screen, setScreen] = useState(Api.isAuthed() ? computeRoleHome() : 'splash');
+  const [userVersion, setUserVersion] = useState(0);
 
-  useEffect(() => {
-    let alive = true;
-    Api.distritosZona()
-      .then((rows) => {
-        if (!alive) return;
-        setApiState({
-          status: 'ok',
-          count: Array.isArray(rows) ? rows.length : 0,
-          message: 'API conectada',
-        });
-      })
-      .catch((err) => {
-        if (!alive) return;
-        setApiState({
-          status: 'error',
-          count: 0,
-          message: err?.message || 'No se pudo conectar al backend',
-        });
-      });
-    return () => { alive = false; };
-  }, []);
+  const onAuth = (isNew) => {
+    setUserVersion((v) => v + 1);
+    setScreen(computeRoleHome(isNew));
+  };
+
+  const onLogout = () => {
+    Api.logout();
+    setUserVersion((v) => v + 1);
+    setScreen('splash');
+  };
+
+  const onTopNavNav = (key) => {
+    if (key === 'login') return setScreen('auth-login');
+    if (key === 'signup') return setScreen('auth-register');
+    const target = TAB_TO_SCREEN[key];
+    if (target) setScreen(target);
+  };
+
+  void userVersion;
+  const isPublic = PUBLIC_SCREENS.has(screen);
+  const currentUser = Api.getUser() || { name: 'Ana' };
+  const userRole = currentUser.role || 'Inquilino';
+  const isSeller = userRole === 'Propietario' || userRole === 'Agente inmobiliario';
+  const roleHome = isSeller ? 'mis-publicaciones' : 'listings';
 
   return (
-    <div className="app-shell" data-screen-label="Wasi · Vite">
-      <main>
-        <section className="container" style={{ paddingTop: 48, paddingBottom: 48 }}>
-          <div className="stack-16" style={{ maxWidth: 820 }}>
-            <div className="logo">
-              <div className="logo-mark lg">
-                <Icon name="home" size={24} stroke="#fff" />
-              </div>
-              <span style={{ fontSize: 30, color: 'var(--ink)' }}>Wasi</span>
-            </div>
-
-            <Card style={{ padding: 24 }}>
-              <Tag variant="primary" style={{ marginBottom: 16 }}>Sprint V1</Tag>
-              <h1 style={{ marginTop: 0 }}>Capa shared migrada</h1>
-              <p className="lede">
-                Vite ya renderiza primitivas compartidas y usa el cliente API modular contra el backend real.
-              </p>
-              <div className="grid-2" style={{ marginTop: 20 }}>
-                <Card className="compact" style={{ padding: 16 }}>
-                  <div className="tiny muted">API base</div>
-                  <div className="numeric" style={{ fontWeight: 700 }}>{Api.BASE}</div>
-                </Card>
-                <Card className="compact" style={{ padding: 16 }}>
-                  <div className="tiny muted">Distritos zona</div>
-                  <div style={{ fontWeight: 700 }}>
-                    {apiState.status === 'ok' ? `${apiState.count} cargados` : apiState.message}
-                  </div>
-                </Card>
-              </div>
-              <div className="row" style={{ marginTop: 20 }}>
-                <Btn variant="primary" onClick={() => setModalOpen(true)}>
-                  Probar modal <Icon name="arrow" size={16} />
-                </Btn>
-                <Btn variant="outline" onClick={() => Api.clearSession()}>
-                  Probar botón
-                </Btn>
-              </div>
-            </Card>
-          </div>
-        </section>
+    <div className="app-shell" data-screen-label={`Wasi · ${screen}`}>
+      <TopNav
+        active={SCREEN_TO_TAB(screen)}
+        onNavigate={onTopNavNav}
+        onLogo={() => setScreen(isPublic ? 'splash' : roleHome)}
+        user={currentUser}
+        isPublic={isPublic}
+      />
+      <main className={(screen === 'splash' || screen.startsWith('auth')) ? 'no-pad' : ''}>
+        {screen === 'splash' && (
+          <SplashScreen onStart={() => setScreen('auth-register')} onLogin={() => setScreen('auth-login')}/>
+        )}
+        {(screen === 'auth-login' || screen === 'auth-register') && (
+          <AuthScreen
+            initialMode={screen === 'auth-login' ? 'login' : 'register'}
+            onAuth={onAuth}
+          />
+        )}
+        {!isPublic && (
+          <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
+        )}
       </main>
-
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        icon={<Icon name="check" size={20} />}
-        title="Modal compartido"
-        subtitle="Renderizado desde shared/ui/components.jsx"
-        footer={<Btn variant="primary" onClick={() => setModalOpen(false)}>Cerrar</Btn>}
-      >
-        <p className="small muted" style={{ margin: 0 }}>
-          Este modal valida portal, foco, botones e iconos dentro de Vite.
-        </p>
-      </Modal>
     </div>
   );
 }

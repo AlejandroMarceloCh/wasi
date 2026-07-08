@@ -54,3 +54,32 @@
   - En V2, reemplazar el placeholder por router parcial y migrar auth usando estos imports.
   - Vite debe seguir arrancando en `localhost:5500` mientras backend CORS no incluya otros puertos de dev.
 - Estado: CERRADO ✅
+
+## Sprint V2 — Auth y router parcial — 2026-07-08
+- Sprint Goal: migrar login/registro a Vite con sesion persistida, logout funcional y router parcial con placeholders para pantallas aun no migradas.
+- Que se migro:
+  - `app/screens-public.jsx` → `web/src/features/auth/SplashScreen.jsx`.
+  - `app/screens-public.jsx` → `web/src/features/auth/AuthScreen.jsx`.
+  - Partes de `app/app.jsx` → `web/src/App.jsx`: estado de pantalla, pantallas publicas, `TopNav`, sesion inicial, `computeRoleHome`, logout y placeholders.
+- Decisiones:
+  - Se mantuvo el copy y estructura visual de `screens-public.jsx`.
+  - Las pantallas no migradas renderizan un placeholder explicito, manteniendo la navegacion y evitando rutas rotas durante la migracion.
+  - El flujo usa `Api.login`, `Api.register`, `Api.logout`, `Api.getUser` y `localStorage` del cliente migrado en V1.
+- QA:
+  - Arranque OK: Vite activo en `http://localhost:5500/`.
+  - Render OK: Playwright capturo `/tmp/wasi-v2-final.png` con la pantalla publica migrada.
+  - E2E auth real OK contra backend vivo:
+    - Registro con password corto muestra error.
+    - Registro con usuario nuevo crea sesion y navega a placeholder autenticado.
+    - Logout vuelve al splash.
+    - Login con el usuario creado restaura sesion y navega a placeholder autenticado.
+    - Comando temporal: `npx playwright test wasi-v2-auth.spec.cjs --browser=chromium --reporter=list` → `1 passed`.
+  - Build OK: `npm run build` paso con `44 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - `git diff --check -- web`: OK.
+  - Protocolo Anticagadas: agente Codex de revision con prompt equivalente al de Sonnet.
+  - Hallazgo QA bajo: el banner de error no tenia `role="alert"`/`aria-live`; corregido en `AuthScreen.jsx`.
+- Deuda:
+  - Los placeholders autenticados se reemplazan en V3+ segun cada feature.
+  - Seguir usando `localhost:5500` para QA mientras el backend CORS no permita puertos Vite adicionales.
+- Estado: CERRADO ✅
