@@ -112,3 +112,37 @@
   - Reemplazar placeholders de FairValue/Entorno en V4.
   - En V4 revisar bundle size: D3/Leaflet ya entran al bundle de listings.
 - Estado: CERRADO ✅
+
+## Sprint V4 — FairValue y entorno — 2026-07-09
+- Sprint Goal: migrar el estimador FairValue completo a Vite, incluyendo wizard, resultado, SHAP, simulador what-if, comparables y mapa de entorno, dejando el flujo `wizard → resultado → entorno` operativo contra el backend real.
+- Que se migro:
+  - `app/screens-fairvalue.jsx` → `web/src/features/fairvalue/FairValueScreens.jsx`.
+  - `web/src/App.jsx`: estado de analisis (`currentAnalysisId`, `ventaResult`, `geoCtx`, `fvPrefill`, `fvLive`, `fvForm`), rutas `fairvalue-form`, `fairvalue-result`, `entorno-map` y error banner global.
+  - `web/src/features/listings/ListingsScreen.jsx`: reemplazo de placeholders V3 por `WhatIfSimulator` y `EntornoMapScreen` reales.
+  - `MarketRangeD3` se promovio a `web/src/shared/ui/components.jsx` para evitar dependencia cruzada entre features.
+- Decisiones:
+  - Se mantuvo la logica de `screens-fairvalue.jsx` sin reescritura de producto; los cambios fueron imports/exports y conexion de router.
+  - `window.d3` se reemplazo por `import * as d3 from 'd3'`.
+  - `window.LIMA_ALIASES` se reemplazo por `import { LIMA_ALIASES }`.
+  - `PoiInsightCard` quedo local al feature FairValue porque lo usa el resultado y dependia de globals implicitos del bundle viejo.
+  - `MarketRangeD3` paso a `shared/ui` porque tambien es un grafico reutilizable entre resultado y detalle.
+- QA:
+  - Arranque OK: Vite activo en `http://localhost:5500/`.
+  - Build OK: `npm run build` paso con `620 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - E2E FairValue real OK contra backend vivo:
+    - Login con `ana@wasi.pe`.
+    - Navegacion a `Analizar precio`.
+    - Wizard de alquiler con datos default y precio `900`.
+    - Resultado con veredicto, rango, SHAP, simulador y comparables.
+    - Apertura de `Contexto del barrio` con `.entorno-fullmap` renderizado.
+    - Script temporal directo con Playwright/Chromium reporto `{ "ok": true, "errors": [] }`.
+  - Hallazgos QA y resolucion:
+    - Alta: faltaba importar `onKeyActivate`; el paso de caracteristicas crasheaba. Se importo desde `shared/lib/helpers.js`.
+    - Alta: faltaba `MarketRangeD3`; el resultado crasheaba tras responder `/fairvalue/predict`. Se promovio a `shared/ui` y se importo en FairValue.
+    - Alta: faltaba `PoiInsightCard`; el resultado crasheaba durante el render de insights. Se incorporo al feature FairValue con `PoiImportanceD3` y `WASI_STATS`.
+  - Protocolo Anticagadas: revision local equivalente al agente Sonnet/Codex porque el limite de agentes ya se habia alcanzado; se revisaron imports explicitos, globals removidos, build, audit y flujo E2E.
+- Deuda:
+  - El bundle supera 500 kB por D3/Leaflet; diferir code-splitting hasta que todas las features esten migradas o antes del cutover si se vuelve bloqueante.
+  - En V5/V6 revisar si `MarketRangeD3` local de listings se reemplaza por el export compartido para eliminar duplicacion residual.
+- Estado: CERRADO ✅

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import * as d3 from 'd3';
 import { WASI_STATS } from '../lib/stats.js';
 import { onKeyActivate } from '../lib/helpers.js';
 
@@ -341,6 +342,69 @@ const AnimBar = ({ label, value, max = 100, positive = true, delay = 0, suffix =
   );
 };
 
+const MarketRangeD3 = ({ p25, p50, p75, fair, announced, zone }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const draw = () => {
+      d3.select(el).selectAll('*').remove();
+      const vals = [p25, p50, p75, fair, announced].filter(v => typeof v === 'number' && isFinite(v));
+      if (vals.length < 3) return;
+      const W = el.clientWidth || 460, H = 104, m = { l: 14, r: 14 };
+      const innerW = W - m.l - m.r;
+      const center = typeof fair === 'number' ? fair : p50;
+      const lo = Math.min(p25 * 0.85, (typeof center === 'number' ? center : p25) * 0.95);
+      const hi = Math.max(p75 * 1.15, (typeof center === 'number' ? center : p75) * 1.05);
+      const x = d3.scaleLinear().domain([lo, hi]).range([m.l, m.l + innerW]);
+      const yMid = 52;
+      const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
+
+      svg.append('line').attr('x1', m.l).attr('x2', m.l + innerW).attr('y1', yMid).attr('y2', yMid)
+        .attr('stroke', 'var(--line)').attr('stroke-width', 2).attr('stroke-linecap', 'round');
+
+      if (typeof p25 === 'number' && typeof p75 === 'number') {
+        svg.append('rect').attr('x', x(p25)).attr('y', yMid - 7).attr('height', 14).attr('rx', 7)
+          .attr('fill', 'rgba(37,99,235,.16)').attr('stroke', 'rgba(37,99,235,.45)')
+          .attr('width', 0).transition().duration(600).attr('width', Math.max(2, x(p75) - x(p25)));
+      }
+
+      if (typeof center === 'number') {
+        svg.append('line').attr('x1', x(center)).attr('x2', x(center)).attr('y1', yMid - 13).attr('y2', yMid + 13)
+          .attr('stroke', 'var(--primary)').attr('stroke-width', 2.5);
+        svg.append('text').attr('x', x(center)).attr('y', yMid - 20).attr('text-anchor', 'middle')
+          .attr('class', 'd3-lbl').attr('fill', 'var(--primary)').text('Justo $' + Math.round(center).toLocaleString('en-US'));
+      }
+
+      if (typeof announced === 'number') {
+        const col = zone === 'Ganga' ? '#15803d' : zone === 'Inflado' ? '#b91c1c' : '#b45309';
+        const out = announced < lo ? 'left' : announced > hi ? 'right' : null;
+        const ax = out === 'left' ? m.l + 10 : out === 'right' ? m.l + innerW - 10 : x(announced);
+        svg.append('circle').attr('cx', ax).attr('cy', yMid).attr('r', 7.5)
+          .attr('fill', col).attr('stroke', '#fff').attr('stroke-width', 2.5);
+        if (out) {
+          const dir = out === 'right' ? 1 : -1;
+          svg.append('path')
+            .attr('d', `M ${ax + dir * 12},${yMid - 5} L ${ax + dir * 12},${yMid + 5} L ${ax + dir * 19},${yMid} Z`)
+            .attr('fill', col);
+        }
+        const pctOut = (typeof center === 'number' && center > 0)
+          ? Math.round((announced - center) / center * 100) : null;
+        const label = 'Tu precio $' + Math.round(announced).toLocaleString('en-US')
+          + (out && pctOut !== null ? ` · fuera de rango (${pctOut > 0 ? '+' : ''}${pctOut}%)` : '');
+        svg.append('text').attr('x', ax).attr('y', yMid + 28)
+          .attr('text-anchor', out === 'right' ? 'end' : out === 'left' ? 'start' : 'middle')
+          .attr('class', 'd3-lbl').attr('fill', col).text(label);
+      }
+    };
+    draw();
+    let ro;
+    if (window.ResizeObserver) { ro = new ResizeObserver(draw); ro.observe(el); }
+    return () => { if (ro) ro.disconnect(); };
+  }, [p25, p50, p75, fair, announced, zone]);
+  return <div ref={ref} className="d3-marketrange" style={{ width: '100%' }}/>;
+};
+
 const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
 
 
@@ -611,6 +675,7 @@ export {
   Input,
   Loading,
   Logo,
+  MarketRangeD3,
   Modal,
   PageHeader,
   ScoreCircle,

@@ -3,6 +3,7 @@ import { Api } from './shared/api/client.js';
 import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
 import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
+import { EntornoMapScreen, FairValueForm, FairValueResult } from './features/fairvalue/FairValueScreens.jsx';
 import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
 
 const TAB_TO_SCREEN = {
@@ -27,6 +28,33 @@ const SCREEN_TO_TAB = (s) => {
 };
 
 const PUBLIC_SCREENS = new Set(['splash', 'auth-login', 'auth-register']);
+
+const ErrorBanner = ({ msg, onClose }) => {
+  if (!msg) return null;
+  return (
+    <div
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose && onClose(); } }}
+      role="alert"
+      aria-live="assertive"
+      tabIndex={0}
+      className="banner danger"
+      style={{
+        position: 'fixed',
+        top: 70,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        cursor: 'pointer',
+        maxWidth: 560,
+        boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+      }}
+      title="Click para cerrar"
+    >
+      <span>⚠ {msg}</span>
+    </div>
+  );
+};
 
 const computeRoleHome = (isNew) => {
   if (!isNew) return 'home';
@@ -56,6 +84,14 @@ function App() {
   const [userVersion, setUserVersion] = useState(0);
   const [currentListingId, setCurrentListingId] = useState(null);
   const [detailReturn, setDetailReturn] = useState(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState(null);
+  const [ventaResult, setVentaResult] = useState(null);
+  const [geoCtx, setGeoCtx] = useState({ lat: null, lng: null });
+  const [entornoReturn, setEntornoReturn] = useState(null);
+  const [fvPrefill, setFvPrefill] = useState(null);
+  const [fvLive, setFvLive] = useState(null);
+  const [fvForm, setFvForm] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const onAuth = (isNew) => {
     setUserVersion((v) => v + 1);
@@ -66,6 +102,13 @@ function App() {
     Api.logout();
     setCurrentListingId(null);
     setDetailReturn(null);
+    setCurrentAnalysisId(null);
+    setVentaResult(null);
+    setGeoCtx({ lat: null, lng: null });
+    setEntornoReturn(null);
+    setFvPrefill(null);
+    setFvLive(null);
+    setFvForm(null);
     setUserVersion((v) => v + 1);
     setScreen('splash');
   };
@@ -76,9 +119,26 @@ function App() {
     setScreen('listing-detail');
   };
 
+  const onSubmitForm = (analysisId, ctx, extra) => {
+    if (extra && extra.operacion === 'venta') {
+      setVentaResult(extra.ventaData || null);
+      setCurrentAnalysisId(null);
+      setFvLive(null);
+      setFvForm(null);
+    } else {
+      setVentaResult(null);
+      setFvLive((extra && extra.predictData) || null);
+      setFvForm((extra && extra.form) || null);
+      if (analysisId) setCurrentAnalysisId(analysisId);
+    }
+    if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
+    setScreen('fairvalue-result');
+  };
+
   const onTopNavNav = (key) => {
     if (key === 'login') return setScreen('auth-login');
     if (key === 'signup') return setScreen('auth-register');
+    if (key === 'fairvalue') setFvPrefill(null);
     const target = TAB_TO_SCREEN[key];
     if (target) setScreen(target);
   };
@@ -92,6 +152,7 @@ function App() {
 
   return (
     <div className="app-shell" data-screen-label={`Wasi · ${screen}`}>
+      <ErrorBanner msg={errorMsg} onClose={() => setErrorMsg('')}/>
       <TopNav
         active={SCREEN_TO_TAB(screen)}
         onNavigate={onTopNavNav}
@@ -112,6 +173,7 @@ function App() {
         {screen === 'listings' && (
           <ListingsScreen
             onOpenListing={onOpenListing}
+            onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
         )}
@@ -120,11 +182,48 @@ function App() {
             listingId={currentListingId}
             role={userRole}
             onBack={() => setScreen(detailReturn || roleHome)}
-            onAnalyze={() => setScreen('fairvalue-form')}
+            onAnalyze={(ctx) => {
+              if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
+              setFvPrefill(ctx || null);
+              setScreen('fairvalue-form');
+            }}
+            onError={setErrorMsg}
             onAuthExpired={onLogout}
           />
         )}
-        {!isPublic && screen !== 'listings' && screen !== 'listing-detail' && (
+        {screen === 'fairvalue-form' && (
+          <FairValueForm
+            role={userRole}
+            prefill={fvPrefill}
+            onBack={() => setScreen(roleHome)}
+            onSubmit={onSubmitForm}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'fairvalue-result' && (
+          <FairValueResult
+            analysisId={currentAnalysisId}
+            ventaData={ventaResult}
+            liveData={fvLive}
+            simForm={fvForm}
+            role={userRole}
+            onBack={() => setScreen('fairvalue-form')}
+            onContext={() => { setEntornoReturn('fairvalue-result'); setScreen('entorno-map'); }}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'entorno-map' && (
+          <EntornoMapScreen
+            lat={geoCtx.lat != null ? geoCtx.lat : -12.09}
+            lng={geoCtx.lng != null ? geoCtx.lng : -77.03}
+            onBack={() => setScreen(entornoReturn || roleHome)}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {!isPublic && !['listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map'].includes(screen) && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
       </main>

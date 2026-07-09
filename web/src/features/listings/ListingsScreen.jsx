@@ -7,6 +7,7 @@ import { AMENIDADES } from '../../shared/lib/amenities.js';
 import { ZONE_VARIANT, apartmentPhoto, handleApiErr, safeImageUrl } from '../../shared/lib/helpers.js';
 import { MapPicker } from '../../shared/map/map-components.jsx';
 import { ListingCard } from '../../shared/listings/ListingCard.jsx';
+import { EntornoMapScreen, WhatIfSimulator } from '../fairvalue/FairValueScreens.jsx';
 import {
   Btn,
   Card,
@@ -527,24 +528,6 @@ const CounterfactualPanel = ({ cf, loading, error, isSeller }) => {
     </Card>
   );
 };
-
-const WhatIfSimulator = () => (
-  <Card>
-    <div className="section-h">Simulador</div>
-    <p className="small muted" style={{lineHeight:1.6, margin:0}}>
-      Esta seccion se migra en Sprint V4 junto con FairValue.
-    </p>
-  </Card>
-);
-
-const EntornoMapScreen = () => (
-  <Card style={{textAlign:'center', padding:'40px 24px'}}>
-    <div className="section-h">Entorno</div>
-    <p className="small muted" style={{lineHeight:1.6, margin:'6px 0 0'}}>
-      Esta seccion se migra en Sprint V4 junto con el mapa de entorno.
-    </p>
-  </Card>
-);
 
 export const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   const [data, setData] = useS(null);
