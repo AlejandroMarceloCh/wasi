@@ -210,3 +210,22 @@
   - Bundle queda en ~658 kB minificado por D3/Leaflet y todas las features juntas; V7 debe decidir si hace code-splitting antes de produccion.
   - La contencion de `_leaflet_pos` debe revisarse si se actualiza Leaflet o se reemplazan mapas decorativos del home.
 - Estado: CERRADO ✅
+
+## Sprint V7 — Cutover de deploy Vite — 2026-07-09
+- Sprint Goal: dejar Vite como frontend configurado para deploy, con build de produccion verificado, sin borrar el `app/` viejo hasta recibir confirmacion explicita.
+- Que se migro/configuro:
+  - `vercel.json`: `rootDirectory` cambio de `app` a `web`, con `buildCommand: npm run build` y `outputDirectory: dist`.
+- Decisiones:
+  - No se borro `app/`, `app/*.jsx`, `app/index.html`, `scripts/build_frontend.mjs` ni `app/dist/` porque la regla dura del plan exige confirmacion del usuario antes de eliminar el setup viejo.
+  - Se mantiene el fallback viejo disponible hasta que el usuario confirme estabilidad/cutover completo.
+- QA:
+  - Build OK: `npm run build` en `web/` paso con `623 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - `git diff --check -- vercel.json docs/BITACORA_MIGRACION_VITE.md web`: OK.
+  - QA funcional acumulado V2-V6 cubrio auth, listings, FairValue/entorno, publish/leads/guardados, home/profile contra backend vivo.
+  - Protocolo Anticagadas: revision local equivalente al agente Sonnet/Codex por limite de agentes; se reviso configuracion de deploy, build y estado de working tree.
+- Deuda:
+  - Confirmar con el usuario antes de borrar `app/` viejo y `scripts/build_frontend.mjs`.
+  - Si se aprueba borrar el setup viejo, ejecutar un commit separado de limpieza.
+  - Evaluar code-splitting post-cutover por bundle `~658 kB` minificado.
+- Estado: CERRADO ✅
