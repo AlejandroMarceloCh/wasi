@@ -146,3 +146,34 @@
   - El bundle supera 500 kB por D3/Leaflet; diferir code-splitting hasta que todas las features esten migradas o antes del cutover si se vuelve bloqueante.
   - En V5/V6 revisar si `MarketRangeD3` local de listings se reemplaza por el export compartido para eliminar duplicacion residual.
 - Estado: CERRADO ✅
+
+## Sprint V5 — Publish, mis propiedades, leads y guardados — 2026-07-09
+- Sprint Goal: migrar el flujo vendedor a Vite, incluyendo publicar inmueble, vista previa, mis propiedades, edicion/pausa/borrado de publicaciones, bandeja de leads y guardados, dejando Vite funcionando contra el backend real.
+- Que se migro:
+  - `app/screens-seller.jsx` → `web/src/features/publish/PublishScreens.jsx`.
+  - `web/src/App.jsx`: rutas `publish`, `mis-publicaciones`, `leads`, `saved`, estado `publishPrefill` y helper `go`.
+- Decisiones:
+  - Se mantuvo JavaScript/JSX y la logica original del formulario.
+  - `CounterfactualPanel` y `CounterfactualTornadoD3` se dejaron locales en `features/publish` para no crear imports cruzados desde `features/listings`; queda deuda de consolidacion posterior.
+  - Se reutilizo `Loading` compartido y se elimino el `Object.assign(window, ...)` del archivo viejo.
+  - `SavedScreen` se migro en V5 porque vive en `screens-seller.jsx`, aunque no sea parte estricta de publish.
+- QA:
+  - Build OK: `npm run build` paso con `621 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - `git diff --check -- web docs/BITACORA_MIGRACION_VITE.md`: OK.
+  - E2E publish real OK contra backend vivo:
+    - Login con `roberto@wasi.pe`.
+    - Navegacion a `Mis propiedades`.
+    - Apertura de `Publicar inmueble`.
+    - Pin en mapa, distrito consistente, datos minimos, vista previa.
+    - Publicacion creada y visible en `Mis propiedades`.
+    - Navegacion a `Leads`.
+    - Login separado con `ana@wasi.pe` y render de `Guardados`.
+    - Script temporal directo con Playwright/Chromium reporto `{ "ok": true, "errors": [] }`.
+  - Hallazgo QA de datos: publicar con pin default y distrito `Miraflores` devolvia 422 porque el backend valida consistencia distrito/lat-lng. Se corrigio el dato de prueba a `San Isidro`; no requirio cambio de codigo.
+  - Protocolo Anticagadas: revision local equivalente al agente Sonnet/Codex por limite de agentes; se revisaron imports explicitos, ausencia de globals de bundle viejo, build, audit y flujo E2E.
+- Deuda:
+  - Consolidar `CounterfactualPanel` entre listings/publish en `shared` si V6/V7 toca esa duplicacion.
+  - El QA creo algunas publicaciones `QA Vite ...` en la BD local de desarrollo; son datos de prueba, no cambios versionados.
+  - Bundle sigue sobre 500 kB por D3/Leaflet; diferir code-splitting hasta cutover o hardening final.
+- Estado: CERRADO ✅

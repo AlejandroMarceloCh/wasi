@@ -5,6 +5,7 @@ import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
 import { EntornoMapScreen, FairValueForm, FairValueResult } from './features/fairvalue/FairValueScreens.jsx';
 import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
+import { LeadsScreen, MyListingsScreen, PublishScreen, SavedScreen } from './features/publish/PublishScreens.jsx';
 
 const TAB_TO_SCREEN = {
   inicio: 'home',
@@ -91,6 +92,7 @@ function App() {
   const [fvPrefill, setFvPrefill] = useState(null);
   const [fvLive, setFvLive] = useState(null);
   const [fvForm, setFvForm] = useState(null);
+  const [publishPrefill, setPublishPrefill] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
   const onAuth = (isNew) => {
@@ -109,6 +111,7 @@ function App() {
     setFvPrefill(null);
     setFvLive(null);
     setFvForm(null);
+    setPublishPrefill(null);
     setUserVersion((v) => v + 1);
     setScreen('splash');
   };
@@ -133,6 +136,16 @@ function App() {
     }
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
     setScreen('fairvalue-result');
+  };
+
+  const onPublish = (prefill) => {
+    setPublishPrefill(prefill || null);
+    setScreen('publish');
+  };
+
+  const go = (target) => {
+    if (target === 'entorno-map') setEntornoReturn(screen);
+    setScreen(target);
   };
 
   const onTopNavNav = (key) => {
@@ -223,7 +236,46 @@ function App() {
             onAuthExpired={onLogout}
           />
         )}
-        {!isPublic && !['listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map'].includes(screen) && (
+        {screen === 'publish' && (
+          <PublishScreen
+            role={userRole}
+            prefill={publishPrefill}
+            onBack={() => setScreen(roleHome)}
+            onPublished={(id) => {
+              setDetailReturn(null);
+              setCurrentListingId(id);
+              setScreen('mis-publicaciones');
+            }}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'mis-publicaciones' && (
+          <MyListingsScreen
+            onBack={() => setScreen(roleHome)}
+            onOpenListing={onOpenListing}
+            onPublish={() => onPublish(null)}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'leads' && (
+          <LeadsScreen
+            onOpenListing={onOpenListing}
+            onGo={go}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'saved' && (
+          <SavedScreen
+            onOpenListing={onOpenListing}
+            onGo={go}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {!isPublic && !['listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved'].includes(screen) && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
       </main>
