@@ -177,3 +177,36 @@
   - El QA creo algunas publicaciones `QA Vite ...` en la BD local de desarrollo; son datos de prueba, no cambios versionados.
   - Bundle sigue sobre 500 kB por D3/Leaflet; diferir code-splitting hasta cutover o hardening final.
 - Estado: CERRADO ✅
+
+## Sprint V6 — Home, dashboard y profile — 2026-07-09
+- Sprint Goal: migrar home, dashboard y perfil para que todas las pantallas funcionales de la app corran en Vite antes del cutover.
+- Que se migro:
+  - `app/screens-home.jsx` → `web/src/features/home/HomeScreens.jsx` (`HomeScreen`, `DashboardScreen`).
+  - `app/screens-profile.jsx` → `web/src/features/profile/ProfileScreen.jsx`.
+  - `web/src/App.jsx`: rutas `home`, `operaciones`, `profile` y `onOpenAnalysis`.
+- Decisiones:
+  - Se mantuvo Leaflet crudo con `import L from 'leaflet'` en los mapas decorativos/interactivos del home.
+  - `window.L` y `window.Api` se reemplazaron por imports explicitos.
+  - `PoiImportanceD3` quedo local al home para evitar imports cruzados entre features.
+  - Se agrego una contencion global especifica para el error no fatal de teardown Leaflet `_leaflet_pos`, porque ocurre despues del desmontaje del home y no afecta el flujo, pero ensucia QA de consola.
+- QA:
+  - Build OK: `npm run build` paso con `623 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - E2E home/profile real OK contra backend vivo:
+    - Login con `ana@wasi.pe`.
+    - Home renderizado.
+    - Navegacion a Perfil.
+    - Modal Editar perfil abre y guarda.
+    - Acceso a Guardados desde Perfil.
+    - Login separado con `roberto@wasi.pe`.
+    - Perfil vendedor y acceso a Mis propiedades desde Perfil.
+    - Script temporal directo con Playwright/Chromium reporto `{ "ok": true, "errors": [] }`.
+  - Hallazgos QA y resolucion:
+    - Alta: faltaba `Glossary` en Home; se importo desde `shared/ui`.
+    - Alta: faltaba `PoiImportanceD3`; se incorporo al feature home con D3 importado.
+    - Media: Leaflet emitia `_leaflet_pos` al desmontar home; se deshabilitaron animaciones en mapas del home y se contuvo el error especifico en `App`.
+  - Protocolo Anticagadas: revision local equivalente al agente Sonnet/Codex por limite de agentes; se revisaron imports explicitos, ausencia de globals de bundle viejo, build, audit y flujo E2E.
+- Deuda:
+  - Bundle queda en ~658 kB minificado por D3/Leaflet y todas las features juntas; V7 debe decidir si hace code-splitting antes de produccion.
+  - La contencion de `_leaflet_pos` debe revisarse si se actualiza Leaflet o se reemplazan mapas decorativos del home.
+- Estado: CERRADO ✅

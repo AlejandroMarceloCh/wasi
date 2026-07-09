@@ -1,0 +1,1323 @@
+import { useEffect as useE, useRef as useR, useState as useS } from 'react';
+import * as d3 from 'd3';
+import L from 'leaflet';
+import { Api } from '../../shared/api/client.js';
+import { handleApiErr, onKeyActivate } from '../../shared/lib/helpers.js';
+import { WASI_STATS } from '../../shared/lib/stats.js';
+import { ListingCard } from '../../shared/listings/ListingCard.jsx';
+import { Btn, Card, Glossary, Icon, Loading, Modal, PageHeader, Tag } from '../../shared/ui/components.jsx';
+
+const HomeMiniGauge = ({ pct = 0.78 }) => {
+  const CX = 90, CY = 78, R = 60;
+  const polar = (p, r = R) => {
+    const th = Math.PI * (1 - p);
+    return { x: CX + r * Math.cos(th), y: CY - r * Math.sin(th) };
+  };
+  const arc = (p1, p2) => {
+    const a = polar(p1), b = polar(p2);
+    return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${R} ${R} 0 ${(p2-p1)>0.5?1:0} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+  };
+  const p = Math.max(0, Math.min(1, pct));
+  const angle = -90 + 180 * p;
+  return (
+    <svg viewBox="0 0 180 100" style={{ width: '100%', maxWidth: 180, display: 'block' }}>
+      <defs>
+        <linearGradient id="heroGaugeGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stopColor="oklch(0.66 0.18 155)"/>
+          <stop offset="22%"  stopColor="oklch(0.70 0.17 120)"/>
+          <stop offset="50%"  stopColor="oklch(0.74 0.16 70)"/>
+          <stop offset="78%"  stopColor="oklch(0.67 0.20 35)"/>
+          <stop offset="100%" stopColor="oklch(0.61 0.22 25)"/>
+        </linearGradient>
+      </defs>
+      <path d={arc(0, 1)} fill="none" stroke="url(#heroGaugeGrad)"
+            strokeWidth="13" strokeLinecap="round"/>
+      <g style={{
+        transform: `rotate(${angle.toFixed(2)}deg)`,
+        transformOrigin: `${CX}px ${CY}px`,
+        transition: 'transform 1.2s cubic-bezier(.4,.0,.2,1)',
+      }}>
+        <line x1={CX} y1={CY} x2={CX} y2={CY - R} stroke="var(--ink)" strokeWidth="2.5" strokeLinecap="round"/>
+        <circle cx={CX} cy={CY - R} r="5" fill="#fff" stroke="var(--ink)" strokeWidth="2"/>
+      </g>
+      <circle cx={CX} cy={CY} r="7" fill="var(--ink)"/>
+      <circle cx={CX} cy={CY} r="3" fill="#fff"/>
+    </svg>
+  );
+};
+
+const HERO_LISTINGS = [
+  { addr: 'Av. Pardo 245',           dist: 'Miraflores',   area: 60, dorm: 2, piso: 4,  fair: 700,  anuncio: 900  },
+  { addr: 'Calle Berlín 980',        dist: 'Miraflores',   area: 45, dorm: 1, piso: 7,  fair: 650,  anuncio: 560  },
+  { addr: 'Av. Conquistadores 1234', dist: 'San Isidro',   area: 85, dorm: 3, piso: 9,  fair: 1450, anuncio: 1500 },
+  { addr: 'Jr. Las Camelias 320',    dist: 'San Borja',    area: 70, dorm: 2, piso: 5,  fair: 850,  anuncio: 720  },
+  { addr: 'Av. Brasil 2890',         dist: 'Pueblo Libre', area: 55, dorm: 2, piso: 3,  fair: 520,  anuncio: 690  },
+  { addr: 'Calle Schell 410',        dist: 'Miraflores',   area: 38, dorm: 1, piso: 6,  fair: 580,  anuncio: 590  },
+  { addr: 'Av. La Encalada 1700',    dist: 'Surco',        area: 95, dorm: 3, piso: 11, fair: 1250, anuncio: 1180 },
+  { addr: 'Calle Roma 145',          dist: 'Miraflores',   area: 50, dorm: 1, piso: 2,  fair: 720,  anuncio: 950  },
+  { addr: 'Av. Petit Thouars 4520',  dist: 'Lince',        area: 65, dorm: 2, piso: 8,  fair: 600,  anuncio: 540  },
+  { addr: 'Calle Tutumo 220',        dist: 'San Borja',    area: 75, dorm: 2, piso: 4,  fair: 920,  anuncio: 1090 },
+];
+const HERO_ZONE_BAND_PCT  = 8;    
+const HERO_GAUGE_RANGE    = 35;   
+                                  
+                                  
+const heroZoneOf = (diffPct) => {
+  if (Math.abs(diffPct) <= HERO_ZONE_BAND_PCT) return 'justo';
+  return diffPct > 0 ? 'inflado' : 'ganga';
+};
+const HERO_ZONE_LABEL = { ganga: 'Ganga', justo: 'Justo', inflado: 'Inflado' };
+const HERO_ZONE_COPY  = {
+  ganga:   'por debajo del mercado',
+  justo:   'alineado con la zona',
+  inflado: 'sobre el justo',
+};
+
+const HomeHistogram = ({ fair = 700, anuncio = 900 }) => {
+  const PAD_X = 30, BAR_W = 36, GAP = 6;
+  const Y_BASE = 200, Y_MAX = 150;
+  const SVG_W  = 600;
+
+  
+  const xMin = Math.max(50, Math.round((fair * 0.55) / 50) * 50);
+  const xMax = 2 * fair - xMin;
+  const span = xMax - xMin;
+  const priceToBar = (p) => Math.round((p - xMin) / span * 12);
+  const xOfBar = (i) => PAD_X + i * (BAR_W + GAP) + BAR_W / 2;
+  const xOfPrice = (p) => {
+    const t = Math.max(0, Math.min(1, (p - xMin) / span));
+    return PAD_X + BAR_W / 2 + t * 12 * (BAR_W + GAP);
+  };
+
+  const fairBar = priceToBar(fair);                              
+  const annBar  = Math.max(0, Math.min(12, priceToBar(anuncio))); 
+  const diffPct = (anuncio / fair - 1) * 100;
+  const annZone = Math.abs(diffPct) <= HERO_ZONE_BAND_PCT
+    ? 'justo' : (diffPct > 0 ? 'inflado' : 'ganga');
+  const ZONE_FILL = {
+    ganga:   'var(--success)',
+    justo:   'oklch(0.55 0.16 60)',
+    inflado: 'var(--danger)',
+  };
+  const annFill = ZONE_FILL[annZone];
+
+  const bars = Array.from({ length: 13 }, (_, i) => {
+    const h = 100 * Math.exp(-Math.pow((i - 6) / 3.2, 2));
+    let color;
+    if (i <= 3)      color = 'oklch(0.65 0.16 155)';
+    else if (i <= 7) color = 'oklch(0.72 0.14 60)';
+    else             color = 'oklch(0.63 0.20 25)';
+    const opacity = (i === fairBar || i === annBar) ? 1 : 0.55;
+    return { i, h, color, opacity };
+  });
+
+  
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => {
+    const price = Math.round((xMin + t * span) / 50) * 50;
+    return { price, x: xOfPrice(price) };
+  });
+
+  const fmt$ = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
+  const annLabel  = `ANUNCIO · ${fmt$(anuncio)}`;
+  const fairLabel = `FAIR · ${fmt$(fair)}`;
+  
+  const labelW = (s) => Math.max(80, s.length * 7.2 + 18);
+
+  
+  
+  
+  
+  const fairX = xOfPrice(fair);
+  const annX  = xOfPrice(anuncio);
+  const minSep  = (labelW(fairLabel) + labelW(annLabel)) / 2 + 10;
+  const overlap = Math.abs(annX - fairX) < minSep;
+
+  const annBarH = 100 * Math.exp(-Math.pow((annBar - 6) / 3.2, 2)) / 100 * Y_MAX;
+  const annBarTopY = Y_BASE - annBarH;
+  
+  
+  const ANN_Y_NORMAL  = 12;
+  const ANN_Y_STACKED = -34;
+  const gapToBar = annBarTopY - (ANN_Y_NORMAL + 34);
+  const farFromBar = gapToBar > 30;
+  const useLeader = overlap || farFromBar;
+
+  
+  
+  const annY = overlap ? ANN_Y_STACKED : ANN_Y_NORMAL;
+  const leaderY2 = annBarTopY - 4 - annY;   
+
+  const viewBox = overlap ? `0 -40 ${SVG_W} 320` : `0 0 ${SVG_W} 280`;
+
+  return (
+    <svg viewBox={viewBox} style={{ width: '100%', display: 'block' }}>
+      {bars.map(b => {
+        const x = PAD_X + b.i * (BAR_W + GAP);
+        const h = b.h / 100 * Y_MAX;
+        return (
+          <rect key={b.i} x={x} y={Y_BASE - h} width={BAR_W} height={Math.max(h, 3)}
+                rx="3" fill={b.color} opacity={b.opacity}
+                style={{ transition: 'opacity .6s ease, fill .6s ease' }}/>
+        );
+      })}
+      <line x1={PAD_X} y1={Y_BASE + 6} x2={PAD_X + 13 * BAR_W + 12 * GAP}
+            y2={Y_BASE + 6} stroke="var(--line)" strokeWidth="1"/>
+      {ticks.map(t => (
+        <text key={t.price} x={t.x} y={224} textAnchor="middle" fontSize="11"
+              fill="var(--ink-3)" fontFamily="Space Grotesk">{fmt$(t.price)}</text>
+      ))}
+      <g transform="translate(80, 258)">
+        <circle cx="0" cy="0" r="4" fill="var(--success)"/>
+        <text x="9" y="4" fontSize="11" fontWeight="700" fill="var(--success)"
+              fontFamily="Space Grotesk" letterSpacing=".07em">GANGA</text>
+      </g>
+      <g transform="translate(280, 258)">
+        <circle cx="0" cy="0" r="4" fill="var(--warning)"/>
+        <text x="9" y="4" fontSize="11" fontWeight="700" fill="oklch(0.45 0.14 60)"
+              fontFamily="Space Grotesk" letterSpacing=".07em">JUSTO</text>
+      </g>
+      <g transform="translate(490, 258)">
+        <circle cx="0" cy="0" r="4" fill="var(--danger)"/>
+        <text x="9" y="4" fontSize="11" fontWeight="700" fill="var(--danger)"
+              fontFamily="Space Grotesk" letterSpacing=".07em">INFLADO</text>
+      </g>
+      {}
+      <g transform={`translate(${fairX.toFixed(1)}, 12)`}>
+        <rect x={-labelW(fairLabel)/2} y="0" width={labelW(fairLabel)} height="26"
+              rx="13" fill="var(--primary)"/>
+        <text x="0" y="17" textAnchor="middle" fill="#fff" fontSize="12"
+              fontWeight="700" fontFamily="Space Grotesk">{fairLabel}</text>
+        <polygon points="-6,26 6,26 0,34" fill="var(--primary)"/>
+      </g>
+      {}
+      <g transform={`translate(${annX.toFixed(1)}, ${annY})`}>
+        <rect x={-labelW(annLabel)/2} y="0" width={labelW(annLabel)} height="26"
+              rx="13" fill={annFill}/>
+        <text x="0" y="17" textAnchor="middle" fill="#fff" fontSize="12"
+              fontWeight="700" fontFamily="Space Grotesk">{annLabel}</text>
+        {useLeader ? (
+          <line x1="0" y1="26" x2="0" y2={leaderY2}
+                stroke={annFill} strokeWidth="2"
+                strokeDasharray="3 3" strokeLinecap="round" opacity="0.75"/>
+        ) : (
+          <polygon points="-6,26 6,26 0,34" fill={annFill}/>
+        )}
+      </g>
+    </svg>
+  );
+};
+
+const HomeOSMMock = () => {
+  const elRef = useR(null);
+  const mapRef = useR(null);
+  useE(() => {
+    if (!elRef.current || mapRef.current) return;
+    const map = L.map(elRef.current, {
+      dragging: false, touchZoom: false, scrollWheelZoom: false,
+      doubleClickZoom: false, boxZoom: false, keyboard: false,
+      zoomControl: false, attributionControl: false,
+      fadeAnimation: false, zoomAnimation: false, markerZoomAnimation: false,
+    }).setView([-12.1180, -77.0300], 15);
+    
+    
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, subdomains: 'abcd',
+    }).addTo(map);
+    const pinIcon = L.divIcon({
+      className: 'home-osm-pin',
+      html: '<div class="ring"></div><div class="dot"></div>',
+      iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+    L.marker([-12.1180, -77.0300], { icon: pinIcon, interactive: false }).addTo(map);
+    mapRef.current = map;
+    return () => {
+      map.stop();
+      map.off();
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+  return (
+    <div className="home-osm">
+      <div className="home-osm-map" ref={elRef}/>
+      <div className="score-badge"><span className="dot"/>Score 72 · Medio-Alto</div>
+      <div className="poi-chips"><span>Parque 150m</span><span>Paradero 300m</span><span>Tienda 600m</span></div>
+    </div>
+  );
+};
+
+const ZONA_COLOR = { ganga: '#22c55e', justo: '#f59e0b', inflado: '#ef4444' };
+const ZONA_LABEL = { ganga: 'Precio bajo', justo: 'Precio justo', inflado: 'Precio alto' };
+
+const DistrictMap = ({ onGo }) => {
+  const elRef = useR(null), mapRef = useR(null), markersRef = useR({});
+  const flyTimerRef = useR(null), lastFocusRef = useR(null);
+  const [distritos, setDistritos] = useS([]);
+  const [active, setActive] = useS(null); 
+
+  useE(() => {
+    Api.distritosZona().then(setDistritos).catch(() => {});
+  }, []);
+
+  
+  const markerR = (d, maxN) => 5 + (d.n / maxN) * 9;
+
+  useE(() => {
+    if (!elRef.current || mapRef.current || distritos.length === 0) return;
+    const map = L.map(elRef.current, {
+      scrollWheelZoom: false, doubleClickZoom: false, zoomControl: true,
+      attributionControl: false,
+      fadeAnimation: false, zoomAnimation: false, markerZoomAnimation: false,
+    }).setView([-12.05, -77.02], 11);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, subdomains: 'abcd',
+    }).addTo(map);
+
+    const maxN = Math.max(...distritos.map(d => d.n));
+    distritos.forEach(d => {
+      const col = ZONA_COLOR[d.zona] || '#94a3b8';
+      const circle = L.circleMarker([d.lat, d.lng], {
+        radius: markerR(d, maxN), color: '#fff', weight: 2,
+        fillColor: col, fillOpacity: 0.9,
+      }).addTo(map);
+      circle.bindTooltip(
+        `<b>${d.distrito}</b> · <span style="color:${col};font-weight:700">${ZONA_LABEL[d.zona]}</span><br/>` +
+        `$${d.precio_mediano_usd}/mes · $${d.precio_m2}/m² · ${d.n} avisos`,
+        { sticky: true, className: 'dist-tip' }
+      );
+      circle.on('mouseover', () => setActive(d));
+      circle.on('mouseout',  () => setActive(null));
+      markersRef.current[d.distrito] = { circle, baseR: markerR(d, maxN) };
+    });
+    mapRef.current = map;
+    
+    
+    requestAnimationFrame(() => map.invalidateSize());
+    let ro = null;
+    if (window.ResizeObserver) {
+      ro = new ResizeObserver(() => { if (mapRef.current) mapRef.current.invalidateSize(); });
+      ro.observe(elRef.current);
+    }
+    return () => {
+      if (ro) ro.disconnect();
+      if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
+      map.stop();
+      map.off();
+      map.remove();
+      mapRef.current = null; markersRef.current = {}; lastFocusRef.current = null;
+    };
+  }, [distritos]);
+
+  
+  const setDotStyle = (distrito, on) => {
+    const m = markersRef.current[distrito];
+    if (!m || !m.circle._map) return;   
+    if (on) m.circle.setStyle({ weight: 4, radius: m.baseR + 4 }).bringToFront();
+    else m.circle.setStyle({ weight: 2, radius: m.baseR });
+  };
+
+  
+  const focusDistrito = (d) => {
+    setActive(d);
+    if (lastFocusRef.current && lastFocusRef.current !== d.distrito) setDotStyle(lastFocusRef.current, false);
+    setDotStyle(d.distrito, true);
+    lastFocusRef.current = d.distrito;
+    if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
+    flyTimerRef.current = setTimeout(() => {
+      if (mapRef.current) mapRef.current.flyTo([d.lat, d.lng], 13, { duration: 0.5 });
+    }, 130);   
+  };
+  const blurDistrito = (d) => {
+    setActive(null);
+    setDotStyle(d.distrito, false);
+    if (lastFocusRef.current === d.distrito) lastFocusRef.current = null;
+    if (flyTimerRef.current) { clearTimeout(flyTimerRef.current); flyTimerRef.current = null; }
+  };
+
+  const counts = { ganga: 0, justo: 0, inflado: 0 };
+  distritos.forEach(d => { if (counts[d.zona] !== undefined) counts[d.zona]++; });
+  
+  const ranked = [...distritos].sort((a, b) => a.precio_m2 - b.precio_m2);
+
+  return (
+    <div className="home-section">
+      <div className="home-eyebrow">Lima en tiempo real</div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', flexWrap:'wrap', gap:12, marginBottom:20 }}>
+        <h2 className="home-h2" style={{ margin:0 }}>
+          ¿En qué distritos conviene alquilar?
+        </h2>
+        <div style={{ display:'flex', gap:16 }}>
+          {Object.entries(ZONA_COLOR).map(([zona, col]) => (
+            <div key={zona} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600, color:'var(--ink-2)' }}>
+              <span style={{ width:10, height:10, borderRadius:'50%', background:col, display:'inline-block' }}/>
+              {ZONA_LABEL[zona]} <span style={{ color:'var(--ink-3)', fontWeight:400 }}>({counts[zona]})</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {}
+      <div style={{ display:'flex', flexWrap:'wrap', borderRadius:20, overflow:'hidden', border:'1px solid var(--line)', boxShadow:'var(--shadow-md)', background:'var(--surface)' }}>
+        <div style={{ position:'relative', flex:'1 1 460px', minWidth:0 }}>
+          <div ref={elRef} style={{ height:480 }}/>
+          <button
+            onClick={() => onGo('fairvalue-form')}
+            style={{
+              position:'absolute', bottom:16, right:16, zIndex:500,
+              background:'var(--primary)', color:'#fff',
+              border:'none', borderRadius:12, padding:'10px 18px',
+              fontSize:13, fontWeight:700, cursor:'pointer',
+              boxShadow:'0 4px 14px -4px oklch(0.42 0.15 250 / .55)',
+              display:'flex', alignItems:'center', gap:8,
+            }}>
+            Analizar un inmueble <Icon name="arrow" size={14}/>
+          </button>
+        </div>
+
+        <div style={{ flex:'1 1 300px', minWidth:0, maxWidth:380, borderLeft:'1px solid var(--line)', display:'flex', flexDirection:'column', maxHeight:480 }}>
+          <div style={{ padding:'14px 18px 10px', borderBottom:'1px solid var(--line-2)' }}>
+            <div style={{ fontWeight:700, fontSize:15 }}>Dónde conviene alquilar</div>
+            <div className="tiny muted" style={{ marginTop:2 }}>Ordenado por $/m² · pasa el mouse y el mapa vuela</div>
+          </div>
+          <div style={{ overflowY:'auto' }}>
+            {ranked.map((d, i) => {
+              const col = ZONA_COLOR[d.zona] || '#94a3b8';
+              const on = active && active.distrito === d.distrito;
+              return (
+                <div
+                  key={d.distrito}
+                  onMouseEnter={() => focusDistrito(d)}
+                  onMouseLeave={() => blurDistrito(d)}
+                  onClick={() => onGo('fairvalue-form')}
+                  style={{
+                    display:'flex', alignItems:'center', gap:12, padding:'10px 18px', cursor:'pointer',
+                    background: on ? 'var(--bg-tint)' : 'transparent',
+                    borderBottom:'1px solid var(--line-2)', transition:'background .15s',
+                  }}>
+                  <span className="numeric" style={{ fontSize:12, color:'var(--ink-3)', width:18, textAlign:'right' }}>{i + 1}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:600, fontSize:13.5, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{d.distrito}</div>
+                    <div className="tiny muted" style={{ marginTop:1 }}>{d.n} avisos · ${d.precio_mediano_usd}/mes</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div className="numeric" style={{ fontWeight:700, fontSize:14, color:'var(--ink)' }}>${d.precio_m2}<span className="tiny muted" style={{ fontWeight:400 }}>/m²</span></div>
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:2, fontSize:11, fontWeight:600, color:col }}>
+                      <span style={{ width:7, height:7, borderRadius:'50%', background:col }}/>{ZONA_LABEL[d.zona]}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <p style={{ fontSize:12, color:'var(--ink-3)', marginTop:10 }}>
+        Precio por m² relativo a la mediana de Lima. Basado en {distritos.reduce((s,d)=>s+d.n,0)} avisos reales recolectados en 2026.
+        Verde = por debajo del promedio · Rojo = por encima del promedio.
+      </p>
+    </div>
+  );
+};
+
+const PoiImportanceD3 = ({ data }) => {
+  const ref = useR(null);
+  useE(() => {
+    const el = ref.current;
+    if (!el || !Array.isArray(data) || !data.length) return;
+    const draw = () => {
+      d3.select(el).selectAll('*').remove();
+      const rows = data.slice(0, 10);
+      const W = el.clientWidth || 480, rowH = 30, m = { l: 132, r: 52, t: 8, b: 8 };
+      const H = rows.length * rowH + m.t + m.b;
+      const x = d3.scaleLinear().domain([0, d3.max(rows, d => d.pct) || 1]).range([m.l, W - m.r]);
+      const color = d3.scaleSequential().domain([rows.length - 1, 0]).interpolator(d3.interpolateRgb('#9ec5fe', '#1d4ed8'));
+      const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
+      const g = svg.selectAll('g').data(rows).enter().append('g')
+        .attr('transform', (d, i) => `translate(0,${m.t + i * rowH + rowH / 2})`);
+      g.append('text').attr('x', m.l - 10).attr('dy', '.32em').attr('text-anchor', 'end')
+        .attr('class', 'd3-cat').text(d => d.category);
+      g.append('line').attr('x1', m.l).attr('y1', 0).attr('y2', 0)
+        .attr('stroke', (d, i) => color(i)).attr('stroke-width', 3).attr('stroke-linecap', 'round')
+        .attr('x2', m.l).transition().duration(650).delay((d, i) => i * 45).attr('x2', d => x(d.pct));
+      g.append('circle').attr('cx', m.l).attr('cy', 0).attr('r', 5).attr('fill', (d, i) => color(i))
+        .transition().duration(700).delay((d, i) => i * 45).attr('cx', d => x(d.pct));
+      g.append('text').attr('x', d => x(d.pct) + 10).attr('dy', '.32em')
+        .attr('class', 'd3-val')
+        .text(d => d.pct_of_env_total != null
+          ? `${d.pct_of_env_total.toFixed(0)}% (${d.pct.toFixed(2)})`
+          : d.pct.toFixed(2) + '%');
+    };
+    draw();
+    let ro;
+    if (window.ResizeObserver) { ro = new ResizeObserver(draw); ro.observe(el); }
+    return () => { if (ro) ro.disconnect(); };
+  }, [data]);
+  return <div ref={ref} className="d3-poi" style={{ width: '100%' }}/>;
+};
+
+export const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
+  const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
+  
+
+  const [heroIdx, setHeroIdx] = useS(0);
+  const [animatedPct, setAnimatedPct] = useS(0);
+  const [poiData, setPoiData] = useS(null);
+
+  const [gangas, setGangas] = useS(null);          
+
+  useE(() => {
+    Api.listListings({ zone: 'Ganga', sort: 'ganga', limit: 3 })
+      .then(r => setGangas(Array.isArray(r) ? r : []))
+      .catch(() => setGangas([]));
+  }, []);
+
+  const current = HERO_LISTINGS[heroIdx];
+  const diffPct = (current.anuncio / current.fair - 1) * 100;
+  const pct = Math.max(0, Math.min(1, 0.5 + diffPct / (2 * HERO_GAUGE_RANGE)));
+  const zone = heroZoneOf(diffPct);
+  const delta = current.anuncio - current.fair;
+  const fmtDelta = (n) => `${n >= 0 ? '+' : '−'}$${Math.abs(n)}`;
+  const fmtPct   = (n) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
+
+  useE(() => {
+    const t = setTimeout(() => setAnimatedPct(pct), 80);
+    return () => clearTimeout(t);
+  }, [pct]);
+
+  useE(() => {
+    const id = setInterval(() => {
+      setHeroIdx((i) => (i + 1) % HERO_LISTINGS.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  useE(() => {
+    Api.poiImportance().then(r => setPoiData(r.data)).catch(() => {});
+  }, []);
+
+  return (
+  <div className="container fade-in">
+
+    {}
+    <div className="home-hero">
+      <div>
+        <div className="home-eyebrow">
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }}/>
+          Proptech con IA · Lima, Perú
+        </div>
+        <h1 className="home-h1">
+          El precio justo de tu alquiler,{' '}
+          <span className="home-grad">sin adivinar.</span>
+        </h1>
+        <p className="home-hero-lead">
+          Wasi entrena modelos de IA con miles de avisos reales para decirte si un
+          alquiler en Lima está <b>inflado, justo</b> o es una <b>oportunidad</b>{' '}
+          — y cómo es el barrio alrededor.
+        </p>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          {isSeller ? (
+            <>
+              <Btn variant="primary" size="lg" onClick={() => (onPublish ? onPublish() : onGo('publish'))}>
+                Publicar inmueble <Icon name="arrow" size={16}/>
+              </Btn>
+              <Btn variant="outline" size="lg" onClick={() => onGo('fairvalue-form')}>
+                Analizar un precio
+              </Btn>
+            </>
+          ) : (
+            <>
+              <Btn variant="primary" size="lg" onClick={() => onGo('fairvalue-form')}>
+                Probar una estimación <Icon name="arrow" size={16}/>
+              </Btn>
+              <Btn variant="outline" size="lg" onClick={() => onGo('listings')}>
+                Explorar inmuebles
+              </Btn>
+            </>
+          )}
+        </div>
+        <div style={{ margin: '20px 0 4px' }}>
+          <a href="https://youtu.be/kPfQ3xvLldw" target="_blank" rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--ink-3)', textDecoration: 'none' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+              <Icon name="play" size={12}/>
+            </span>
+            Ver trailer
+          </a>
+        </div>
+        <div className="home-hero-stats">
+          <div>
+            <div className="v">{WASI_STATS.ALQ_AVISOS}</div>
+            <div className="k">Avisos analizados</div>
+          </div>
+          <div>
+            <div className="v">{WASI_STATS.DISTRITOS}</div>
+            <div className="k">Distritos</div>
+          </div>
+          <div>
+            <div className="v">{WASI_STATS.ALQ_MAPE}%</div>
+            <div className="k"><Glossary term="Error medio"/></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="hero-mock">
+        <div className="hero-mock-head">
+          <div key={'h-' + heroIdx} className="hero-mock-head-info">
+            <div className="hero-mock-addr">{current.addr}, {current.dist}</div>
+            <div className="hero-mock-meta">
+              {current.area} m² · {current.dorm} hab · Piso {current.piso}
+            </div>
+          </div>
+        </div>
+        <div className="hero-mock-gauge"><HomeMiniGauge pct={animatedPct}/></div>
+        <div key={'c-' + heroIdx} className="hero-mock-cards">
+          <div className="hero-mock-card">
+            <div className="k">Tu anuncio</div>
+            <div className="v">${current.anuncio}</div>
+          </div>
+          <div className="hero-mock-card fair">
+            <div className="k">Analizar precio</div>
+            <div className="v">${current.fair}</div>
+          </div>
+        </div>
+        <div key={'s-' + heroIdx} className={`hero-mock-status status-${zone}`}>
+          <span className="dot"/>
+          <div className="text">
+            <span className="zone">{HERO_ZONE_LABEL[zone]}</span>
+            <span className="sep">·</span>
+            <span className="delta">
+              {fmtDelta(delta)} ({fmtPct(diffPct)}) {HERO_ZONE_COPY[zone]}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {}
+    <DistrictMap onGo={onGo}/>
+
+    {}
+    <div className="home-section">
+      <div className="home-split">
+        <div>
+          <div className="home-eyebrow">El problema</div>
+          <h2 className="home-h2" style={{ fontSize: 38 }}>Alquilar en Lima es decidir a ciegas.</h2>
+          <p className="home-lead">
+            No existe un precio de referencia público para los alquileres en el Perú.
+            El inquilino no sabe si paga de más; el propietario no sabe cuánto pedir.
+            La decisión termina siendo <b>intuición contra el precio del aviso</b>.
+          </p>
+          <div className="home-stats-pair">
+            <div>
+              <div className="v">+28%</div>
+              <div className="k">Sobreprecio promedio detectado en anuncios</div>
+            </div>
+            <div>
+              <div className="v">0</div>
+              <div className="k">Fuentes públicas de precios en Perú</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="histogram-card">
+          <div key={'hh-head-' + heroIdx} className="head">
+            Ejemplo ilustrativo · {current.dist} · {current.area} m²
+          </div>
+          <div key={'hh-' + heroIdx} className="histogram-anim">
+            <HomeHistogram fair={current.fair} anuncio={current.anuncio}/>
+          </div>
+          <div className="tiny muted" style={{marginTop:6, textAlign:'center'}}>
+            Demostración del veredicto. Analiza tu inmueble para ver datos reales.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {}
+    <div className="home-section">
+      <div className="home-eyebrow">Qué hacemos</div>
+      <h2 className="home-h2" style={{ fontSize: 38 }}>Dos módulos, una decisión informada.</h2>
+      <p className="home-lead">
+        Estimación de precio + análisis de entorno, conectados sobre los mismos datos.
+      </p>
+      <div className="home-modules">
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Analizar precio: estimación de precio de referencia" onClick={() => onGo('fairvalue-form')} onKeyDown={onKeyActivate(() => onGo('fairvalue-form'))}>
+          <div className="top">
+            <div className="feat-ico ico-fv">
+              <Icon name="key" size={26}/>
+            </div>
+          </div>
+          <h3>Analizar precio</h3>
+          <p className="desc">
+            El modelo Wasi estima el precio de referencia comparando {WASI_STATS.VARIABLES} atributos
+            contra {WASI_STATS.ALQ_AVISOS} avisos reales de Lima.
+          </p>
+          <div className="home-module-mock">
+            <div className="row" style={{ gap: 16, alignItems: 'center' }}>
+              <div style={{ width: 130, flexShrink: 0 }}>
+                <HomeMiniGauge pct={0.78}/>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700 }}>Analizar precio</div>
+                <div style={{ fontFamily: 'Space Grotesk', fontSize: 28, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1, marginTop: 4 }}>
+                  $700 <span className="small muted" style={{ fontWeight: 500 }}>/mes</span>
+                </div>
+                <div className="tiny muted" style={{ marginTop: 4 }}>Confianza alta · error medio {WASI_STATS.ALQ_MAPE}%</div>
+                <Tag variant="danger" style={{ marginTop: 8 }}>+28% inflado</Tag>
+              </div>
+            </div>
+          </div>
+          <span className="cta">Probar estimación <Icon name="fwd" size={14}/></span>
+        </div>
+
+        <div className="home-module" role="button" tabIndex={0} aria-label="Ir a Entorno y Seguridad: explorador de contexto del barrio" onClick={() => onGo('entorno-map')} onKeyDown={onKeyActivate(() => onGo('entorno-map'))}>
+          <div className="top">
+            <div className="feat-ico ico-en">
+              <Icon name="shield" size={26}/>
+            </div>
+          </div>
+          <h3>Entorno y Seguridad</h3>
+          <p className="desc">
+            Cruza criminalidad, POIs y servicios cercanos en un radio de 1 km para
+            darte un score contextual del barrio.
+          </p>
+          <div className="home-module-mock accent">
+            <HomeOSMMock/>
+          </div>
+          <span className="cta" style={{ color: 'oklch(0.40 0.10 195)' }}>Explorar mapa <Icon name="fwd" size={14}/></span>
+        </div>
+      </div>
+    </div>
+
+    {}
+    <div className="home-howit">
+      <div className="home-howit-inner">
+        <div className="home-eyebrow">Cómo funciona</div>
+        <h2 className="home-h2" style={{ fontSize: 38 }}>De una ubicación a un veredicto, en segundos.</h2>
+        <div className="home-howit-grid">
+          <div className="home-step-big">
+            <div className="num">1</div>
+            <h4>Ubicación y datos</h4>
+            <p>Marcas el inmueble en el mapa e ingresas área, dormitorios, baños y amenities.</p>
+            <div className="home-step-chip">
+              <Icon name="pin" size={14} stroke="var(--primary)"/>
+              Miraflores · 60 m² · 2 hab
+            </div>
+          </div>
+          <div className="home-step-big">
+            <div className="num">2</div>
+            <h4>El modelo compara</h4>
+            <p>El modelo Wasi cruza los datos contra {WASI_STATS.ALQ_AVISOS} avisos reales de alquiler en Lima.</p>
+            <div className="home-step-chip">
+              <Icon name="chart" size={14} stroke="var(--primary)"/>
+              Modelo Wasi · error medio {WASI_STATS.ALQ_MAPE}%
+            </div>
+          </div>
+          <div className="home-step-big">
+            <div className="num">3</div>
+            <h4>Veredicto claro</h4>
+            <p>Obtienes el precio de referencia y si el anuncio está inflado, justo o es ganga.</p>
+            <div className="home-step-chip">
+              <Icon name="check" size={14} stroke="var(--success)"/>
+              <span>Analizar precio:&nbsp;<b style={{ color: 'var(--primary)' }}>$700</b></span>
+              <Tag variant="success" style={{ marginLeft: 'auto' }}>Ganga</Tag>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {}
+    <div className="home-section">
+      <div className="home-split">
+        <div>
+          <div className="home-eyebrow">Cómo nacimos</div>
+          <h2 className="home-h2" style={{ fontSize: 38 }}>De un proyecto universitario a una herramienta real.</h2>
+          <p className="home-lead">
+            Wasi nació en el curso de <b>Diseño y Proyectos de Datos (DPD)</b> de UTEC.
+            Fusiona dos trabajos: una aplicación de estimación de precios y un pipeline
+            de machine learning entrenado sobre el mercado de alquiler limeño.
+          </p>
+          <p className="home-lead" style={{ marginTop: 12 }}>
+            El reto no era solo entrenar un modelo — era llevarlo a un producto que{' '}
+            <b>cualquier persona</b> pueda usar para tomar una mejor decisión.
+          </p>
+        </div>
+        <div className="bc-card">
+          <div className="bc-head">Bajo el capot</div>
+          {[
+            ['layers', 'fv', 'Modelo + producto',    'Pipeline de ML integrado a una app usable'],
+            ['map',    'en', 'Datos reales de Lima', 'Avisos de Urbania, AdondeVivir y Properati'],
+            ['check',  'ok', 'Curso DPD · UTEC',     'Diseño y Proyectos de Datos'],
+          ].map(([ic, variant, t, d]) => (
+            <div key={t} className="bc-item">
+              <div className={`bc-ico bc-ico-${variant}`}>
+                <Icon name={ic} size={20}/>
+              </div>
+              <div>
+                <div className="bc-t">{t}</div>
+                <div className="bc-d">{d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {}
+    <div className="home-section">
+      <div className="home-eyebrow">Misión y objetivos</div>
+      <div className="home-quote">
+        Democratizar el acceso a información de precios de alquiler en Lima, para que{' '}
+        <span className="home-grad">inquilinos y propietarios decidan con datos</span>{' '}
+        y no con intuición.
+      </div>
+      <div className="home-objectives">
+        {[
+          ['Precio de referencia confiable',    'Por ubicación exacta, no por distrito promedio'],
+          ['Reducir la asimetría de información', 'El inquilino sabe tanto como el agente'],
+          ['Contexto del barrio integrado',     'Seguridad y servicios, no solo precio'],
+          ['Honestos sobre el margen de error', `Error medio ${WASI_STATS.ALQ_MAPE}%, comunicado en cada predicción`],
+        ].map(([t, d]) => (
+          <div key={t} className="home-obj">
+            <span className="check"><Icon name="check" size={16}/></span>
+            <div>
+              <div className="t">{t}</div>
+              <div className="d">{d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {}
+    <div className="home-data-section">
+      <div className="home-data-inner">
+        <div className="home-eyebrow on-dark">La data detrás</div>
+        <h2 className="home-h2 on-dark" style={{ fontSize: 38 }}>
+          Construido sobre <span className="home-grad-cyan">evidencia</span>, no opiniones.
+        </h2>
+        <div className="home-data-row">
+          {[
+            [WASI_STATS.ALQ_AVISOS, null, 'Avisos de alquiler analizados de Urbania, AdondeVivir y Properati'],
+            [WASI_STATS.DISTRITOS,  null, 'Distritos de Lima Metropolitana con cobertura'],
+            [WASI_STATS.ALQ_MAPE,   '%',  'Error medio del modelo, validación espacial — Modelo Wasi v2'],
+            [WASI_STATS.VARIABLES,  null, 'Variables por inmueble — físicas, geográficas, NSE y de seguridad'],
+          ].map(([v, suf, k], i) => (
+            <div key={i}>
+              <div className="v">{v}{suf && <span className="sm">{suf}</span>}</div>
+              <div className="bar"/>
+              <div className="k">{k}</div>
+            </div>
+          ))}
+        </div>
+
+        {}
+        <p style={{
+          marginTop: 32, color: 'rgba(255,255,255,.65)',
+          fontSize: 14, lineHeight: 1.65, maxWidth: 880,
+        }}>
+          <strong style={{color:'#fff'}}>Sobre la cobertura:</strong>{' '}
+          el mercado de alquiler en Lima está centralizado: el 41% de los avisos vienen
+          de Miraflores y San Isidro. Para zonas residenciales premium con pocos avisos
+          (La Molina, San Borja Alto, Surco Las Casuarinas), complementamos la
+          predicción con datos socioeconómicos del INEI/APEIM y de seguridad del MININTER.
+          Cuando una zona tiene menos de 20 comparables cercanos, el modelo te lo avisa
+          y amplía el rango de error.
+        </p>
+      </div>
+    </div>
+
+    {}
+    {poiData && poiData.length > 0 && (
+      <div className="home-section">
+        <div className="home-split" style={{ alignItems: 'flex-start', gap: 48 }}>
+          <div style={{ flex: '0 0 340px' }}>
+            <div className="home-eyebrow">Entorno y precio</div>
+            <h2 className="home-h2" style={{ fontSize: 32, marginBottom: 12 }}>
+              ¿Qué tipo de entorno impacta más el precio?
+            </h2>
+            <p className="home-lead" style={{ marginTop: 0 }}>
+              Importancia real de cada tipo de entorno dentro del modelo, sobre 101
+              variables. Los POIs representan{' '}
+              <b>{poiData.reduce((s, d) => s + d.pct, 0).toFixed(1)}%</b> del poder
+              predictivo total — el resto lo explican la ubicación, el área y los amenities.
+            </p>
+            <p className="home-lead" style={{ marginTop: 8, fontSize: 13 }}>
+              Parques y parqueos lideran: su presencia o ausencia mueve el precio
+              más que la proximidad a supermercados o malls.
+            </p>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <PoiImportanceD3 data={poiData}/>
+            <p style={{ marginTop: 12, fontSize: 11, color: 'var(--ink-3)' }}>
+              Importancia agregada por categoría — suma de todas las features POI
+              de cada tipo dividida entre la importancia total del modelo.
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {}
+    <div className="home-section">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+          <div>
+            <div className="home-eyebrow">Oportunidades</div>
+            <h2 className="home-h2" style={{ fontSize: 38, marginBottom: 0 }}>Las mejores gangas ahora.</h2>
+          </div>
+          <Btn variant="outline" onClick={() => onGo('listings')}>
+            Ver todos <Icon name="fwd" size={14}/>
+          </Btn>
+        </div>
+      {gangas === null ? (
+        <p className="muted small">Buscando las mejores oportunidades…</p>
+      ) : gangas.length === 0 ? (
+        <p className="muted small">No hay gangas disponibles ahora mismo. Vuelve a revisar pronto.</p>
+      ) : (
+        <div className="home-gangas-grid">
+          {gangas.map(l => (
+            <ListingCard key={l.id} listing={l} onOpen={onOpenListing}/>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {}
+    <div className="home-section" style={{ marginBottom: 12 }}>
+      <div className="home-cta-final">
+        <div>
+          <h2>¿Listo para ver un precio justo?</h2>
+          <p>
+            Haz tu primera estimación. Tarda menos de un minuto
+            y no necesitas registrarte de nuevo.
+          </p>
+        </div>
+        <div className="btns">
+          <button className="btn btn-light btn-lg" onClick={() => onGo('fairvalue-form')}>
+            Probar estimación <Icon name="arrow" size={16}/>
+          </button>
+          <button className="btn btn-ghost btn-lg" onClick={() => onGo('entorno-map')}>
+            Ver el mapa primero
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  );
+};
+
+const MODULE_INFO = {
+  fairvalue: {
+    screen: 'fairvalue-form',
+    icon: 'key',
+    iconVariant: 'primary',
+    title: 'Analizar precio',
+    subtitle: 'Estimador de precio de referencia',
+    intro: 'Vas a estimar cuánto debería costar el alquiler de un inmueble según el mercado real de Lima.',
+    points: [
+      'Marca la ubicación exacta del inmueble en el mapa',
+      'Ingresa área, dormitorios, baños y amenities',
+      'El modelo de Wasi calcula el precio de referencia',
+      'Descubre si el precio anunciado está Inflado, Justo o es Ganga',
+    ],
+    cta: 'Iniciar estimación',
+  },
+  entorno: {
+    screen: 'entorno-map',
+    icon: 'shield',
+    iconVariant: 'accent',
+    title: 'Entorno y Seguridad',
+    subtitle: 'Explorador de contexto del barrio',
+    intro: 'Vas a explorar la seguridad y los servicios de cualquier zona de Lima Metropolitana.',
+    points: [
+      'Coloca un pin en cualquier punto del mapa',
+      'Consulta el score de seguridad de la zona',
+      'Revisa los puntos de interés en un radio de 1 km',
+      'Compara colegios, hospitales, bancos y parques cercanos',
+    ],
+    cta: 'Explorar mapa',
+  },
+};
+
+const ANA_PER_PAGE = 8;
+const ANA_FILTERS = [
+  { key: 'all',     label: 'Todos' },
+  { key: 'Inflado', label: 'Inflados' },
+  { key: 'Ganga',   label: 'Gangas' },
+  { key: 'Justo',   label: 'Justos' },
+];
+
+export const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAuthExpired }) => {
+  const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
+  const [data, setData] = useS(null);
+  const [loading, setLoading] = useS(true);
+  const [err, setErr] = useS('');
+  const [confirm, setConfirm] = useS(null);   
+  const [covPage, setCovPage] = useS(0);      
+  
+  const [anaOpen, setAnaOpen]     = useS(false);
+  const [anaAll, setAnaAll]       = useS([]);
+  const [anaLoading, setAnaLoading] = useS(false);
+  const [anaPage, setAnaPage]     = useS(0);
+  const [anaFilter, setAnaFilter] = useS('all');
+
+  useE(() => {
+    let cancel = false;
+    setLoading(true);
+    Api.dashboard()
+      .then(r => { if (!cancel) { setData(r); setLoading(false); } })
+      .catch(ex => {
+        if (cancel) return;
+        const msg = handleApiErr(ex, { setErr, onAuthExpired });
+        if (typeof onError === 'function') onError(msg);
+        setLoading(false);
+      });
+    return () => { cancel = true; };
+  }, []);
+
+  if (loading) return <Loading label="Cargando dashboard…"/>;
+  if (err || !data) return (
+    <div className="container"><div className="banner danger"><Icon name="alert" size={14}/> {err || 'Sin datos'}</div></div>
+  );
+
+  const user = data.user || {};
+  const stats = data.stats || { analyses_count: 0, reports_count: 0, avg_savings: 0 };
+  const recent = Array.isArray(data.recent) ? data.recent : [];
+  const coverage = Array.isArray(data.coverage) ? data.coverage : [];
+  const COV_PER_PAGE = 5;
+  const covTotalPages = Math.max(1, Math.ceil(coverage.length / COV_PER_PAGE));
+  const covPageSafe = Math.min(covPage, covTotalPages - 1);
+  const covSlice = coverage.slice(covPageSafe * COV_PER_PAGE, covPageSafe * COV_PER_PAGE + COV_PER_PAGE);
+  const nextStep = data.next_step;
+  const levelToVar = (lvl) => lvl === 'alta' ? 'success' : lvl === 'media' ? 'warning' : 'danger';
+  const levelLabel = (lvl) => lvl === 'alta' ? 'Alta' : lvl === 'media' ? 'Media' : 'Baja';
+
+  
+  const anaFiltered = anaFilter === 'all' ? anaAll : anaAll.filter(a => a.zone === anaFilter);
+  const anaTotalPages = Math.max(1, Math.ceil(anaFiltered.length / ANA_PER_PAGE));
+  const anaPageSafe = Math.min(anaPage, anaTotalPages - 1);
+  const anaSlice = anaFiltered.slice(anaPageSafe * ANA_PER_PAGE, anaPageSafe * ANA_PER_PAGE + ANA_PER_PAGE);
+
+  const openAnalysesModal = () => {
+    setAnaOpen(true);
+    if (anaAll.length === 0 && !anaLoading) {
+      setAnaLoading(true);
+      Api.listAnalyses()
+        .then(r => setAnaAll(Array.isArray(r) ? r : []))
+        .catch(ex => {
+          const msg = handleApiErr(ex, { setErr, onAuthExpired });
+          if (typeof onError === 'function') onError(msg);
+        })
+        .finally(() => setAnaLoading(false));
+    }
+  };
+  const openAnalysisRow = (r) => {
+    setAnaOpen(false);
+    if (onOpenAnalysis && r && r.id) onOpenAnalysis(r.id, { address: r.address });
+  };
+
+  return (
+    <div className="container fade-in">
+      <div className="hero">
+        <div className="row" style={{justifyContent:'space-between', alignItems:'flex-start'}}>
+          <div>
+            <div className="greet">Bienvenida</div>
+            <h1>Hola, {user.name || 'Usuario'}</h1>
+            <div style={{fontSize:14, opacity:.85, marginTop:6, maxWidth:480}}>
+              Lima, Perú · Plan {user.plan || data.plan || 'Free'} · Última actividad {data.last_activity_at || 'reciente'}
+            </div>
+          </div>
+          <div className="row" style={{gap:10}}>
+            {isSeller && (
+              <Btn variant="primary" onClick={() => (onPublish ? onPublish() : onGo('publish'))}>
+                <Icon name="plus" size={14}/> Publicar inmueble
+              </Btn>
+            )}
+            {isSeller && (
+              <Btn variant="secondary" onClick={() => onGo('mis-publicaciones')}>
+                <Icon name="home" size={14}/> Mis propiedades
+              </Btn>
+            )}
+            <Btn variant="secondary" onClick={() => onGo('fairvalue-form')}>
+              <Icon name="plus" size={14}/> Nuevo análisis
+            </Btn>
+          </div>
+        </div>
+        <div className="stats-strip">
+          <div><div className="v">{stats.analyses_count}</div><div className="k">Análisis realizados</div></div>
+          <div><div className="v">{stats.reports_count}</div><div className="k">Reportes guardados</div></div>
+          <div><div className="v">${Math.round(stats.avg_savings)}</div><div className="k">Ahorro promedio</div></div>
+        </div>
+      </div>
+
+      <div className="dash-grid">
+        <div className="stack-24">
+          <div>
+            <div className="row" style={{justifyContent:'space-between', marginBottom:12}}>
+              <div className="section-h" style={{margin:0}}>Acciones principales</div>
+              <span className="small muted">Selecciona un módulo para comenzar</span>
+            </div>
+            <div className="grid-2">
+              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Analizar precio" onClick={()=>setConfirm('fairvalue')} onKeyDown={onKeyActivate(()=>setConfirm('fairvalue'))}>
+                <div className="top-row">
+                  <div className="feat-ico"><Icon name="key" size={24}/></div>
+                </div>
+                <div className="t">Analizar precio</div>
+                <div className="d">Estimación del precio de referencia con el modelo Wasi. Identifica sobreprecios y oportunidades.</div>
+                <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
+              </div>
+              <div className="action-card en" role="button" tabIndex={0} aria-label="Explorar mapa de Entorno y Seguridad" onClick={()=>setConfirm('entorno')} onKeyDown={onKeyActivate(()=>setConfirm('entorno'))}>
+                <div className="top-row">
+                  <div className="feat-ico"><Icon name="shield" size={24}/></div>
+                </div>
+                <div className="t">Entorno y Seguridad</div>
+                <div className="d">Score contextual basado en criminalidad y POIs cercanos en radio de 1 km.</div>
+                <span className="arr">Explorar mapa <Icon name="fwd" size={14}/></span>
+              </div>
+            </div>
+          </div>
+
+          {}
+          <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal} onKeyDown={onKeyActivate(openAnalysesModal)}>
+            <div className="ana-entry-ico"><Icon name="chart" size={22}/></div>
+            <div className="ana-entry-body">
+              <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Análisis recientes</div>
+              <div className="small muted" style={{marginTop:2}}>
+                {stats.analyses_count > 0
+                  ? (<><b>{stats.analyses_count}</b> análisis{recent[0]?.time ? (<> · último <b>{recent[0].time}</b></>) : null}</>)
+                  : 'Aún no tienes análisis. Crea uno nuevo para empezar.'}
+              </div>
+            </div>
+            {stats.analyses_count > 0 && (
+              <Tag variant="outline">Ver todos</Tag>
+            )}
+            <Icon name="fwd" size={16} stroke="var(--ink-3)"/>
+          </div>
+        </div>
+
+        {}
+        <div className="stack-24">
+          <Card>
+            <div className="section-h">Tu próximo paso</div>
+            {nextStep && nextStep.analysis_id ? (
+              <>
+                <div style={{fontSize:14, lineHeight:1.5, marginTop:4}}>
+                  Tienes una <b>negociación pendiente</b> en {nextStep.address}.
+                </div>
+                <div className="banner danger" style={{marginTop:12}}>
+                  <Icon name="flag" size={14}/>
+                  <span>Sobreprecio detectado: <b>+${nextStep.sobreprecio_amount} / mes</b></span>
+                </div>
+                <Btn
+                  variant="primary"
+                  block
+                  style={{marginTop:14}}
+                  onClick={() => onOpenAnalysis && onOpenAnalysis(nextStep.analysis_id, { address: nextStep.address })}
+                >
+                  Ver evaluación completa
+                </Btn>
+              </>
+            ) : (
+              <div className="small muted" style={{marginTop:6}}>Sin pendientes</div>
+            )}
+          </Card>
+
+          {isSeller && (
+            <div className="ana-entry" role="button" tabIndex={0}
+                 aria-label="Ver mis publicaciones y consultas recibidas"
+                 onClick={()=>onGo('mis-publicaciones')}
+                 onKeyDown={onKeyActivate(()=>onGo('mis-publicaciones'))}>
+              <div className="ana-entry-ico"><Icon name="home" size={22}/></div>
+              <div className="ana-entry-body">
+                <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Mis propiedades</div>
+                <div className="small muted" style={{marginTop:2}}>Tus inmuebles y las consultas que has recibido.</div>
+              </div>
+              <Icon name="fwd" size={16} stroke="var(--ink-3)"/>
+            </div>
+          )}
+
+          <Card>
+            <div className="row" style={{justifyContent:'space-between'}}>
+              <div className="section-h" style={{margin:0}}>Cobertura por distrito</div>
+              <span className="tiny muted">{coverage.length} distritos</span>
+            </div>
+            <div style={{marginTop:10}}>
+              {covSlice.map((d,i)=>{
+                const rank = covPageSafe * COV_PER_PAGE + i + 1;
+                return (
+                  <div key={d.name || i} className="cov-row">
+                    <div className="row" style={{gap:8, minWidth:0}}>
+                      <span className="cov-rank">{rank}</span>
+                      <span style={{fontSize:13}}>{d.name}</span>
+                    </div>
+                    <div className="row" style={{gap:8}}>
+                      <span className="numeric small muted">{d.listings} avisos</span>
+                      <Tag variant={levelToVar(d.level)}>{levelLabel(d.level)}</Tag>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {covTotalPages > 1 && (
+              <div className="pager">
+                <button
+                  disabled={covPageSafe === 0}
+                  onClick={()=>setCovPage(Math.max(0, covPageSafe - 1))}
+                  aria-label="Distritos anteriores"
+                >
+                  <Icon name="back" size={14}/>
+                </button>
+                <span className="pinfo">Página {covPageSafe + 1} de {covTotalPages}</span>
+                <button
+                  disabled={covPageSafe >= covTotalPages - 1}
+                  onClick={()=>setCovPage(Math.min(covTotalPages - 1, covPageSafe + 1))}
+                  aria-label="Distritos siguientes"
+                >
+                  <Icon name="fwd" size={14}/>
+                </button>
+              </div>
+            )}
+          </Card>
+
+          <Card style={{background:'linear-gradient(135deg, var(--primary-soft), var(--accent-soft))', border:'1px solid var(--primary-soft)'}}>
+            <Tag variant="primary">Plan Pro</Tag>
+            <div style={{fontFamily:'Space Grotesk', fontSize:18, fontWeight:700, marginTop:8}}>Análisis ilimitados + alertas</div>
+            <p className="small muted" style={{marginTop:4}}>Notificaciones cuando bajan precios en tus zonas favoritas.</p>
+            <Btn variant="primary" size="sm" style={{marginTop:8}} onClick={() => onGo('profile')}>Probar 14 días gratis</Btn>
+          </Card>
+        </div>
+      </div>
+
+      {}
+      {(() => {
+        const info = confirm ? MODULE_INFO[confirm] : null;
+        const isAccent = !!(info && info.iconVariant === 'accent');
+        return (
+          <Modal
+            open={!!info}
+            onClose={()=>setConfirm(null)}
+            hero
+            accent={isAccent}
+            icon={info && <Icon name={info.icon} size={28}/>}
+            title={info ? info.title : ''}
+            subtitle={info ? info.subtitle : ''}
+            footer={info && <>
+              <Btn variant="outline" onClick={()=>setConfirm(null)}>Cancelar</Btn>
+              <Btn variant="primary" onClick={()=>{ const s = info.screen; setConfirm(null); onGo(s); }}>
+                {info.cta} <Icon name="arrow" size={15}/>
+              </Btn>
+            </>}
+          >
+            {info && <>
+              <p className="modal-intro">{info.intro}</p>
+              <div className="modal-steps-h">Qué vas a ver</div>
+              <div className="modal-steps">
+                {info.points.map((p,i)=>(
+                  <div className={`modal-step ${isAccent ? 'accent' : ''}`} key={i}>
+                    <span className="num">{i+1}</span>
+                    <span className="txt">{p}</span>
+                  </div>
+                ))}
+              </div>
+            </>}
+          </Modal>
+        );
+      })()}
+
+      {}
+      <Modal
+        open={anaOpen}
+        onClose={() => setAnaOpen(false)}
+        icon={<Icon name="chart" size={20}/>}
+        title="Análisis recientes"
+        subtitle={anaLoading ? 'Cargando…' : `${anaAll.length} análisis · ordenados por fecha`}
+        maxWidth={640}
+        footer={<Btn variant="outline" onClick={() => setAnaOpen(false)}>Cerrar</Btn>}
+      >
+        {anaLoading ? (
+          <div className="small muted text-center" style={{padding:'40px 0'}}>Cargando análisis…</div>
+        ) : (
+          <>
+            {}
+            <div className="row" style={{gap:8, flexWrap:'wrap'}}>
+              {ANA_FILTERS.map(f => {
+                const count = f.key === 'all'
+                  ? anaAll.length
+                  : anaAll.filter(a => a.zone === f.key).length;
+                const active = anaFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    className={`pick-chip ${active ? 'on' : ''}`}
+                    aria-pressed={active}
+                    aria-label={`Filtrar por ${f.label}`}
+                    onClick={() => { setAnaFilter(f.key); setAnaPage(0); }}
+                  >
+                    {f.label} <span className="numeric" style={{opacity:.7, marginLeft:4}}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {}
+            <div className="ana-list" style={{marginTop:14}}>
+              {anaSlice.map(r => {
+                const neg = r.zone === 'Inflado';
+                const ganga = r.zone === 'Ganga';
+                const color = neg ? 'var(--danger)' : ganga ? 'var(--success)' : 'oklch(0.45 0.14 60)';
+                const bg = neg ? 'var(--danger-soft)' : ganga ? 'var(--success-soft)' : 'var(--warning-soft)';
+                const sign = r.diff_pct > 0 ? '+' : '';
+                const iconName = neg ? 'flag' : ganga ? 'sparkle' : 'check';
+                return (
+                  <div className="ana-row" key={r.id} role="button" tabIndex={0} aria-label={r.address ? `Ver análisis: ${r.address}` : 'Ver análisis'} onClick={() => openAnalysisRow(r)} onKeyDown={onKeyActivate(() => openAnalysisRow(r))}>
+                    <div className="ico" style={{background: bg, color}}>
+                      <Icon name={iconName} size={14}/>
+                    </div>
+                    <div className="body">
+                      <div className="addr">{r.address}</div>
+                      <div className="time">{r.time}</div>
+                    </div>
+                    <div className="diff" style={{color}}>{sign}{r.diff_pct}% {r.zone}</div>
+                    <div className="price">${r.fair_value}</div>
+                    <Icon name="fwd" size={14} stroke="var(--ink-3)"/>
+                  </div>
+                );
+              })}
+              {anaSlice.length === 0 && anaAll.length > 0 && (
+                <div className="small muted text-center" style={{padding:'34px 0'}}>
+                  No hay análisis en este filtro.
+                </div>
+              )}
+              {anaAll.length === 0 && (
+                <div className="small muted text-center" style={{padding:'34px 0'}}>
+                  Aún no tienes análisis.
+                </div>
+              )}
+            </div>
+
+            {}
+            {anaTotalPages > 1 && (
+              <div className="pager" style={{marginTop:14}}>
+                <button
+                  disabled={anaPageSafe === 0}
+                  onClick={() => setAnaPage(Math.max(0, anaPageSafe - 1))}
+                  aria-label="Página anterior"
+                ><Icon name="back" size={14}/></button>
+                <span className="pinfo">Página {anaPageSafe + 1} de {anaTotalPages}</span>
+                <button
+                  disabled={anaPageSafe >= anaTotalPages - 1}
+                  onClick={() => setAnaPage(Math.min(anaTotalPages - 1, anaPageSafe + 1))}
+                  aria-label="Página siguiente"
+                ><Icon name="fwd" size={14}/></button>
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+};

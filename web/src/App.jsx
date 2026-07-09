@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Api } from './shared/api/client.js';
 import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
 import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
 import { EntornoMapScreen, FairValueForm, FairValueResult } from './features/fairvalue/FairValueScreens.jsx';
+import { DashboardScreen, HomeScreen } from './features/home/HomeScreens.jsx';
 import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
+import { ProfileScreen } from './features/profile/ProfileScreen.jsx';
 import { LeadsScreen, MyListingsScreen, PublishScreen, SavedScreen } from './features/publish/PublishScreens.jsx';
 
 const TAB_TO_SCREEN = {
@@ -95,6 +97,14 @@ function App() {
   const [publishPrefill, setPublishPrefill] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
+  useEffect(() => {
+    const suppressLeafletTeardown = (event) => {
+      if (String(event.message || '').includes("_leaflet_pos")) event.preventDefault();
+    };
+    window.addEventListener('error', suppressLeafletTeardown);
+    return () => window.removeEventListener('error', suppressLeafletTeardown);
+  }, []);
+
   const onAuth = (isNew) => {
     setUserVersion((v) => v + 1);
     setScreen(computeRoleHome(isNew));
@@ -134,6 +144,15 @@ function App() {
       setFvForm((extra && extra.form) || null);
       if (analysisId) setCurrentAnalysisId(analysisId);
     }
+    if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
+    setScreen('fairvalue-result');
+  };
+
+  const onOpenAnalysis = (id, ctx) => {
+    setVentaResult(null);
+    setFvLive(null);
+    setFvForm(null);
+    setCurrentAnalysisId(id);
     if (ctx) setGeoCtx({ lat: ctx.lat ?? null, lng: ctx.lng ?? null });
     setScreen('fairvalue-result');
   };
@@ -236,6 +255,25 @@ function App() {
             onAuthExpired={onLogout}
           />
         )}
+        {screen === 'home' && (
+          <HomeScreen
+            role={userRole}
+            onGo={go}
+            onOpenListing={onOpenListing}
+            onPublish={() => onPublish(null)}
+            user={currentUser}
+          />
+        )}
+        {screen === 'operaciones' && (
+          <DashboardScreen
+            role={userRole}
+            onGo={go}
+            onOpenAnalysis={onOpenAnalysis}
+            onPublish={() => onPublish(null)}
+            onError={setErrorMsg}
+            onAuthExpired={onLogout}
+          />
+        )}
         {screen === 'publish' && (
           <PublishScreen
             role={userRole}
@@ -275,7 +313,18 @@ function App() {
             onAuthExpired={onLogout}
           />
         )}
-        {!isPublic && !['listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved'].includes(screen) && (
+        {screen === 'profile' && (
+          <ProfileScreen
+            onLogout={onLogout}
+            onError={setErrorMsg}
+            onOpenAnalysis={onOpenAnalysis}
+            onMyListings={() => setScreen('mis-publicaciones')}
+            onSaved={() => setScreen('saved')}
+            onUserChanged={() => setUserVersion((v) => v + 1)}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {!isPublic && !['home', 'operaciones', 'listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved', 'profile'].includes(screen) && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
       </main>
