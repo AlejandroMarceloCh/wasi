@@ -3,6 +3,7 @@ import { Api } from './shared/api/client.js';
 import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
 import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
+import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
 
 const TAB_TO_SCREEN = {
   inicio: 'home',
@@ -53,6 +54,8 @@ const PlaceholderScreen = ({ screen, userRole, onLogout }) => (
 function App() {
   const [screen, setScreen] = useState(Api.isAuthed() ? computeRoleHome() : 'splash');
   const [userVersion, setUserVersion] = useState(0);
+  const [currentListingId, setCurrentListingId] = useState(null);
+  const [detailReturn, setDetailReturn] = useState(null);
 
   const onAuth = (isNew) => {
     setUserVersion((v) => v + 1);
@@ -61,8 +64,16 @@ function App() {
 
   const onLogout = () => {
     Api.logout();
+    setCurrentListingId(null);
+    setDetailReturn(null);
     setUserVersion((v) => v + 1);
     setScreen('splash');
+  };
+
+  const onOpenListing = (id) => {
+    setDetailReturn(screen === 'listing-detail' ? detailReturn : screen);
+    setCurrentListingId(id);
+    setScreen('listing-detail');
   };
 
   const onTopNavNav = (key) => {
@@ -98,7 +109,22 @@ function App() {
             onAuth={onAuth}
           />
         )}
-        {!isPublic && (
+        {screen === 'listings' && (
+          <ListingsScreen
+            onOpenListing={onOpenListing}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {screen === 'listing-detail' && (
+          <ListingDetailScreen
+            listingId={currentListingId}
+            role={userRole}
+            onBack={() => setScreen(detailReturn || roleHome)}
+            onAnalyze={() => setScreen('fairvalue-form')}
+            onAuthExpired={onLogout}
+          />
+        )}
+        {!isPublic && screen !== 'listings' && screen !== 'listing-detail' && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
       </main>

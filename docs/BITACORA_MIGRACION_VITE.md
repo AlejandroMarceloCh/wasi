@@ -83,3 +83,32 @@
   - Los placeholders autenticados se reemplazan en V3+ segun cada feature.
   - Seguir usando `localhost:5500` para QA mientras el backend CORS no permita puertos Vite adicionales.
 - Estado: CERRADO ✅
+
+## Sprint V3 — Listings, explorar y detalle — 2026-07-09
+- Sprint Goal: migrar el catalogo de inmuebles, mapa split, filtros, favoritos y detalle de listing a Vite, manteniendo auth y router parcial funcionando.
+- Que se migro:
+  - `app/screens-listings.jsx` → `web/src/features/listings/ListingsScreen.jsx`.
+  - `web/src/App.jsx`: conexion de `ListingsScreen`, `ListingDetailScreen`, `currentListingId`, `detailReturn` y navegacion de detalle.
+- Decisiones:
+  - Se mantuvo Leaflet crudo con `import L from 'leaflet'` y `import 'leaflet.markercluster'`.
+  - D3 se importa como modulo (`import * as d3 from 'd3'`) en vez de usar `window.d3`.
+  - Tabs de detalle que dependen de V4 (`WhatIfSimulator`, `EntornoMapScreen`) quedan con placeholders internos hasta migrar FairValue/Entorno.
+  - Se libero `localhost:5500` de un servidor Python viejo para que Vite pudiera correr en el origen permitido por CORS y evitar falso QA.
+- QA:
+  - Arranque OK: `npm run dev -- --host localhost --port 5500 --strictPort`.
+  - Render OK: Playwright capturo `/tmp/wasi-v3-final.png`.
+  - E2E listings real OK contra backend vivo:
+    - Login con `ana@wasi.pe`.
+    - Navegacion a Explorar.
+    - Carga de cards del catalogo.
+    - Toggle de favorito sin romper UI.
+    - Apertura de detalle y presencia de acciones de contacto/analisis.
+    - Comando temporal: `npx playwright test wasi-v3-listings.spec.cjs --browser=chromium --reporter=list` → `1 passed`.
+  - Build OK: `npm run build` paso con `619 modules transformed`.
+  - Audit runtime OK: `npm audit --omit=dev` reporto `found 0 vulnerabilities`.
+  - `git diff --check -- web docs/BITACORA_MIGRACION_VITE.md`: OK.
+  - Revision local sustituyo al agente Codex/Sonnet porque el agente V3 fallo por limite de uso. Checks hechos: sin `window.L`, `window.d3`, `window.Api`, `ReactDOM`, `Object.assign` ni destructuring global de React en V3.
+- Deuda:
+  - Reemplazar placeholders de FairValue/Entorno en V4.
+  - En V4 revisar bundle size: D3/Leaflet ya entran al bundle de listings.
+- Estado: CERRADO ✅
