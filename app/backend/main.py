@@ -54,7 +54,10 @@ app = FastAPI(title="Wasi API", version="2.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors = os.environ.get("WASI_CORS_ORIGINS", "http://localhost:5500")
+# Dev local: Vite corre en :5173 (nuevo frontend). :5500 se mantiene por
+# compatibilidad. En producción se fija WASI_CORS_ORIGINS al dominio de Vercel.
+_cors = os.environ.get(
+    "WASI_CORS_ORIGINS", "http://localhost:5173,http://localhost:5500")
 _origins = ["*"] if _cors.strip() == "*" else [o.strip() for o in _cors.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
