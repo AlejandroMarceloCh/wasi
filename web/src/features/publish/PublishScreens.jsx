@@ -133,7 +133,17 @@ export const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onA
   const manual = useR({ district: false, address: false });
   const geoAbort = useR(null);
 
-  const [operacion, setOperacion] = useS('alquiler');
+  const [operacion, setOperacion] = useS(() => {
+    // Restaurar la operación del borrador (antes se guardaba pero al recargar
+    // un draft de venta volvía a alquiler → rango/modelo/unidad equivocados).
+    if (!prefill) {
+      try {
+        const d = JSON.parse(localStorage.getItem(PUBLISH_DRAFT_KEY) || 'null');
+        if (d && (d.operacion === 'venta' || d.operacion === 'alquiler')) return d.operacion;
+      } catch (_) {}
+    }
+    return 'alquiler';
+  });
   const cfg = OP_CFG[operacion];
 
   const [f, setF] = useS(() => {

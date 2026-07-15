@@ -229,3 +229,22 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** ambos scripts corren con números estables (±0.5). Backend/modelo servido intactos (170/2). No se tocó el artefacto.
 - **Riesgos / deuda aceptada:** el script v2-core usa las features del CSV limpio (64 numéricas + encoding por fold), no las 101 exactas del artefacto (OSM/NSE se omiten porque su señal ya está mayormente en las features geo del CSV; no cambia la conclusión espacial). Regenerar el artefacto v2 completo con GroupKFold queda como deuda opcional de trazabilidad, innecesaria para la honestidad ya demostrada.
 - **Estado:** CERRADO ✅ — ambos gates (bundler + Opción B) resueltos.
+
+---
+
+## Sprint 12 — Quick wins de la auditoría Codex — 2026-07-15
+- **Sprint Goal:** corregir los bugs de alto ROI del informe `docs/HALLAZGOS_CODEX.md` que solo requieren código (los que necesitan dominio de Vercel/Postgres/decisión de producto quedan para el usuario).
+- **Hallazgos cerrados:** #2 (Select), #3 (PATCH tope), #5 (zone Ganga), #4 (ErrorBoundary), #8 (rate-limits), #10 (LeadIn phone), #11 (image_url SVG), #12 (CI 3.11), #13 (base.js :8001), #14 (draft operación).
+- **Qué se cambió:**
+  - `web/src/shared/ui/components.jsx` — `Select` ya no usa `o.value || o` (rompía con `value:''` → `[object Object]` → vaciaba el catálogo al re-elegir "Todos"). Ahora distingue objeto vs string y usa `?? ''`.
+  - `app/backend/routers/listings.py` — `update_listing` valida el tope de precio por operación (editar un alquiler a $5M ya no pasa); `_zone_from_price` no etiqueta "Ganga" con descuentos > 45% (data sucia como "$50/mes" ya no sale Ganga en el catálogo); rate-limit en `update_listing` (30/min) y `add_favorite` (60/min).
+  - `app/backend/routers/fairvalue.py` — rate-limit en `explain`/`narrative`/`narrative_detailed` (30-60/min, inferencia SHAP/Groq cara) y `get_analysis`.
+  - `app/backend/schemas.py` — `LeadIn.phone` exige ≥6 dígitos reales (antes "abcdef" pasaba); `_image_url_ok` rechaza `data:image/svg+xml` (superficie XSS), solo jpeg/png/webp.
+  - `web/src/shared/ui/ErrorBoundary.jsx` (nuevo) + `main.jsx` — atrapa excepciones de render (antes = pantalla blanca) con UI de recuperación.
+  - `web/src/shared/api/base.js` — fallback dev de :8000 → :8001 (backend real de Wasi).
+  - `web/src/features/publish/PublishScreens.jsx` — el borrador restaura `operacion` (draft de venta ya no vuelve a alquiler al recargar).
+  - `.github/workflows/ci.yml` — Python 3.9 → 3.11.9 (coincide con Render).
+  - `tests/test_listings.py` — +4 tests: PATCH tope, lead phone, image_url SVG, zone Ganga implausible.
+- **Resultados de QA:** pytest **174 passed / 2 skipped** (170 + 4). Verificado en vivo: PATCH alquiler $500k → 422; navegador → Select sin `[object Object]`, re-elegir "Todos" mantiene 24 inmuebles (no vacía); build de Vite OK con ErrorBoundary.
+- **Riesgos / deuda aceptada:** pendientes del informe que NO son solo-código (requieren TU acción/decisión): **CORS de producción** (dominio Vercel), **Postgres en Render**, **planes Pro/campana** (ocultar vs implementar). Deuda técnica mayor diferida: code-splitting del bundle, History API (Back/F5), Babilonia en venta, dedup de componentes.
+- **Estado:** CERRADO ✅

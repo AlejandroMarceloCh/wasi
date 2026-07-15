@@ -26,6 +26,8 @@ export function resolveApiBase() {
       || window.WASI_API_BASE
       || storedBase
       || import.meta.env.VITE_API_BASE
-      || (isLocalhost() ? 'http://localhost:8000' : PROD_BACKEND),
+      // Fallback dev: :8001 (donde corre el backend de Wasi; :8000 lo suele
+      // ocupar Docker/otro proyecto → requests al backend equivocado).
+      || (isLocalhost() ? 'http://localhost:8001' : PROD_BACKEND),
   );
 }

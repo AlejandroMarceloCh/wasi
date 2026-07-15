@@ -290,7 +290,9 @@ def list_analyses(
     ]
 
 @router.get("/analyses/{analysis_id}", response_model=PredictOut)
+@limiter.limit("60/minute")
 def get_analysis(
+    request: Request,
     analysis_id: int,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
@@ -323,7 +325,9 @@ def get_analysis(
     return out
 
 @router.get("/fairvalue/explain/{analysis_id}", response_model=ExplainOut)
+@limiter.limit("60/minute")
 def explain(
+    request: Request,
     analysis_id: int,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
@@ -430,7 +434,9 @@ def _groq_chat(api_key: str, prompt: str, max_tokens: int, temperature: float) -
     return content
 
 @router.get("/fairvalue/narrative/{analysis_id}", response_model=NarrativeOut)
+@limiter.limit("30/minute")
 def narrative(
+    request: Request,
     analysis_id: int,
     mode: str = "buyer",
     db: Session = Depends(get_db),
@@ -522,7 +528,9 @@ def narrative(
     )
 
 @router.get("/fairvalue/narrative/{analysis_id}/detailed", response_model=DetailedNarrativeOut)
+@limiter.limit("30/minute")
 def narrative_detailed(
+    request: Request,
     analysis_id: int,
     mode: str = "buyer",
     db: Session = Depends(get_db),

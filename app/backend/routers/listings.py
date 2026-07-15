@@ -15,8 +15,8 @@ from wasi.features.geo_index import OutOfBoundsError, geo_lookup
 from wasi.models.ml import ZONE_BAND_PCT, predict_fair_value
 from wasi.models.venta_service import venta_service
 from models import Favorite, Lead, Listing, User
-from schemas import (FavoriteIn, InboxLeadOut, LeadIn, LeadOut, ListingIn,
-                     ListingOut, ListingUpdateIn)
+from schemas import (PRICE_MAX_ALQUILER, PRICE_MAX_VENTA, FavoriteIn, InboxLeadOut,
+                     LeadIn, LeadOut, ListingIn, ListingOut, ListingUpdateIn)
 
 router = APIRouter(prefix="/api", tags=["listings"])
 
@@ -128,6 +128,11 @@ def _zone_from_price(price: float, fair_ref: Optional[float]) -> Optional[str]:
     if not fair_ref or fair_ref <= 0:
         return None
     diff_pct = (price - fair_ref) / fair_ref * 100
+    # Un descuento implausible (data sucia: precio en soles, error de escala) NO
+    # es una ganga real. Mismo criterio que _ganga_score: no lo etiquetamos como
+    # Ganga en el catálogo (antes salían avisos "Ganga $50/mes" con -94%).
+    if diff_pct < -MAX_GANGA_DISCOUNT * 100:
+        return None
     if diff_pct < -ZONE_BAND_PCT:
         return "Ganga"
     if diff_pct > ZONE_BAND_PCT:
@@ -309,7 +314,9 @@ def create_listing(
     return _to_out(l, include_contact=True)
 
 @router.patch("/listings/{listing_id}", response_model=ListingOut)
+@limiter.limit("30/minute")
 def update_listing(
+    request: Request,
     listing_id: int,
     payload: ListingUpdateIn,
     db: Session = Depends(get_db),
@@ -326,6 +333,16 @@ def update_listing(
     if not l or l.owner_id != current.id:
         raise HTTPException(status_code=404, detail="Inmueble no encontrado")
     data = payload.model_dump(exclude_unset=True)
+    # Tope de precio por operación del listing existente. El schema no lo puede
+    # validar (no conoce la operación); sin esto, editar un alquiler a $5M pasaba
+    # aunque crearlo con ese precio se rechaza.
+    if data.get("price_usd") is not None:
+        op = getattr(l, "operacion", "alquiler") or "alquiler"
+        tope = PRICE_MAX_VENTA if op == "venta" else PRICE_MAX_ALQUILER
+        if data["price_usd"] > tope:
+            raise HTTPException(
+                status_code=422,
+                detail=f"El precio de {op} no puede superar ${tope:,.0f}.".replace(",", " "))
     if "amenities" in data and data["amenities"] is not None:
         data["amenities"] = ",".join(data["amenities"])
     for k, v in data.items():
@@ -424,7 +441,9 @@ def inbox_leads(db: Session = Depends(get_db),
     ]
 
 @router.post("/favorites", response_model=ListingOut, status_code=201)
+@limiter.limit("60/minute")
 def add_favorite(
+    request: Request,
     payload: FavoriteIn,
     response: Response,
     db: Session = Depends(get_db),

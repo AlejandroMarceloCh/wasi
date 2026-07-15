@@ -387,3 +387,33 @@ def test_contact_name_visible_para_dueno(client):
     r = client.get("/api/listings/mine", headers=h)
     assert r.status_code == 200
     assert any(x["contact_name"] for x in r.json())
+
+
+# ── Auditoría Codex: topes, validaciones y zone sana ──────────────────────
+
+def test_patch_respeta_tope_de_precio_por_operacion(client):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing(operacion="alquiler")).json()["id"]
+    # editar un alquiler a $500k debe rechazarse (como al crear)
+    r = client.patch(f"/api/listings/{lid}", headers=h, json={"price_usd": 500000})
+    assert r.status_code == 422
+
+def test_lead_telefono_exige_digitos(client, auth_headers):
+    h = _seller_headers(client)
+    lid = client.post("/api/listings", headers=h, json=_listing()).json()["id"]
+    r = client.post(f"/api/listings/{lid}/leads", headers=auth_headers, json={
+        "name": "Ana", "phone": "abcdef", "email": "ana@wasi.pe", "message": "hola"})
+    assert r.status_code == 422
+
+def test_image_url_rechaza_svg(client):
+    h = _seller_headers(client)
+    r = client.post("/api/listings", headers=h, json=_listing(
+        image_url="data:image/svg+xml,<svg onload=alert(1)>"))
+    assert r.status_code == 422
+
+def test_zone_no_etiqueta_ganga_implausible(client):
+    """Un precio con descuento absurdo (>45%) no debe salir como 'Ganga' en el
+    catálogo (antes: 'Ganga $50/mes' con data sucia)."""
+    from routers.listings import _zone_from_price
+    assert _zone_from_price(50, 879) is None       # -94% → data sucia, no Ganga
+    assert _zone_from_price(800, 1000) == "Ganga"  # -20% → ganga real

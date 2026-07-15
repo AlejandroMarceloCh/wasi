@@ -158,7 +158,15 @@ const Select = ({ label, options, value, onChange, placeholder }) => {
       {label && <label htmlFor={id}>{label}</label>}
       <select id={id} value={value || ''} onChange={(e)=>onChange(e.target.value)}>
         {placeholder && <option value="" disabled>{placeholder}</option>}
-        {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
+        {options.map((o) => {
+          // Soporta opciones {value,label} y strings sueltos. OJO: `o.value || o`
+          // rompía cuando value === '' (option "Todos") → renderizaba el objeto
+          // entero como "[object Object]" y mandaba filtro basura al backend.
+          const isObj = o != null && typeof o === 'object';
+          const val = isObj ? (o.value ?? '') : o;
+          const lbl = isObj ? (o.label ?? o.value ?? '') : o;
+          return <option key={String(val)} value={val}>{lbl}</option>;
+        })}
       </select>
     </div>
   );

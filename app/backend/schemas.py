@@ -307,16 +307,22 @@ PRICE_MAX_ALQUILER = 50_000
 PRICE_MAX_VENTA = 5_000_000
 
 
+# Solo imágenes rasterizadas embebidas. `data:image/svg+xml` puede llevar script
+# y es superficie XSS si algún día se rendea como HTML → se rechaza.
+_DATA_IMG_OK = ("data:image/jpeg", "data:image/png", "data:image/webp")
+
+
 def _image_url_ok(v: Optional[str]) -> Optional[str]:
-    """Acepta URLs http(s) o imágenes subidas embebidas (data:image/...).
-    Rechaza javascript:, data:text, etc. para evitar XSS al renderear en
-    <img> (data:image solo pinta píxeles, no ejecuta script)."""
+    """Acepta URLs http(s) o imágenes raster subidas (data:image/jpeg|png|webp).
+    Rechaza javascript:, data:text y data:image/svg+xml (posible XSS)."""
     if v is None or v == "":
         return v
     low = v.lower()
-    if low.startswith(("http://", "https://")) or low.startswith("data:image/"):
+    if low.startswith(("http://", "https://")) or low.startswith(_DATA_IMG_OK):
         return v
-    raise ValueError("La foto debe ser una URL http(s) o una imagen subida.")
+    if low.startswith("data:image/svg"):
+        raise ValueError("Las imágenes SVG no están permitidas. Sube JPG, PNG o WebP.")
+    raise ValueError("La foto debe ser una URL http(s) o una imagen JPG/PNG/WebP subida.")
 
 
 class ListingIn(BaseModel):
@@ -465,6 +471,14 @@ class LeadIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     email: EmailStr
     message: Optional[str] = Field(default="", max_length=1000)
+
+    @field_validator("phone", mode="after")
+    @classmethod
+    def _phone_digits(cls, v: str) -> str:
+        """Mismo criterio que ListingIn: ≥6 dígitos reales, no "abcdef"."""
+        if sum(c.isdigit() for c in v) < 6:
+            raise ValueError("El teléfono debe tener al menos 6 dígitos.")
+        return v.strip()
 
     @field_validator("email", mode="after")
     @classmethod
