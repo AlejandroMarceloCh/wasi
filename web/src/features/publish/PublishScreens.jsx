@@ -1,10 +1,10 @@
 import { useEffect as useE, useRef as useR, useState as useS } from 'react';
-import * as d3 from 'd3';
 import { Api } from '../../shared/api/client.js';
 import { AMENIDADES } from '../../shared/lib/amenities.js';
 import { ZONE_VARIANT, enLima, handleApiErr, onKeyActivate } from '../../shared/lib/helpers.js';
 import { AddressSearch, MapPicker } from '../../shared/map/map-components.jsx';
 import { ListingCard } from '../../shared/listings/ListingCard.jsx';
+import { CounterfactualPanel } from '../../shared/charts.jsx';
 import {
   Btn,
   Card,
@@ -24,89 +24,6 @@ const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB de archivo original
 const OP_CFG = {
   alquiler: { label: 'Alquiler', unit: '/mes', min: 50, max: 50000, phPrice: '900' },
   venta:    { label: 'Venta',    unit: 'total', min: 20000, max: 5000000, phPrice: '180000' },
-};
-
-const CounterfactualTornadoD3 = ({ items }) => {
-  const ref = useR(null);
-  useE(() => {
-    const el = ref.current;
-    if (!el || !Array.isArray(items) || !items.length) return;
-    const draw = () => {
-      d3.select(el).selectAll('*').remove();
-      const rows = items.slice(0, 8);
-      const W = el.clientWidth || 480, rowH = 34, m = { l: 148, r: 64, t: 6, b: 6 };
-      const H = rows.length * rowH + m.t + m.b;
-      const maxAbs = Math.max(1, d3.max(rows, d => Math.abs(d.delta_pct)));
-      const halfW = (W - m.l - m.r) / 2;
-      const cx = m.l + halfW;
-      const x = d3.scaleLinear().domain([0, maxAbs]).range([0, halfW]);
-      const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
-      svg.append('line').attr('x1', cx).attr('x2', cx).attr('y1', m.t).attr('y2', H - m.b)
-        .attr('stroke', 'var(--line)').attr('stroke-width', 1);
-      const g = svg.selectAll('g').data(rows).enter().append('g')
-        .attr('transform', (d, i) => `translate(0,${m.t + i * rowH + rowH / 2})`);
-      g.append('text').attr('x', m.l - 12).attr('dy', '.32em').attr('text-anchor', 'end')
-        .attr('class', 'd3-cat').text(d => d.label);
-      g.append('rect').attr('y', -9).attr('height', 18).attr('rx', 5)
-        .attr('x', d => d.direction === 'baja' ? cx - x(Math.abs(d.delta_pct)) : cx)
-        .attr('fill', d => d.direction === 'sube' ? '#16a34a' : d.direction === 'baja' ? '#dc2626' : '#94a3b8')
-        .attr('width', 0).transition().duration(600).delay((d, i) => i * 45)
-        .attr('width', d => Math.max(2, x(Math.abs(d.delta_pct))));
-      g.append('text').attr('dy', '.32em').attr('class', 'd3-val')
-        .attr('x', d => d.direction === 'baja' ? cx - x(Math.abs(d.delta_pct)) - 8 : cx + x(Math.abs(d.delta_pct)) + 8)
-        .attr('text-anchor', d => d.direction === 'baja' ? 'end' : 'start')
-        .attr('fill', d => d.direction === 'sube' ? '#15803d' : d.direction === 'baja' ? '#b91c1c' : '#64748b')
-        .text(d => (d.direction === 'sube' ? '+' : d.direction === 'baja' ? '−' : '') + '$' + Math.abs(Math.round(d.delta)).toLocaleString('en-US'));
-    };
-    draw();
-    let ro;
-    if (window.ResizeObserver) { ro = new ResizeObserver(draw); ro.observe(el); }
-    return () => { if (ro) ro.disconnect(); };
-  }, [items]);
-  return <div ref={ref} className="d3-cf" style={{ width: '100%' }}/>;
-};
-
-const CounterfactualPanel = ({ cf, loading, error, isSeller }) => {
-  if (loading) {
-    return (
-      <Card>
-        <div className="section-h">{isSeller ? 'Cómo subir tu precio sugerido' : 'Qué explica este precio'}</div>
-        <p className="tiny muted" style={{ marginTop: 8 }}>Calculando palancas con el modelo…</p>
-      </Card>
-    );
-  }
-  if (error || !cf || !cf.items || cf.items.length === 0) {
-    if (error) {
-      return (
-        <Card>
-          <div className="section-h">{isSeller ? 'Cómo subir tu precio sugerido' : 'Qué explica este precio'}</div>
-          <p className="tiny muted" style={{ marginTop: 8 }}>No se pudieron calcular las palancas de precio.</p>
-        </Card>
-      );
-    }
-    return null;
-  }
-
-  const items = isSeller
-    ? cf.items.filter(i => i.kind !== 'informativo' && i.direction === 'sube')
-    : cf.items;
-  if (items.length === 0) return null;
-  const title = isSeller ? 'Cómo subir tu precio sugerido' : 'Qué explica este precio';
-  const sub = isSeller
-    ? 'Cambios accionables ordenados por impacto en la referencia del modelo.'
-    : 'Cuánto aporta o resta cada característica, según el modelo.';
-  return (
-    <Card>
-      <div className="section-h">{title}</div>
-      <p className="tiny muted" style={{ marginTop: -4, marginBottom: 8 }}>{sub}</p>
-      <CounterfactualTornadoD3 items={items}/>
-      <p className="tiny muted" style={{ marginTop: 10 }}>
-        Estimaciones del modelo Wasi: reflejan <strong>correlaciones del mercado limeño</strong>, no
-        causalidad. Algún efecto puede ser contraintuitivo (p. ej. baños en zonas donde
-        los avisos con más baños son más antiguos); es una limitación conocida del enfoque.
-      </p>
-    </Card>
-  );
 };
 
 export const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onAuthExpired }) => {

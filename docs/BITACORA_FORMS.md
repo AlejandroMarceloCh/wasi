@@ -268,3 +268,27 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Verificación en vivo: **NO realizada en browser** (el entorno no dispone de browser MCP). Sustituida por build + simulación del algoritmo + revisión estática del diff. Pendiente de confirmación humana del ciclo Home→Detalle→Back→Adelante→F5 en `:5173`.
 - **Riesgos / deuda aceptada:** el borde "popstate entrega la misma pantalla → React bail-out → `popNavRef` queda en true" es inalcanzable en la práctica (sólo se apila cuando `screen` cambia de verdad), pero queda como nota. La restauración tras F5 cubre screen+listingId+analysisId+geoCtx; NO restaura estado efímero (fvLive/ventaResult/drafts) — las pantallas lo refetchan. El efecto #27 dispara `eslint exhaustive-deps` (no rompe build; el CI de frontend no corre lint).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 14 — Performance de carga del frontend — 2026-07-16
+- **Sprint Goal:** partir el bundle monolítico y quitar peso muerto para bajar el TTI medible, sin drift visual.
+- **Hallazgos cerrados:** #7 (code-splitting), #25 (duplicación de componentes), #34 (fuentes self-host), #35 (`_leaflet_pos` global), #28 (dark mode residual).
+- **Qué se cambió:**
+  - `web/vite.config.js` — `manualChunks` separa vendors pesados: `react`/`react-dom`, `leaflet`+`leaflet.markercluster`, `d3` cada uno en su chunk.
+  - `web/src/App.jsx` — pantallas pesadas (FairValueForm/Result, EntornoMap, Listings/Detail, Publish/MyListings/Leads/Saved, Profile) cargan con `React.lazy` + `<Suspense fallback={<ScreenFallback/>}>`. Quedan eager: splash/auth/home.
+  - `web/src/shared/charts.jsx` (NUEVO) — fuente canónica de los viz d3 compartidos: `CounterfactualTornadoD3`, `CounterfactualPanel`, `PoiImportanceD3`.
+  - `web/src/features/listings/ListingsScreen.jsx` — borradas copias locales de `MarketRangeD3` (código muerto, jamás se renderizaba), `PoiImportanceD3`, `CounterfactualTornadoD3`, `CounterfactualPanel`; importadas de shared. Quitado `import * as d3`.
+  - `web/src/features/publish/PublishScreens.jsx` — borradas copias locales de `CounterfactualTornadoD3`/`CounterfactualPanel`; importadas de shared. Quitado `import * as d3`.
+  - `web/src/features/fairvalue/FairValueScreens.jsx` — borrada copia local de `PoiImportanceD3`; importada de shared (d3 se mantiene, se usa en el GaugeChart propio).
+  - `web/src/features/home/HomeScreens.jsx` — borrada copia local de `PoiImportanceD3`; importada de shared. Quitado `import * as d3`.
+  - `web/src/main.jsx` + `web/index.html` — fuentes self-hosted vía `@fontsource` (Inter 400-700, Space Grotesk 500-700); eliminado el `<link>` a fonts.googleapis y los `preconnect`.
+  - `web/src/styles.css` — overrides `[data-theme="dark"]` para los elementos del wizard que usaban `oklch` claros hardcoded (stepper buttons, switch, pick-chip.on, bordes de inputs, `.big-price`, placeholder, `.srow`).
+- **QA (Protocolo Anticagadas):**
+  - pytest: **174 passed / 2 skipped** (sin regresiones; el sprint no toca backend).
+  - build: OK, **sin warning de chunk >500 kB**. Chunks: `react` 11.77 · `d3` 48.67 · `leaflet` 183.87 · `FairValueScreens` 55.18 · `PublishScreens` 31.73 · `ListingsScreen` 21.15 · `map-components` 19.76 · `ProfileScreen` 14.59 · `index` (app+home+auth+shared) **266.19 kB** (gzip 82.96). El chunk de app bajó de **406 kB (eager) → 266 kB**; del monolito original de **665 kB → 266 kB iniciales** + lazy.
+  - Agente Sonnet (correctitud + regresión, solo-lectura): **6/7 CONFIRMADO**; halló 1 PROBLEMA real (`.big-price` del wizard fuera del override dark) → **corregido** en el mismo sprint (añadido `.big-price`/`.srow`/placeholder al bloque dark). Verificó además que las versiones extraídas a `shared/charts.jsx` son lógicamente idénticas a las previas (sin drift visual) y que los 10 componentes lazy quedan dentro del `<Suspense>`.
+  - Verificación de dev server: `npm run dev` arranca, sirve el HTML, transforma `main.jsx` (con imports @fontsource) y `shared/charts.jsx` resuelve (HTTP 200).
+  - Verificación en vivo: **NO en browser** (sin browser MCP). Contraste fino del dark mode y la carga perceptual del lazy quedan para confirmación humana en `:5173` con tema oscuro.
+- **Riesgos / deuda aceptada:** el CSS pide `font-weight:800` en algunos títulos; ninguna familia carga ese peso (el CDN de Google tampoco lo servía) → faux-bold desde 700, idéntico al baseline (no regresión). El `leaflet` (183 kB) carga al arranque porque el home lo usa; no es lazy-evitable sin rediseñar el home. La `@fontsource` trae subsets latin/latin-ext + woff/woff2 (más archivos de los estrictamente necesarios), pero el navegador sólo descarga woff2 latin.
+- **Estado:** CERRADO ✅

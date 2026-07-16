@@ -1,13 +1,34 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Api } from './shared/api/client.js';
-import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
+import { Btn, Card, Icon, Loading, PageHeader, TopNav } from './shared/ui/components.jsx';
 import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
-import { EntornoMapScreen, FairValueForm, FairValueResult } from './features/fairvalue/FairValueScreens.jsx';
 import { HomeScreen } from './features/home/HomeScreens.jsx';
-import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
-import { ProfileScreen } from './features/profile/ProfileScreen.jsx';
-import { LeadsScreen, MyListingsScreen, PublishScreen, SavedScreen } from './features/publish/PublishScreens.jsx';
+
+// #7: las pantallas pesadas (wizard FairValue, Publish, listings, entorno)
+// cargan bajo demanda con React.lazy para achicar el chunk inicial. Las
+// pantallas de arranque (splash/auth/home) quedan eager. Los exports nombrados
+// se adaptan a lazy con .then(m => ({default: m.X})); varios lazy() sobre el
+// mismo módulo generan un único chunk compartido.
+const fv = () => import('./features/fairvalue/FairValueScreens.jsx');
+const FairValueForm = lazy(() => fv().then((m) => ({ default: m.FairValueForm })));
+const FairValueResult = lazy(() => fv().then((m) => ({ default: m.FairValueResult })));
+const EntornoMapScreen = lazy(() => fv().then((m) => ({ default: m.EntornoMapScreen })));
+const lst = () => import('./features/listings/ListingsScreen.jsx');
+const ListingsScreen = lazy(() => lst().then((m) => ({ default: m.ListingsScreen })));
+const ListingDetailScreen = lazy(() => lst().then((m) => ({ default: m.ListingDetailScreen })));
+const pub = () => import('./features/publish/PublishScreens.jsx');
+const PublishScreen = lazy(() => pub().then((m) => ({ default: m.PublishScreen })));
+const MyListingsScreen = lazy(() => pub().then((m) => ({ default: m.MyListingsScreen })));
+const LeadsScreen = lazy(() => pub().then((m) => ({ default: m.LeadsScreen })));
+const SavedScreen = lazy(() => pub().then((m) => ({ default: m.SavedScreen })));
+const ProfileScreen = lazy(() => import('./features/profile/ProfileScreen.jsx').then((m) => ({ default: m.ProfileScreen })));
+
+const ScreenFallback = () => (
+  <div className="container" style={{ paddingTop: 24 }}>
+    <Loading label="Cargando…"/>
+  </div>
+);
 
 const TAB_TO_SCREEN = {
   inicio: 'home',
@@ -176,6 +197,12 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // #35: silencio del error "_leaflet_pos". Leaflet lo emite como error global
+  // en `window` al desmontar un mapa mientras una transición/arrastre está en
+  // vuelo (carrera interna suya, no nuestra). No es acotable al scope de un
+  // mapa concreto porque el evento viaja por `window.error` sin referencia al
+  // origen; dejarlo global es la forma correcta de evitar ruido en consola y
+  // reportes falsos sin ocultar otros errores (solo se filtra por mensaje).
   useEffect(() => {
     const suppressLeafletTeardown = (event) => {
       if (String(event.message || '').includes("_leaflet_pos")) event.preventDefault();
@@ -280,6 +307,7 @@ function App() {
         isPublic={isPublic}
       />
       <main className={(screen === 'splash' || screen.startsWith('auth')) ? 'no-pad' : ''}>
+        <Suspense fallback={<ScreenFallback/>}>
         {screen === 'splash' && (
           <SplashScreen onStart={() => setScreen('auth-register')} onLogin={() => setScreen('auth-login')}/>
         )}
@@ -404,6 +432,7 @@ function App() {
         {!isPublic && !['home', 'listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved', 'profile'].includes(screen) && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
+        </Suspense>
       </main>
     </div>
   );

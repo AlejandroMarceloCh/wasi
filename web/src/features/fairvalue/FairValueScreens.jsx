@@ -6,6 +6,7 @@ import { LIMA_ALIASES } from '../../shared/lib/aliases_lima.js';
 import { enLima, handleApiErr, onKeyActivate } from '../../shared/lib/helpers.js';
 import { WASI_STATS } from '../../shared/lib/stats.js';
 import { AddressSearch, MapPicker } from '../../shared/map/map-components.jsx';
+import { PoiImportanceD3 } from '../../shared/charts.jsx';
 import {
   Btn,
   Card,
@@ -807,42 +808,6 @@ const ComparablesCard = ({ data }) => {
       </p>
     </Card>
   );
-};
-
-const PoiImportanceD3 = ({ data }) => {
-  const ref = useR(null);
-  useE(() => {
-    const el = ref.current;
-    if (!el || !Array.isArray(data) || !data.length) return;
-    const draw = () => {
-      d3.select(el).selectAll('*').remove();
-      const rows = data.slice(0, 10);
-      const W = el.clientWidth || 480, rowH = 30, m = { l: 132, r: 52, t: 8, b: 8 };
-      const H = rows.length * rowH + m.t + m.b;
-      const x = d3.scaleLinear().domain([0, d3.max(rows, d => d.pct) || 1]).range([m.l, W - m.r]);
-      const color = d3.scaleSequential().domain([rows.length - 1, 0]).interpolator(d3.interpolateRgb('#9ec5fe', '#1d4ed8'));
-      const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
-      const g = svg.selectAll('g').data(rows).enter().append('g')
-        .attr('transform', (d, i) => `translate(0,${m.t + i * rowH + rowH / 2})`);
-      g.append('text').attr('x', m.l - 10).attr('dy', '.32em').attr('text-anchor', 'end')
-        .attr('class', 'd3-cat').text(d => d.category);
-      g.append('line').attr('x1', m.l).attr('y1', 0).attr('y2', 0)
-        .attr('stroke', (d, i) => color(i)).attr('stroke-width', 3).attr('stroke-linecap', 'round')
-        .attr('x2', m.l).transition().duration(650).delay((d, i) => i * 45).attr('x2', d => x(d.pct));
-      g.append('circle').attr('cx', m.l).attr('cy', 0).attr('r', 5).attr('fill', (d, i) => color(i))
-        .transition().duration(700).delay((d, i) => i * 45).attr('cx', d => x(d.pct));
-      g.append('text').attr('x', d => x(d.pct) + 10).attr('dy', '.32em')
-        .attr('class', 'd3-val')
-        .text(d => d.pct_of_env_total != null
-          ? `${d.pct_of_env_total.toFixed(0)}% (${d.pct.toFixed(2)})`
-          : d.pct.toFixed(2) + '%');
-    };
-    draw();
-    let ro;
-    if (window.ResizeObserver) { ro = new ResizeObserver(draw); ro.observe(el); }
-    return () => { if (ro) ro.disconnect(); };
-  }, [data]);
-  return <div ref={ref} className="d3-poi" style={{ width: '100%' }}/>;
 };
 
 const PoiInsightCard = () => {

@@ -2070,6 +2070,53 @@
     background: var(--surface-2);
     border-color: var(--line);
   }
+  /* #28: el wizard reutilizaba gradientes oklch claros (stepper, switch,
+     pick-chip.on, bordes de inputs) que en tema oscuro quedaban como blobs
+     brillantes de bajo contraste. Se sobreescriben con superficies oscuras
+     coherentes con los tokens, manteniendo la jerarquía visual (botón algo
+     elevado, chip activo = acento primary). */
+  [data-theme="dark"] .wizard-card .field input,
+  [data-theme="dark"] .wizard-card .field select,
+  [data-theme="dark"] .wizard-card .field textarea{
+    border-color: var(--line);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.30);
+  }
+  [data-theme="dark"] .wizard-card .stepper{
+    border-color: var(--line);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.30);
+  }
+  [data-theme="dark"] .wizard-card .stepper button{
+    background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%);
+    border-color: var(--line);
+  }
+  [data-theme="dark"] .wizard-card .stepper button:hover:not(:disabled){
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  }
+  [data-theme="dark"] .wizard-card .switch{
+    background: var(--line-2);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.30);
+  }
+  [data-theme="dark"] .wizard-card .pick-chip{
+    border-color: var(--line);
+    box-shadow: none;
+  }
+  [data-theme="dark"] .wizard-card .pick-chip:hover:not(.on){
+    border-color: var(--ink-3);
+  }
+  [data-theme="dark"] .wizard-card .pick-chip.on{
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: oklch(0.80 0.10 250);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  /* #28 (cont.): el input de precio grande (.big-price) y los separadores de
+     la tabla resumen (.srow) también usaban oklch claros que brillan en dark. */
+  [data-theme="dark"] .big-price{
+    border-color: var(--line);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.30);
+  }
+  [data-theme="dark"] .big-price-input::placeholder{ color: var(--ink-3); }
+  [data-theme="dark"] .srow{ border-bottom-color: var(--line); }
   .wizard-card .section-h{
     font-size: 11px; font-weight: 800;
     letter-spacing: .12em; text-transform: uppercase;
