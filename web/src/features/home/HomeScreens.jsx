@@ -2,10 +2,10 @@ import { useEffect as useE, useRef as useR, useState as useS } from 'react';
 import * as d3 from 'd3';
 import L from 'leaflet';
 import { Api } from '../../shared/api/client.js';
-import { handleApiErr, onKeyActivate } from '../../shared/lib/helpers.js';
+import { onKeyActivate } from '../../shared/lib/helpers.js';
 import { WASI_STATS } from '../../shared/lib/stats.js';
 import { ListingCard } from '../../shared/listings/ListingCard.jsx';
-import { Btn, Card, Glossary, Icon, Loading, Modal, PageHeader, Tag } from '../../shared/ui/components.jsx';
+import { Btn, Glossary, Icon, Tag } from '../../shared/ui/components.jsx';
 
 const HomeMiniGauge = ({ pct = 0.78 }) => {
   const CX = 90, CY = 78, R = 60;
@@ -257,7 +257,11 @@ const DistrictMap = ({ onGo }) => {
   const [active, setActive] = useS(null); 
 
   useE(() => {
-    Api.distritosZona().then(setDistritos).catch(() => {});
+    const ctrl = new AbortController();
+    Api.distritosZona({ signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setDistritos(r); })
+      .catch(() => {});
+    return () => ctrl.abort();
   }, []);
 
   
@@ -468,9 +472,11 @@ export const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
   const [gangas, setGangas] = useS(null);          
 
   useE(() => {
-    Api.listListings({ zone: 'Ganga', sort: 'ganga', limit: 3 })
-      .then(r => setGangas(Array.isArray(r) ? r : []))
-      .catch(() => setGangas([]));
+    const ctrl = new AbortController();
+    Api.listListings({ zone: 'Ganga', sort: 'ganga', limit: 3 }, { signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setGangas(Array.isArray(r) ? r : []); })
+      .catch(() => { if (!ctrl.signal.aborted) setGangas([]); });
+    return () => ctrl.abort();
   }, []);
 
   const current = HERO_LISTINGS[heroIdx];
@@ -494,7 +500,11 @@ export const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
   }, []);
 
   useE(() => {
-    Api.poiImportance().then(r => setPoiData(r.data)).catch(() => {});
+    const ctrl = new AbortController();
+    Api.poiImportance({ signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setPoiData(r.data); })
+      .catch(() => {});
+    return () => ctrl.abort();
   }, []);
 
   return (
@@ -907,417 +917,5 @@ export const HomeScreen = ({ onGo, onOpenListing, role, onPublish, user }) => {
     </div>
 
   </div>
-  );
-};
-
-const MODULE_INFO = {
-  fairvalue: {
-    screen: 'fairvalue-form',
-    icon: 'key',
-    iconVariant: 'primary',
-    title: 'Analizar precio',
-    subtitle: 'Estimador de precio de referencia',
-    intro: 'Vas a estimar cuánto debería costar el alquiler de un inmueble según el mercado real de Lima.',
-    points: [
-      'Marca la ubicación exacta del inmueble en el mapa',
-      'Ingresa área, dormitorios, baños y amenities',
-      'El modelo de Wasi calcula el precio de referencia',
-      'Descubre si el precio anunciado está Inflado, Justo o es Ganga',
-    ],
-    cta: 'Iniciar estimación',
-  },
-  entorno: {
-    screen: 'entorno-map',
-    icon: 'shield',
-    iconVariant: 'accent',
-    title: 'Entorno y Seguridad',
-    subtitle: 'Explorador de contexto del barrio',
-    intro: 'Vas a explorar la seguridad y los servicios de cualquier zona de Lima Metropolitana.',
-    points: [
-      'Coloca un pin en cualquier punto del mapa',
-      'Consulta el score de seguridad de la zona',
-      'Revisa los puntos de interés en un radio de 1 km',
-      'Compara colegios, hospitales, bancos y parques cercanos',
-    ],
-    cta: 'Explorar mapa',
-  },
-};
-
-const ANA_PER_PAGE = 8;
-const ANA_FILTERS = [
-  { key: 'all',     label: 'Todos' },
-  { key: 'Inflado', label: 'Inflados' },
-  { key: 'Ganga',   label: 'Gangas' },
-  { key: 'Justo',   label: 'Justos' },
-];
-
-export const DashboardScreen = ({ role, onGo, onOpenAnalysis, onPublish, onError, onAuthExpired }) => {
-  const isSeller = role === 'Propietario' || role === 'Agente inmobiliario';
-  const [data, setData] = useS(null);
-  const [loading, setLoading] = useS(true);
-  const [err, setErr] = useS('');
-  const [confirm, setConfirm] = useS(null);   
-  const [covPage, setCovPage] = useS(0);      
-  
-  const [anaOpen, setAnaOpen]     = useS(false);
-  const [anaAll, setAnaAll]       = useS([]);
-  const [anaLoading, setAnaLoading] = useS(false);
-  const [anaPage, setAnaPage]     = useS(0);
-  const [anaFilter, setAnaFilter] = useS('all');
-
-  useE(() => {
-    let cancel = false;
-    setLoading(true);
-    Api.dashboard()
-      .then(r => { if (!cancel) { setData(r); setLoading(false); } })
-      .catch(ex => {
-        if (cancel) return;
-        const msg = handleApiErr(ex, { setErr, onAuthExpired });
-        if (typeof onError === 'function') onError(msg);
-        setLoading(false);
-      });
-    return () => { cancel = true; };
-  }, []);
-
-  if (loading) return <Loading label="Cargando dashboard…"/>;
-  if (err || !data) return (
-    <div className="container"><div className="banner danger"><Icon name="alert" size={14}/> {err || 'Sin datos'}</div></div>
-  );
-
-  const user = data.user || {};
-  const stats = data.stats || { analyses_count: 0, reports_count: 0, avg_savings: 0 };
-  const recent = Array.isArray(data.recent) ? data.recent : [];
-  const coverage = Array.isArray(data.coverage) ? data.coverage : [];
-  const COV_PER_PAGE = 5;
-  const covTotalPages = Math.max(1, Math.ceil(coverage.length / COV_PER_PAGE));
-  const covPageSafe = Math.min(covPage, covTotalPages - 1);
-  const covSlice = coverage.slice(covPageSafe * COV_PER_PAGE, covPageSafe * COV_PER_PAGE + COV_PER_PAGE);
-  const nextStep = data.next_step;
-  const levelToVar = (lvl) => lvl === 'alta' ? 'success' : lvl === 'media' ? 'warning' : 'danger';
-  const levelLabel = (lvl) => lvl === 'alta' ? 'Alta' : lvl === 'media' ? 'Media' : 'Baja';
-
-  
-  const anaFiltered = anaFilter === 'all' ? anaAll : anaAll.filter(a => a.zone === anaFilter);
-  const anaTotalPages = Math.max(1, Math.ceil(anaFiltered.length / ANA_PER_PAGE));
-  const anaPageSafe = Math.min(anaPage, anaTotalPages - 1);
-  const anaSlice = anaFiltered.slice(anaPageSafe * ANA_PER_PAGE, anaPageSafe * ANA_PER_PAGE + ANA_PER_PAGE);
-
-  const openAnalysesModal = () => {
-    setAnaOpen(true);
-    if (anaAll.length === 0 && !anaLoading) {
-      setAnaLoading(true);
-      Api.listAnalyses()
-        .then(r => setAnaAll(Array.isArray(r) ? r : []))
-        .catch(ex => {
-          const msg = handleApiErr(ex, { setErr, onAuthExpired });
-          if (typeof onError === 'function') onError(msg);
-        })
-        .finally(() => setAnaLoading(false));
-    }
-  };
-  const openAnalysisRow = (r) => {
-    setAnaOpen(false);
-    if (onOpenAnalysis && r && r.id) onOpenAnalysis(r.id, { address: r.address });
-  };
-
-  return (
-    <div className="container fade-in">
-      <div className="hero">
-        <div className="row" style={{justifyContent:'space-between', alignItems:'flex-start'}}>
-          <div>
-            <div className="greet">Bienvenida</div>
-            <h1>Hola, {user.name || 'Usuario'}</h1>
-            <div style={{fontSize:14, opacity:.85, marginTop:6, maxWidth:480}}>
-              Lima, Perú · Plan {user.plan || data.plan || 'Free'} · Última actividad {data.last_activity_at || 'reciente'}
-            </div>
-          </div>
-          <div className="row" style={{gap:10}}>
-            {isSeller && (
-              <Btn variant="primary" onClick={() => (onPublish ? onPublish() : onGo('publish'))}>
-                <Icon name="plus" size={14}/> Publicar inmueble
-              </Btn>
-            )}
-            {isSeller && (
-              <Btn variant="secondary" onClick={() => onGo('mis-publicaciones')}>
-                <Icon name="home" size={14}/> Mis propiedades
-              </Btn>
-            )}
-            <Btn variant="secondary" onClick={() => onGo('fairvalue-form')}>
-              <Icon name="plus" size={14}/> Nuevo análisis
-            </Btn>
-          </div>
-        </div>
-        <div className="stats-strip">
-          <div><div className="v">{stats.analyses_count}</div><div className="k">Análisis realizados</div></div>
-          <div><div className="v">{stats.reports_count}</div><div className="k">Reportes guardados</div></div>
-          <div><div className="v">${Math.round(stats.avg_savings)}</div><div className="k">Ahorro promedio</div></div>
-        </div>
-      </div>
-
-      <div className="dash-grid">
-        <div className="stack-24">
-          <div>
-            <div className="row" style={{justifyContent:'space-between', marginBottom:12}}>
-              <div className="section-h" style={{margin:0}}>Acciones principales</div>
-              <span className="small muted">Selecciona un módulo para comenzar</span>
-            </div>
-            <div className="grid-2">
-              <div className="action-card fv" role="button" tabIndex={0} aria-label="Iniciar estimación de Analizar precio" onClick={()=>setConfirm('fairvalue')} onKeyDown={onKeyActivate(()=>setConfirm('fairvalue'))}>
-                <div className="top-row">
-                  <div className="feat-ico"><Icon name="key" size={24}/></div>
-                </div>
-                <div className="t">Analizar precio</div>
-                <div className="d">Estimación del precio de referencia con el modelo Wasi. Identifica sobreprecios y oportunidades.</div>
-                <span className="arr">Iniciar estimación <Icon name="fwd" size={14}/></span>
-              </div>
-              <div className="action-card en" role="button" tabIndex={0} aria-label="Explorar mapa de Entorno y Seguridad" onClick={()=>setConfirm('entorno')} onKeyDown={onKeyActivate(()=>setConfirm('entorno'))}>
-                <div className="top-row">
-                  <div className="feat-ico"><Icon name="shield" size={24}/></div>
-                </div>
-                <div className="t">Entorno y Seguridad</div>
-                <div className="d">Score contextual basado en criminalidad y POIs cercanos en radio de 1 km.</div>
-                <span className="arr">Explorar mapa <Icon name="fwd" size={14}/></span>
-              </div>
-            </div>
-          </div>
-
-          {}
-          <div className="ana-entry" role="button" tabIndex={0} aria-label="Ver análisis recientes" onClick={openAnalysesModal} onKeyDown={onKeyActivate(openAnalysesModal)}>
-            <div className="ana-entry-ico"><Icon name="chart" size={22}/></div>
-            <div className="ana-entry-body">
-              <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Análisis recientes</div>
-              <div className="small muted" style={{marginTop:2}}>
-                {stats.analyses_count > 0
-                  ? (<><b>{stats.analyses_count}</b> análisis{recent[0]?.time ? (<> · último <b>{recent[0].time}</b></>) : null}</>)
-                  : 'Aún no tienes análisis. Crea uno nuevo para empezar.'}
-              </div>
-            </div>
-            {stats.analyses_count > 0 && (
-              <Tag variant="outline">Ver todos</Tag>
-            )}
-            <Icon name="fwd" size={16} stroke="var(--ink-3)"/>
-          </div>
-        </div>
-
-        {}
-        <div className="stack-24">
-          <Card>
-            <div className="section-h">Tu próximo paso</div>
-            {nextStep && nextStep.analysis_id ? (
-              <>
-                <div style={{fontSize:14, lineHeight:1.5, marginTop:4}}>
-                  Tienes una <b>negociación pendiente</b> en {nextStep.address}.
-                </div>
-                <div className="banner danger" style={{marginTop:12}}>
-                  <Icon name="flag" size={14}/>
-                  <span>Sobreprecio detectado: <b>+${nextStep.sobreprecio_amount} / mes</b></span>
-                </div>
-                <Btn
-                  variant="primary"
-                  block
-                  style={{marginTop:14}}
-                  onClick={() => onOpenAnalysis && onOpenAnalysis(nextStep.analysis_id, { address: nextStep.address })}
-                >
-                  Ver evaluación completa
-                </Btn>
-              </>
-            ) : (
-              <div className="small muted" style={{marginTop:6}}>Sin pendientes</div>
-            )}
-          </Card>
-
-          {isSeller && (
-            <div className="ana-entry" role="button" tabIndex={0}
-                 aria-label="Ver mis publicaciones y consultas recibidas"
-                 onClick={()=>onGo('mis-publicaciones')}
-                 onKeyDown={onKeyActivate(()=>onGo('mis-publicaciones'))}>
-              <div className="ana-entry-ico"><Icon name="home" size={22}/></div>
-              <div className="ana-entry-body">
-                <div style={{fontWeight:700, fontSize:15, fontFamily:'Space Grotesk'}}>Mis propiedades</div>
-                <div className="small muted" style={{marginTop:2}}>Tus inmuebles y las consultas que has recibido.</div>
-              </div>
-              <Icon name="fwd" size={16} stroke="var(--ink-3)"/>
-            </div>
-          )}
-
-          <Card>
-            <div className="row" style={{justifyContent:'space-between'}}>
-              <div className="section-h" style={{margin:0}}>Cobertura por distrito</div>
-              <span className="tiny muted">{coverage.length} distritos</span>
-            </div>
-            <div style={{marginTop:10}}>
-              {covSlice.map((d,i)=>{
-                const rank = covPageSafe * COV_PER_PAGE + i + 1;
-                return (
-                  <div key={d.name || i} className="cov-row">
-                    <div className="row" style={{gap:8, minWidth:0}}>
-                      <span className="cov-rank">{rank}</span>
-                      <span style={{fontSize:13}}>{d.name}</span>
-                    </div>
-                    <div className="row" style={{gap:8}}>
-                      <span className="numeric small muted">{d.listings} avisos</span>
-                      <Tag variant={levelToVar(d.level)}>{levelLabel(d.level)}</Tag>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {covTotalPages > 1 && (
-              <div className="pager">
-                <button
-                  disabled={covPageSafe === 0}
-                  onClick={()=>setCovPage(Math.max(0, covPageSafe - 1))}
-                  aria-label="Distritos anteriores"
-                >
-                  <Icon name="back" size={14}/>
-                </button>
-                <span className="pinfo">Página {covPageSafe + 1} de {covTotalPages}</span>
-                <button
-                  disabled={covPageSafe >= covTotalPages - 1}
-                  onClick={()=>setCovPage(Math.min(covTotalPages - 1, covPageSafe + 1))}
-                  aria-label="Distritos siguientes"
-                >
-                  <Icon name="fwd" size={14}/>
-                </button>
-              </div>
-            )}
-          </Card>
-
-          <Card style={{background:'linear-gradient(135deg, var(--primary-soft), var(--accent-soft))', border:'1px solid var(--primary-soft)'}}>
-            <Tag variant="primary">Plan Pro</Tag>
-            <div style={{fontFamily:'Space Grotesk', fontSize:18, fontWeight:700, marginTop:8}}>Análisis ilimitados + alertas</div>
-            <p className="small muted" style={{marginTop:4}}>Notificaciones cuando bajan precios en tus zonas favoritas.</p>
-            <Btn variant="primary" size="sm" style={{marginTop:8}} onClick={() => onGo('profile')}>Probar 14 días gratis</Btn>
-          </Card>
-        </div>
-      </div>
-
-      {}
-      {(() => {
-        const info = confirm ? MODULE_INFO[confirm] : null;
-        const isAccent = !!(info && info.iconVariant === 'accent');
-        return (
-          <Modal
-            open={!!info}
-            onClose={()=>setConfirm(null)}
-            hero
-            accent={isAccent}
-            icon={info && <Icon name={info.icon} size={28}/>}
-            title={info ? info.title : ''}
-            subtitle={info ? info.subtitle : ''}
-            footer={info && <>
-              <Btn variant="outline" onClick={()=>setConfirm(null)}>Cancelar</Btn>
-              <Btn variant="primary" onClick={()=>{ const s = info.screen; setConfirm(null); onGo(s); }}>
-                {info.cta} <Icon name="arrow" size={15}/>
-              </Btn>
-            </>}
-          >
-            {info && <>
-              <p className="modal-intro">{info.intro}</p>
-              <div className="modal-steps-h">Qué vas a ver</div>
-              <div className="modal-steps">
-                {info.points.map((p,i)=>(
-                  <div className={`modal-step ${isAccent ? 'accent' : ''}`} key={i}>
-                    <span className="num">{i+1}</span>
-                    <span className="txt">{p}</span>
-                  </div>
-                ))}
-              </div>
-            </>}
-          </Modal>
-        );
-      })()}
-
-      {}
-      <Modal
-        open={anaOpen}
-        onClose={() => setAnaOpen(false)}
-        icon={<Icon name="chart" size={20}/>}
-        title="Análisis recientes"
-        subtitle={anaLoading ? 'Cargando…' : `${anaAll.length} análisis · ordenados por fecha`}
-        maxWidth={640}
-        footer={<Btn variant="outline" onClick={() => setAnaOpen(false)}>Cerrar</Btn>}
-      >
-        {anaLoading ? (
-          <div className="small muted text-center" style={{padding:'40px 0'}}>Cargando análisis…</div>
-        ) : (
-          <>
-            {}
-            <div className="row" style={{gap:8, flexWrap:'wrap'}}>
-              {ANA_FILTERS.map(f => {
-                const count = f.key === 'all'
-                  ? anaAll.length
-                  : anaAll.filter(a => a.zone === f.key).length;
-                const active = anaFilter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    className={`pick-chip ${active ? 'on' : ''}`}
-                    aria-pressed={active}
-                    aria-label={`Filtrar por ${f.label}`}
-                    onClick={() => { setAnaFilter(f.key); setAnaPage(0); }}
-                  >
-                    {f.label} <span className="numeric" style={{opacity:.7, marginLeft:4}}>{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {}
-            <div className="ana-list" style={{marginTop:14}}>
-              {anaSlice.map(r => {
-                const neg = r.zone === 'Inflado';
-                const ganga = r.zone === 'Ganga';
-                const color = neg ? 'var(--danger)' : ganga ? 'var(--success)' : 'oklch(0.45 0.14 60)';
-                const bg = neg ? 'var(--danger-soft)' : ganga ? 'var(--success-soft)' : 'var(--warning-soft)';
-                const sign = r.diff_pct > 0 ? '+' : '';
-                const iconName = neg ? 'flag' : ganga ? 'sparkle' : 'check';
-                return (
-                  <div className="ana-row" key={r.id} role="button" tabIndex={0} aria-label={r.address ? `Ver análisis: ${r.address}` : 'Ver análisis'} onClick={() => openAnalysisRow(r)} onKeyDown={onKeyActivate(() => openAnalysisRow(r))}>
-                    <div className="ico" style={{background: bg, color}}>
-                      <Icon name={iconName} size={14}/>
-                    </div>
-                    <div className="body">
-                      <div className="addr">{r.address}</div>
-                      <div className="time">{r.time}</div>
-                    </div>
-                    <div className="diff" style={{color}}>{sign}{r.diff_pct}% {r.zone}</div>
-                    <div className="price">${r.fair_value}</div>
-                    <Icon name="fwd" size={14} stroke="var(--ink-3)"/>
-                  </div>
-                );
-              })}
-              {anaSlice.length === 0 && anaAll.length > 0 && (
-                <div className="small muted text-center" style={{padding:'34px 0'}}>
-                  No hay análisis en este filtro.
-                </div>
-              )}
-              {anaAll.length === 0 && (
-                <div className="small muted text-center" style={{padding:'34px 0'}}>
-                  Aún no tienes análisis.
-                </div>
-              )}
-            </div>
-
-            {}
-            {anaTotalPages > 1 && (
-              <div className="pager" style={{marginTop:14}}>
-                <button
-                  disabled={anaPageSafe === 0}
-                  onClick={() => setAnaPage(Math.max(0, anaPageSafe - 1))}
-                  aria-label="Página anterior"
-                ><Icon name="back" size={14}/></button>
-                <span className="pinfo">Página {anaPageSafe + 1} de {anaTotalPages}</span>
-                <button
-                  disabled={anaPageSafe >= anaTotalPages - 1}
-                  onClick={() => setAnaPage(Math.min(anaTotalPages - 1, anaPageSafe + 1))}
-                  aria-label="Página siguiente"
-                ><Icon name="fwd" size={14}/></button>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
-    </div>
   );
 };

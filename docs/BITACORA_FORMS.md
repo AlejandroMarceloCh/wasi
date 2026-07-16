@@ -248,3 +248,23 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 - **Resultados de QA:** pytest **174 passed / 2 skipped** (170 + 4). Verificado en vivo: PATCH alquiler $500k → 422; navegador → Select sin `[object Object]`, re-elegir "Todos" mantiene 24 inmuebles (no vacía); build de Vite OK con ErrorBoundary.
 - **Riesgos / deuda aceptada:** pendientes del informe que NO son solo-código (requieren TU acción/decisión): **CORS de producción** (dominio Vercel), **Postgres en Render**, **planes Pro/campana** (ocultar vs implementar). Deuda técnica mayor diferida: code-splitting del bundle, History API (Back/F5), Babilonia en venta, dedup de componentes.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 13 — Navegación de browser real y estado sano — 2026-07-16
+- **Sprint Goal:** que Back/Adelante/F5 del navegador restauren la pantalla (y parte de su contexto) y no queden estados de UI huérfanos ni races al navegar rápido.
+- **Hallazgos cerrados:** #9 (History API), #26 (AbortController), #27 (screen huérfana tras cambio de rol), #24 (DashboardScreen muerto).
+- **Qué se cambió:**
+  - `web/src/App.jsx` — sincronización screen↔`history` nativa (sin react-router): `pushState` en cada navegación del usuario, `replaceState` en popstate y en el primer render (siembra), rehidratación de `screen`/`listingId`/`analysisId`/`geoCtx` desde `history.state` al cargar (F5); listener `popstate` que restaura y bloquea reentrar a pantallas internas sin sesión. #27: `useEffect([userVersion])` resetea al home del rol si la pantalla actual es exclusiva del rol opuesto. #24: eliminada la rama `operaciones` y el import de `DashboardScreen`.
+  - `web/src/features/home/HomeScreens.jsx` — eliminado `DashboardScreen` (inalcanzable: nada fijaba `screen='operaciones'`) + `MODULE_INFO`/`ANA_PER_PAGE`/`ANA_FILTERS`; limpiados imports muertos (`handleApiErr`/`Card`/`Loading`/`Modal`/`PageHeader`). #26: `AbortController`+cleanup en loaders de gangas, POIs y distritos del mapa.
+  - `web/src/shared/api/client.js` — `request()` acepta un `signal` externo opcional (enlazado al controller interno del timeout); `listListings`/`listListingsPaged`/`distritosZona`/`poiImportance`/`favorites`/`inboxLeads` ganaron un `opts` final opcional (backward-compatible).
+  - `web/src/features/listings/ListingsScreen.jsx` — `load()` aborta el fetch anterior (carrera al paginar/cambiar filtros) y al desmontar; distritos y favorites con controller+cleanup.
+  - `web/src/features/publish/PublishScreens.jsx` — `LeadsScreen.load` con controller (abort + cleanup); distritos del Publish con controller; el cleanup del reverse-geocode Nominatim ahora también aborta el `geoAbort` en vuelo.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **174 passed / 2 skipped** (sin regresiones; el sprint no toca backend).
+  - build: ok, chunk **654.77 kB** (gzip 197.72) — bajó de 665.61 por la eliminación del DashboardScreen muerto. Warning >500 kB preexistente (se ataca en Sprint 14).
+  - Agentes Sonnet (revisor de regresión, solo-lectura sobre el diff): veredicto **CONFIRMADO / sin regresiones** en los 5 frentes (imports, contrato de `request` y backward-compat de los `opts`, ordering de efectos React y ausencia de loops, reinicio de `popNavRef`/`seededRef`, guards `aborted` antes de `handleApiErr` en todos los `.catch`). Build confirmado.
+  - Verificación del algoritmo de History API: simulación aislada (mock de `history`) cubrió seed→push→back/forward→F5→logout con **16/16 aserciones OK** (Back/Adelante restauran screen+contexto sin apilar; F5 rehidrata `listing-detail`+`listingId`; sin sesión no reentra).
+  - Verificación en vivo: **NO realizada en browser** (el entorno no dispone de browser MCP). Sustituida por build + simulación del algoritmo + revisión estática del diff. Pendiente de confirmación humana del ciclo Home→Detalle→Back→Adelante→F5 en `:5173`.
+- **Riesgos / deuda aceptada:** el borde "popstate entrega la misma pantalla → React bail-out → `popNavRef` queda en true" es inalcanzable en la práctica (sólo se apila cuando `screen` cambia de verdad), pero queda como nota. La restauración tras F5 cubre screen+listingId+analysisId+geoCtx; NO restaura estado efímero (fvLive/ventaResult/drafts) — las pantallas lo refetchan. El efecto #27 dispara `eslint exhaustive-deps` (no rompe build; el CI de frontend no corre lint).
+- **Estado:** CERRADO ✅

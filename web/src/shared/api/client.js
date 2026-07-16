@@ -22,7 +22,7 @@ import { resolveApiBase } from './base.js';
 
   const REQUEST_TIMEOUT_MS = 10000;
 
-  async function request(path, { method = 'GET', body, auth = true, meta = false } = {}) {
+  async function request(path, { method = 'GET', body, auth = true, meta = false, signal } = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (auth) {
       const t = getToken();
@@ -33,6 +33,13 @@ import { resolveApiBase } from './base.js';
     const controller = new AbortController();
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+    // #26: si el llamador pasa un signal (p.ej. al desmontar un componente),
+    // lo enlazamos al controller interno para abortar el fetch en vuelo y no
+    // hacer setState sobre un componente que ya navegó.
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
     let res;
     try {
       res = await fetch(BASE + path, {
@@ -42,6 +49,7 @@ import { resolveApiBase } from './base.js';
         signal: controller.signal,
       });
     } catch (e) {
+      if (signal && signal.aborted) throw new ApiError(0, 'abortada');
       if (timedOut) {
         throw new ApiError(0, 'El servidor no respondió a tiempo. Intenta de nuevo en un momento.');
       }
@@ -210,27 +218,27 @@ import { resolveApiBase } from './base.js';
     explain: (id) => request('/fairvalue/explain/' + id),
     narrative: (id, mode) => request('/fairvalue/narrative/' + id + (mode ? '?mode=' + mode : '')),
     narrativeDetailed: (id, mode) => request('/fairvalue/narrative/' + id + '/detailed' + (mode ? '?mode=' + mode : '')),
-    poiImportance: () => request('/fairvalue/poi-importance'),
+    poiImportance: (opts) => request('/fairvalue/poi-importance', opts),
     listAnalyses: () => request('/analyses'),
     saveReport: (id) => request('/analyses/' + id + '/save', { method: 'POST' }),
 
 
-    listListings: (params) => {
+    listListings: (params, opts) => {
       const q = new URLSearchParams();
       if (params) Object.entries(params).forEach(([k, v]) => {
         if (v !== '' && v != null) q.append(k, String(v));
       });
       const qs = q.toString();
-      return request('/listings' + (qs ? '?' + qs : ''));
+      return request('/listings' + (qs ? '?' + qs : ''), opts);
     },
     // Devuelve { data, total } leyendo X-Total-Count para paginar en la UI.
-    listListingsPaged: (params) => {
+    listListingsPaged: (params, opts) => {
       const q = new URLSearchParams();
       if (params) Object.entries(params).forEach(([k, v]) => {
         if (v !== '' && v != null) q.append(k, String(v));
       });
       const qs = q.toString();
-      return request('/listings' + (qs ? '?' + qs : ''), { meta: true });
+      return request('/listings' + (qs ? '?' + qs : ''), { meta: true, ...opts });
     },
     myListings: () => request('/listings/mine'),
     getListing: (id) => request('/listings/' + id),
@@ -239,10 +247,10 @@ import { resolveApiBase } from './base.js';
     deleteListing: (id) => request('/listings/' + id, { method: 'DELETE' }),
     createLead: (id, body) => request('/listings/' + id + '/leads', { method: 'POST', body }),
     listLeads: (id) => request('/listings/' + id + '/leads'),
-    inboxLeads: () => request('/leads'),
+    inboxLeads: (opts) => request('/leads', opts),
 
 
-    favorites: () => request('/favorites'),
+    favorites: (opts) => request('/favorites', opts),
     addFavorite: (listingId) => request('/favorites', { method: 'POST', body: { listing_id: listingId } }),
     removeFavorite: (listingId) => request('/favorites/' + listingId, { method: 'DELETE' }),
 
@@ -257,5 +265,5 @@ import { resolveApiBase } from './base.js';
       return request('/entorno/pois?' + q.toString());
     },
 
-    distritosZona: () => request('/distritos-zona'),
+    distritosZona: (opts) => request('/distritos-zona', opts),
   };

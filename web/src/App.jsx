@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Api } from './shared/api/client.js';
 import { Btn, Card, Icon, PageHeader, TopNav } from './shared/ui/components.jsx';
 import { AuthScreen } from './features/auth/AuthScreen.jsx';
 import { SplashScreen } from './features/auth/SplashScreen.jsx';
 import { EntornoMapScreen, FairValueForm, FairValueResult } from './features/fairvalue/FairValueScreens.jsx';
-import { DashboardScreen, HomeScreen } from './features/home/HomeScreens.jsx';
+import { HomeScreen } from './features/home/HomeScreens.jsx';
 import { ListingDetailScreen, ListingsScreen } from './features/listings/ListingsScreen.jsx';
 import { ProfileScreen } from './features/profile/ProfileScreen.jsx';
 import { LeadsScreen, MyListingsScreen, PublishScreen, SavedScreen } from './features/publish/PublishScreens.jsx';
@@ -31,6 +31,17 @@ const SCREEN_TO_TAB = (s) => {
 };
 
 const PUBLIC_SCREENS = new Set(['splash', 'auth-login', 'auth-register']);
+
+// Pantallas alcanzables según rol. Las compartidas (detalle, fairvalue,
+// entorno, perfil, home) valen para ambos; las de nav exclusiva (Explorar/
+// Guardados = Inquilino; Mis propiedades/Leads/Publicar = Propietario) no.
+// Sirve para resetear la pantalla si un cambio de rol la deja huérfana (#27).
+const SHARED_SCREENS = new Set([
+  'home', 'listing-detail', 'fairvalue-form', 'fairvalue-result',
+  'entorno-map', 'profile',
+]);
+const TENANT_ONLY = new Set(['listings', 'saved']);
+const SELLER_ONLY = new Set(['mis-publicaciones', 'leads', 'publish']);
 
 const ErrorBanner = ({ msg, onClose }) => {
   if (!msg) return null;
@@ -66,6 +77,17 @@ const computeRoleHome = (isNew) => {
   return seller ? 'mis-publicaciones' : 'listings';
 };
 
+// #9: estado de navegación persistido en history.state para que Back/Adelante
+// y F5 restauren la pantalla (y parte de su contexto) sin react-router.
+const readSavedNav = () => {
+  try {
+    const s = (typeof history !== 'undefined' && history.state) || null;
+    if (s && typeof s.screen === 'string') return s;
+  } catch (_) {}
+  return null;
+};
+const NAV0 = readSavedNav();
+
 const PlaceholderScreen = ({ screen, userRole, onLogout }) => (
   <div className="container fade-in" style={{ paddingTop: 32 }}>
     <PageHeader
@@ -83,19 +105,76 @@ const PlaceholderScreen = ({ screen, userRole, onLogout }) => (
 );
 
 function App() {
-  const [screen, setScreen] = useState(Api.isAuthed() ? computeRoleHome() : 'splash');
+  const [screen, setScreen] = useState(() => {
+    // Rehidratación tras F5: si hay sesión y una pantalla interna guardada,
+    // vuelve a ella; si no, al home del rol (o splash si no hay sesión).
+    if (!Api.isAuthed()) return 'splash';
+    if (NAV0 && NAV0.screen && !PUBLIC_SCREENS.has(NAV0.screen)) return NAV0.screen;
+    return computeRoleHome();
+  });
   const [userVersion, setUserVersion] = useState(0);
-  const [currentListingId, setCurrentListingId] = useState(null);
+  const [currentListingId, setCurrentListingId] = useState(NAV0 && NAV0.listingId != null ? NAV0.listingId : null);
   const [detailReturn, setDetailReturn] = useState(null);
-  const [currentAnalysisId, setCurrentAnalysisId] = useState(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState(NAV0 && NAV0.analysisId != null ? NAV0.analysisId : null);
   const [ventaResult, setVentaResult] = useState(null);
-  const [geoCtx, setGeoCtx] = useState({ lat: null, lng: null });
+  const [geoCtx, setGeoCtx] = useState(NAV0 && NAV0.geo ? NAV0.geo : { lat: null, lng: null });
   const [entornoReturn, setEntornoReturn] = useState(null);
   const [fvPrefill, setFvPrefill] = useState(null);
   const [fvLive, setFvLive] = useState(null);
   const [fvForm, setFvForm] = useState(null);
   const [publishPrefill, setPublishPrefill] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Espejo del contexto restorable para que el efecto de sincronización (que
+  // sólo depende de `screen`) capture siempre los valores vigentes.
+  const ctxRef = useRef({});
+  ctxRef.current = {
+    listingId: currentListingId,
+    analysisId: currentAnalysisId,
+    geo: geoCtx,
+  };
+  const popNavRef = useRef(false);   // la próxima navegación viene de popstate -> replace, no push
+  const seededRef = useRef(false);   // ya sembramos el history.state inicial
+
+  useEffect(() => {
+    const snap = { screen, ...ctxRef.current };
+    if (popNavRef.current) {
+      // Back/Adelante del navegador: la entrada ya existe, la actualizamos.
+      history.replaceState(snap, '');
+      popNavRef.current = false;
+    } else if (!seededRef.current) {
+      // Primer render: sembramos sin apilar (evita un entrada extra al cargar).
+      history.replaceState(snap, '');
+      seededRef.current = true;
+    } else {
+      // Navegación del usuario dentro de la app: nueva entrada (habilita Back).
+      history.pushState(snap, '');
+    }
+  }, [screen]);
+
+  useEffect(() => {
+    const onPop = (e) => {
+      const s = e.state;
+      if (!s || typeof s.screen !== 'string') return;
+      const authed = Api.isAuthed();
+      let target = s.screen;
+      let restoreCtx = true;
+      // Sin sesión: no restaurar pantallas internas (forzar splash).
+      if (!authed && !PUBLIC_SCREENS.has(s.screen)) { target = 'splash'; restoreCtx = false; }
+      // Con sesión: no volver a las pantallas de login/registro.
+      else if (authed && (s.screen === 'auth-login' || s.screen === 'auth-register')) { target = computeRoleHome(true); restoreCtx = false; }
+      popNavRef.current = true;
+      seededRef.current = true;
+      setScreen(target);
+      if (restoreCtx) {
+        if (s.listingId !== undefined) setCurrentListingId(s.listingId);
+        if (s.analysisId !== undefined) setCurrentAnalysisId(s.analysisId);
+        if (s.geo) setGeoCtx(s.geo);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     const suppressLeafletTeardown = (event) => {
@@ -182,6 +261,14 @@ function App() {
   const isSeller = userRole === 'Propietario' || userRole === 'Agente inmobiliario';
   const roleHome = isSeller ? 'mis-publicaciones' : 'listings';
 
+  // #27: si un cambio de rol deja la pantalla actual sin tab válida (p.ej.
+  // Inquilino en Explorar → Propietario), vuelve al home del rol nuevo.
+  useEffect(() => {
+    if (isPublic) return;
+    const oppositeOnly = isSeller ? TENANT_ONLY : SELLER_ONLY;
+    if (oppositeOnly.has(screen)) setScreen(roleHome);
+  }, [userVersion]);
+
   return (
     <div className="app-shell" data-screen-label={`Wasi · ${screen}`}>
       <ErrorBanner msg={errorMsg} onClose={() => setErrorMsg('')}/>
@@ -264,16 +351,6 @@ function App() {
             user={currentUser}
           />
         )}
-        {screen === 'operaciones' && (
-          <DashboardScreen
-            role={userRole}
-            onGo={go}
-            onOpenAnalysis={onOpenAnalysis}
-            onPublish={() => onPublish(null)}
-            onError={setErrorMsg}
-            onAuthExpired={onLogout}
-          />
-        )}
         {screen === 'publish' && (
           <PublishScreen
             role={userRole}
@@ -324,7 +401,7 @@ function App() {
             onAuthExpired={onLogout}
           />
         )}
-        {!isPublic && !['home', 'operaciones', 'listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved', 'profile'].includes(screen) && (
+        {!isPublic && !['home', 'listings', 'listing-detail', 'fairvalue-form', 'fairvalue-result', 'entorno-map', 'publish', 'mis-publicaciones', 'leads', 'saved', 'profile'].includes(screen) && (
           <PlaceholderScreen screen={screen} userRole={userRole} onLogout={onLogout}/>
         )}
       </main>

@@ -233,7 +233,11 @@ export const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onA
   };
 
   useE(() => {
-    Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
+    const ctrl = new AbortController();
+    Api.distritosZona({ signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setDistritos(Array.isArray(r) ? r : []); })
+      .catch(() => {});
+    return () => ctrl.abort();
   }, []);
 
   // Autocompletado por pin: SOLO cuando el usuario ya ubicó el inmueble, y sin
@@ -262,7 +266,7 @@ export const PublishScreen = ({ role, prefill, onBack, onPublished, onError, onA
         });
       }).catch(() => {});
     }, 650);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); if (geoAbort.current) geoAbort.current.abort(); };
   }, [f.lat, f.lng, distritos, pinSet]);
 
   const onPinMove = (lat, lng) => { setPinSet(true); setF(p => ({ ...p, lat, lng })); };
@@ -921,16 +925,21 @@ export const MyListingsScreen = ({ onBack, onOpenListing, onPublish, onError, on
 };
 
 export const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => {
-  const [items, setItems] = useS(null);   
+  const [items, setItems] = useS(null);
   const [loading, setLoading] = useS(true);
   const [err, setErr] = useS('');
+  const loadCtrl = useR(null);
 
   const load = () => {
     setLoading(true); setErr('');
     // Un solo request agregado (antes era N+1: un fetch por propiedad, y los
     // fallos parciales se tragaban en silencio ocultando leads reales).
-    Api.inboxLeads()
+    if (loadCtrl.current) loadCtrl.current.abort();
+    const ctrl = new AbortController();
+    loadCtrl.current = ctrl;
+    Api.inboxLeads({ signal: ctrl.signal })
       .then((rows) => {
+        if (ctrl.signal.aborted) return;
         const arr = Array.isArray(rows) ? rows : [];
         setItems(arr.map((r) => ({
           lead: { id: r.id, name: r.name, phone: r.phone, email: r.email,
@@ -940,13 +949,14 @@ export const LeadsScreen = ({ onOpenListing, onGo, onError, onAuthExpired }) => 
         })));
       })
       .catch((ex) => {
+        if (ctrl.signal.aborted) return;
         const msg = handleApiErr(ex, { setErr, onAuthExpired });
         if (typeof onError === 'function') onError(msg);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
   };
 
-  useE(() => { load(); }, []);
+  useE(() => { load(); return () => { if (loadCtrl.current) loadCtrl.current.abort(); }; }, []);
 
   if (loading) return <Loading label="Cargando tus consultas…"/>;
 

@@ -541,6 +541,7 @@ export const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
   const [total, setTotal] = useS(0);
   const PAGE_SIZE = 24;
   const [favIds, setFavIds] = useS(() => new Set());
+  const loadCtrl = useR(null);
 
   const load = (toPage) => {
     const p = toPage != null ? toPage : page;
@@ -553,30 +554,43 @@ export const ListingsScreen = ({ onOpenListing, onError, onAuthExpired }) => {
     if (filters.max_area) params.max_area = filters.max_area;
     if (filters.dormitorios > 0) params.dormitorios = filters.dormitorios;
     if (sort) params.sort = sort;
-    Api.listListingsPaged(params)
+    // #26: aborta el fetch anterior (carrera al paginar/cambiar filtros) y el
+    // en vuelo al desmontar, para no hacer setState sobre componente ido.
+    if (loadCtrl.current) loadCtrl.current.abort();
+    const ctrl = new AbortController();
+    loadCtrl.current = ctrl;
+    Api.listListingsPaged(params, { signal: ctrl.signal })
       .then(r => {
+        if (ctrl.signal.aborted) return;
         setData(Array.isArray(r.data) ? r.data : []);
         setTotal(r.total || 0);
         setPage(p);
         setLoading(false);
       })
       .catch(ex => {
+        if (ctrl.signal.aborted) return;
         const msg = handleApiErr(ex, { setErr, onAuthExpired });
         if (typeof onError === 'function') onError(msg);
         setLoading(false);
       });
   };
 
-  useE(() => { load(0); }, []);
+  useE(() => { load(0); return () => { if (loadCtrl.current) loadCtrl.current.abort(); }; }, []);
   // Reordenar, cambiar operación o filtros vuelve a la página 0.
   useE(() => { if (data) load(0); }, [sort, operacion]);
   useE(() => {
-    Api.distritosZona().then(r => setDistritos(Array.isArray(r) ? r : [])).catch(() => {});
+    const ctrl = new AbortController();
+    Api.distritosZona({ signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setDistritos(Array.isArray(r) ? r : []); })
+      .catch(() => {});
+    return () => ctrl.abort();
   }, []);
   useE(() => {
-    Api.favorites()
-      .then(r => setFavIds(new Set((Array.isArray(r) ? r : []).map(l => l.id))))
+    const ctrl = new AbortController();
+    Api.favorites({ signal: ctrl.signal })
+      .then(r => { if (!ctrl.signal.aborted) setFavIds(new Set((Array.isArray(r) ? r : []).map(l => l.id))); })
       .catch(() => {});
+    return () => ctrl.abort();
   }, []);
 
 
