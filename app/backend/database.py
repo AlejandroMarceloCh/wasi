@@ -4,12 +4,15 @@ Por defecto usa SQLite (un archivo, cero setup — la BD viaja con el proyecto).
 Para usar PostgreSQL basta definir DATABASE_URL en el entorno o en .env.
 El código es agnóstico del motor: el ORM (models.py) genera el DDL correcto.
 """
+import logging
 import os
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("wasi.database")
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 SQLITE_DEFAULT = f"sqlite:///{os.path.join(BACKEND_DIR, 'wasi.db')}"
@@ -20,7 +23,12 @@ class Settings(BaseSettings):
 
     jwt_secret: str
     jwt_algo: str = "HS256"
-    jwt_expire_days: int = 7
+    # #18: el JWT vive en localStorage del cliente (XSS = token robado hasta que
+    # expire). Sin revocación server-side (decision arquitectural deferida), un
+    # `exp` corto es la pieza de menor riesgo para acotar la ventana de robo.
+    # 1 dia es un balance razonable sesion/seguridad; subilo en .env si hace
+    # falta mas persistencia (a costa de mas ventana de exposicion).
+    jwt_expire_days: int = 1
     groq_api_key: str = ""
 
     @field_validator("jwt_secret")
@@ -107,5 +115,24 @@ def ensure_schema() -> None:
                 with engine.begin() as conn:
                     conn.execute(text(
                         "ALTER TABLE listings ALTER COLUMN image_url TYPE TEXT"))
-            except Exception:
-                pass  # ya era TEXT o el motor no lo permite; no es fatal
+            except Exception as exc:
+                # #31: antes esto era un `except: pass` mudo que tragaba cualquier
+                # fallo de migracion (incluidos errores reales). Ahora se loguea
+                # el motivo: lo usual es que la columna ya era TEXT (idempotente,
+                # no fatal), pero si fuera otra cosa queda trazable para debug.
+                logger.warning(
+                    "No se pudo ampliar image_url a TEXT en PostgreSQL "
+                    "(suele ser que ya era TEXT): %s", exc)
+
+        # #33: indice compuesto para los filtros reales del catalogo. El catalogo
+        # filtra casi siempre por status='activo' y frecuentemente por operacion;
+        # sin este indice, cada busqueda recorre la tabla completa al crecer.
+        # `CREATE INDEX IF NOT EXISTS` es idempotente y valido en SQLite y PG.
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_listings_operacion_status "
+                    "ON listings (operacion, status)"
+                ))
+        except Exception as exc:
+            logger.warning("No se pudo crear ix_listings_operacion_status: %s", exc)

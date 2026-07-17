@@ -7,7 +7,7 @@ El ORM es agnóstico del motor: corre igual en SQLite y PostgreSQL.
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, DateTime, Float, ForeignKey, Integer, String, Text,
+    Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text,
     UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -112,6 +112,12 @@ class Listing(Base):
     Arranca el flywheel de oferta. fair_value_ref se captura del modelo
     (de alquiler o de venta según `operacion`) al publicar."""
     __tablename__ = "listings"
+    # #33: indice compuesto para los filtros reales del catalogo (status +
+    # operacion). `create_all` lo crea en BDs nuevas; ensure_schema lo añade a
+    # las existentes (CREATE INDEX IF NOT EXISTS).
+    __table_args__ = (
+        Index("ix_listings_operacion_status", "operacion", "status"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     operacion: Mapped[str] = mapped_column(

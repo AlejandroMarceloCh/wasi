@@ -19,7 +19,17 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register", response_model=AuthOut, status_code=201)
 @limiter.limit("10/minute")
 def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
-    """Crea un usuario nuevo. Devuelve 409 si el email ya existe."""
+    """Crea un usuario nuevo. Devuelve 409 si el email ya existe.
+
+    #19 — enumeración de emails: el 409 explícito confirma que una cuenta
+    existe. Es un trade-off consciente UX > sigilo: en un registro público,
+    avisar "ya estás registrado, inicia sesión" es mejor experiencia que un
+    flujo genérico opaco, y no hay PII sensible expuesta por el hecho de que
+    un email exista. La mitigación es el rate-limit (10/min) que acota la
+    velocidad de enumeración. Un flujo verdaderamente opaco (mensaje genérico
+    + email de verificación) queda como decisión de producto si se quiere
+    cerrar del todo la superficie.
+    """
     email = str(payload.email).strip().lower()
     existing = db.execute(select(User).where(func.lower(User.email) == email)).scalar_one_or_none()
     if existing:

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,6 +52,42 @@ def _ganga_score(l: Listing) -> float:
     if score < -MAX_GANGA_DISCOUNT:
         return float("inf")
     return score
+
+
+def _diff_ratio_sql():
+    """(precio - referencia) / referencia como expresión SQL, segura ante
+    referencia = 0 (NULLIF evita división por cero, sobre todo en PostgreSQL)."""
+    ref = func.nullif(Listing.fair_value_ref, 0)
+    return (Listing.price_usd - ref) / ref
+
+
+def _zone_filter_sql(zone: str):
+    """Condición WHERE de zone en SQL — MISMO criterio que `_zone_from_price`:
+    exige fair_value_ref > 0 y descarta descuentos implausibles (< -45%)."""
+    ref = Listing.fair_value_ref
+    diff_pct = _diff_ratio_sql() * 100
+    if zone == "Ganga":
+        return and_(ref > 0, diff_pct < -ZONE_BAND_PCT,
+                    diff_pct >= -MAX_GANGA_DISCOUNT * 100)
+    if zone == "Justo":
+        return and_(ref > 0, diff_pct >= -ZONE_BAND_PCT,
+                    diff_pct <= ZONE_BAND_PCT)
+    if zone == "Inflado":
+        return and_(ref > 0, diff_pct > ZONE_BAND_PCT)
+    return text("1=1")
+
+
+def _ganga_order_sql():
+    """Expresión de ORDER BY de ganga en SQL — MISMO criterio que
+    `_ganga_score`: más negativo = más ganga; los descalificados (referencia
+    nula/<=0 o descuento implausible) van al final con un valor grande."""
+    raw = _diff_ratio_sql()
+    disqualified = or_(
+        Listing.fair_value_ref.is_(None),
+        Listing.fair_value_ref <= 0,
+        raw < -MAX_GANGA_DISCOUNT,
+    )
+    return case((disqualified, 1e9), else_=raw)
 
 
 def _fair_value_ref_comparables(
@@ -239,37 +275,28 @@ def list_listings(
 
     page_size = limit if limit is not None else DEFAULT_PAGE_SIZE
 
-    # `zone` y `sort=ganga` dependen de fair_value_ref (se derivan en Python),
-    # así que en esos casos hay que traer todo, filtrar/ordenar y paginar en
-    # memoria. En el camino común (sin zone, sort por precio/fecha) la
-    # paginación baja a SQL y NO se descarga el catálogo entero.
-    if zone is not None or sort == "ganga":
-        rows = list(db.execute(_apply_filters(select(Listing))).scalars().all())
+    # #21: antes, cuando había `zone` o `sort=ganga`, se traía TODO el catálogo
+    # a memoria (~3.4k rows) para derivar el veredicto y ordenar en Python.
+    # Ahora zone (WHERE) y ganga (ORDER BY) son expresiones SQL sobre columnas,
+    # así la paginación baja a la BD y no escala linealmente con el catálogo.
+    def _filtered(stmt):
+        stmt = _apply_filters(stmt)
         if zone is not None:
-            rows = [l for l in rows
-                    if _zone_from_price(l.price_usd, l.fair_value_ref) == zone]
-        if sort == "ganga":
-            rows.sort(key=_ganga_score)
-        elif sort == "precio_asc":
-            rows.sort(key=lambda l: l.price_usd)
-        elif sort == "precio_desc":
-            rows.sort(key=lambda l: l.price_usd, reverse=True)
-        else:
-            rows.sort(key=lambda l: l.created_at, reverse=True)
-        total = len(rows)
-        rows = rows[offset:offset + page_size]
+            stmt = stmt.where(_zone_filter_sql(zone))
+        return stmt
+
+    total = db.execute(_filtered(select(func.count(Listing.id)))).scalar_one()
+    q = _filtered(select(Listing))
+    if sort == "ganga":
+        q = q.order_by(_ganga_order_sql().asc())
+    elif sort == "precio_asc":
+        q = q.order_by(Listing.price_usd.asc())
+    elif sort == "precio_desc":
+        q = q.order_by(Listing.price_usd.desc())
     else:
-        total = db.execute(
-            _apply_filters(select(func.count(Listing.id)))).scalar_one()
-        q = _apply_filters(select(Listing))
-        if sort == "precio_asc":
-            q = q.order_by(Listing.price_usd.asc())
-        elif sort == "precio_desc":
-            q = q.order_by(Listing.price_usd.desc())
-        else:
-            q = q.order_by(Listing.created_at.desc())
-        q = q.offset(offset).limit(page_size)
-        rows = list(db.execute(q).scalars().all())
+        q = q.order_by(Listing.created_at.desc())
+    q = q.offset(offset).limit(page_size)
+    rows = list(db.execute(q).scalars().all())
 
     response.headers["X-Total-Count"] = str(total)
     return [_to_out(l) for l in rows]

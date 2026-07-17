@@ -1,4 +1,14 @@
-"""Hash de contraseñas, emisión y validación de JWT."""
+"""Hash de contraseñas, emisión y validación de JWT.
+
+Modelo de amenaza (#18): el JWT se guarda en localStorage del navegador, así
+que un XSS exitoso puede robarlo y usarlo hasta que expire. Mitigaciones
+vigentes: (1) `exp` corto (jwt_expire_days, default 1 día) acota la ventana;
+(2) lista blanca estricta de algoritmo (HS256/384/512, nada de 'none'); (3)
+secreto mínimo 32 chars validado al arranque; (4) logout cliente-side limpia
+el token del storage. Deuda arquitectural DEFERIDA al humano: revocación
+real (blacklist/estado en DB) o refresh tokens — ambas requieren decisión de
+producto e infra, fuera del alcance de este hardening.
+"""
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 

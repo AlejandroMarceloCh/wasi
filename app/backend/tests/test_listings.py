@@ -417,3 +417,119 @@ def test_zone_no_etiqueta_ganga_implausible(client):
     from routers.listings import _zone_from_price
     assert _zone_from_price(50, 879) is None       # -94% → data sucia, no Ganga
     assert _zone_from_price(800, 1000) == "Ganga"  # -20% → ganga real
+
+
+def test_sort_ganga_baja_a_sql_y_coincide_con_score_python(client, auth_headers):
+    """#21: sort=ganga ya no carga el catálogo en memoria; el orden baja a SQL
+    y debe coincidir con el score de Python (_ganga_score). Aísla con un
+    district propio para no depender del seed."""
+    from database import SessionLocal
+    from models import Listing
+    from routers.listings import _ganga_score
+
+    h = _seller_headers(client)
+    owner_id = client.get("/api/me", headers=h).json()["user"]["id"]
+
+    # (price, fair_value_ref) cubriendo Ganga/Justo/Inflado + bordes:
+    # implausible (>45% off) y sin referencia. Precios distintos para mapear.
+    casos = [
+        (1000, 1000),  # 0%   -> Justo,    score 0.0
+        (900, 1000),   # -10% -> Ganga,    score -0.10
+        (800, 1000),   # -20% -> Ganga,    score -0.20 (el más ganga)
+        (1200, 1000),  # +20% -> Inflado,  score +0.20
+        (1050, 1000),  # +5%  -> Justo,    score +0.05
+        (400, 1000),   # -60% -> implausible, score +inf
+        (700, None),   # sin ref          -> score +inf
+    ]
+    district = "GangaTestSQL"
+    db = SessionLocal()
+    try:
+        for price, ref in casos:
+            db.add(Listing(
+                owner_id=owner_id, operacion="alquiler", district=district,
+                address=f"Caso {price}", lat=-12.121, lng=-77.030,
+                area_m2=80, dormitorios=2, banos=2, cocheras=1,
+                antiguedad_anios=5, es_estudio=False, price_usd=price,
+                fair_value_ref=ref, description="", amenities="",
+                contact_name="O", contact_phone="999", contact_email="o@wasi.pe",
+                status="activo",
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+    class _L:
+        def __init__(self, p, r):
+            self.price_usd, self.fair_value_ref = p, r
+    esperado = [p for p, _ in sorted(casos, key=lambda c: _ganga_score(_L(*c)))]
+
+    r = client.get("/api/listings", headers=auth_headers,
+                   params={"district": district, "sort": "ganga", "limit": 120})
+    assert r.status_code == 200
+    assert r.headers["X-Total-Count"] == "7"
+    got = [l["price_usd"] for l in r.json()]
+    # Plausibles en orden de score asc; el par +inf (400, 700) al final, en
+    # cualquier orden entre sí (el SQL no define tiebreak para descalificados).
+    assert got[:5] == esperado[:5]
+    assert set(got[5:]) == set(esperado[5:])
+
+    # Paginación coherente con el mismo orden: página 2 (offset 2, limit 2).
+    r2 = client.get("/api/listings", headers=auth_headers,
+                    params={"district": district, "sort": "ganga",
+                            "limit": 2, "offset": 2})
+    assert [l["price_usd"] for l in r2.json()] == esperado[2:4]
+
+
+def test_zone_filter_baja_a_sql_excluye_sucia_y_sin_ref(client, auth_headers):
+    """#21: el filtro de zone también baja a SQL; excluye descuentos
+    implausibles (>45%) y listings sin fair_value_ref (None)."""
+    from database import SessionLocal
+    from models import Listing
+
+    h = _seller_headers(client)
+    owner_id = client.get("/api/me", headers=h).json()["user"]["id"]
+    district = "ZoneTestSQL"
+    casos = [
+        (800, 1000),   # Ganga
+        (900, 1000),   # Ganga
+        (1000, 1000),  # Justo
+        (1050, 1000),  # Justo
+        (1200, 1000),  # Inflado
+        (400, 1000),   # implausible -> None (excluido de toda zone)
+        (700, None),   # sin ref -> None (excluido)
+    ]
+    db = SessionLocal()
+    try:
+        for price, ref in casos:
+            db.add(Listing(
+                owner_id=owner_id, operacion="alquiler", district=district,
+                address=f"Z {price}", lat=-12.121, lng=-77.030,
+                area_m2=80, dormitorios=2, banos=2, cocheras=1,
+                antiguedad_anios=5, es_estudio=False, price_usd=price,
+                fair_value_ref=ref, description="", amenities="",
+                contact_name="O", contact_phone="999", contact_email="o@wasi.pe",
+                status="activo",
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+    def precios(zone):
+        r = client.get("/api/listings", headers=auth_headers,
+                       params={"district": district, "zone": zone, "limit": 120})
+        assert r.status_code == 200
+        return sorted(l["price_usd"] for l in r.json())
+
+    assert precios("Ganga") == [800, 900]
+    assert precios("Justo") == [1000, 1050]
+    assert precios("Inflado") == [1200]
+
+
+def test_indice_compuesto_listings_creado_por_ensure_schema(client):
+    """#33: ensure_schema crea el índice compuesto (operacion, status) sin
+    romper la BD existente. Tras el arranque del lifespan, el índice existe."""
+    from database import engine
+    from sqlalchemy import inspect
+
+    nombres = {ix["name"] for ix in inspect(engine).get_indexes("listings")}
+    assert "ix_listings_operacion_status" in nombres
