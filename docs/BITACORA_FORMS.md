@@ -292,3 +292,123 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Verificación en vivo: **NO en browser** (sin browser MCP). Contraste fino del dark mode y la carga perceptual del lazy quedan para confirmación humana en `:5173` con tema oscuro.
 - **Riesgos / deuda aceptada:** el CSS pide `font-weight:800` en algunos títulos; ninguna familia carga ese peso (el CDN de Google tampoco lo servía) → faux-bold desde 700, idéntico al baseline (no regresión). El `leaflet` (183 kB) carga al arranque porque el home lo usa; no es lazy-evitable sin rediseñar el home. La `@fontsource` trae subsets latin/latin-ext + woff/woff2 (más archivos de los estrictamente necesarios), pero el navegador sólo descarga woff2 latin.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 15 — Hardening de backend (seguridad y escalabilidad de queries) — 2026-07-16
+- **Sprint Goal:** cerrar las superficies de abuso y los cuellos de botella de datos del backend sin romper contratos existentes.
+- **Hallazgos cerrados:** #19 (enumeración de emails), #18 (JWT exp/revocación), #21 (sort=ganga/zone en memoria), #31 (`ensure_schema` mudo), #33 (índices compuestos).
+- **Qué se cambió:**
+  - `app/backend/routers/listings.py` — `zone` (WHERE) y `sort=ganga` (ORDER BY) bajan a SQL vía `_zone_filter_sql`/`_ganga_order_sql`/`_diff_ratio_sql` (con `NULLIF` para no dividir por cero en Postgres). Antes el catálogo entero (~3.4k rows) se cargaba en memoria por request; ahora la paginación es 100% SQL. La paginación común ya era SQL; se unificaron ambos caminos.
+  - `app/backend/database.py` — `jwt_expire_days` default 7 → 1 (#18); el `except: pass` mudo del ALTER de Postgres ahora loguea con `logger.warning` (#31); `ensure_schema` crea `CREATE INDEX IF NOT EXISTS ix_listings_operacion_status` (#33).
+  - `app/backend/auth.py` — docstring con el modelo de amenaza JWT (localStorage, exp corto, lista blanca de algoritmo, secreto ≥32; revocación/refresh deferrida al humano) (#18).
+  - `app/backend/routers/auth.py` — docstring del `register` documentando la decisión #19 (409 explícito = UX > sigilo; rate-limit 10/min mitiga).
+  - `app/backend/models.py` — `Index("ix_listings_operacion_status", "operacion", "status")` en `Listing.__table_args__` (#33, para BDs nuevas; ensure_schema lo replica en existentes).
+  - `.env.example` — `JWT_EXPIRE_DAYS=7` → `1` con comentario del trade-off (#18).
+- **QA (Protocolo Anticagadas):**
+  - pytest: **178 passed / 2 skipped** (piso subió de 174 → 178 con +4 tests nuevos: paridad sort=ganga SQL vs Python, filtro zone SQL excluyendo data sucia/sin-ref, existencia del índice, 409 de enumeración pineado).
+  - Agente Sonnet **adversarial** (intentó romper los fixes): **0 fallos reales**. Verificó paridad SQL vs Python en 15 casos límite (ref nulo/0/negativo, bordes exactos -8%/-45%, price 0/negativo) con 0 discrepancias; confirmó que NULLIF evita `/0` en Postgres; que login es consistente (401 genérico, no filtra cuál falló); que `CREATE INDEX IF NOT EXISTS` es idempotente y no duplica en BD fresca; que ningún test acopla a `exp=7`.
+  - Verificación en vivo: vía TestClient HTTP (los tests de #21 ejercitan las expresiones SQL reales del router end-to-end). Backend en `:8001` no se levantó aparte (los tests cubren el contrato).
+- **Riesgos / deuda aceptada:**
+  - **#19:** la enumeración de emails sigue POSIBLE (el 409 confirma existencia). Es el trade-off aceptado UX > sigilo; mitigado por rate-limit 10/min. Cerrarlo del todo requeriría flujo opaco + email de verificación → decisión de producto.
+  - **#18:** NO hay revocación server-side (blacklist/refresh) → un token robado vía XSS es válido hasta `exp`. Deferrida al humano (implica estado en DB / arquitectura). El `.env` LOCAL del dev sigue con `JWT_EXPIRE_DAYS=7` (conveniencia de desarrollo; el hardening aplica a `.env.example`/default para deploys nuevos — bajar el local a mano si se quiere).
+  - **#21:** el tiebreak entre gangas empatadas en `+inf` (descalificadas) es no determinístico en SQL; irrelevante para las páginas visibles (van al final). Para idéntico exacto entre sesiones haría falta un ORDER BY secundario (no añadido: cambia el orden del camino común existente).
+- **Estado:** CERRADO ✅
+
+---
+
+## Sprint 16 — Pipeline ML reproducible (SIN tocar el artefacto servido) — 2026-07-17
+- **Sprint Goal:** que el pipeline de features de **venta** sea runnable desde el repo y que exista un gate que valide el artefacto v2 que de verdad se sirve — todo **sin regenerar `modelo_final_v2.joblib`** ni tocar el contrato FairValue.
+- **Hallazgos cerrados:** #17 (import `geo_index` muerto), #23 (gates forzados a v1), #16 (Babilonia descartada por NaN de cocheras).
+- **Qué se cambió:**
+  - `ventas_model/build_features_venta.py` — reemplazo del `sys.path.insert(ROOT/"app"/"backend")` + `from geo_index` (caía al `.pyc` zombie: `app/backend/geo_index.py` **no existe**, el real vive en `src/wasi/features/geo_index.py`) por `from wasi.features.geo_index import IDW_COLS, geo_lookup` con fallback defensivo a `sys.path.insert(ROOT/"src")` si el venv no tuviera `wasi` instalado. Imputación explícita `cocheras` NaN → 0 dentro del loop de features (Babilonia no reporta la columna; "no informa cochera" en vez de alimentar NaN al modelo).
+  - `ventas_model/clean_ventas.py` — `df["cocheras"].between(0, 6)` → `df["cocheras"].isna() | df["cocheras"].between(0, 6)`. NaN = "no reportado" pasa; los valores presentes fuera de rango siguen cayendo (ruido/categoría mal tipeada).
+  - `app/backend/scripts/validate_pipeline_v2.py` (NUEVO) — Gate 4-v2. **Hermano** de `validate_pipeline.py` (Gate 4) pero para el modelo servido en prod (v2). NO toca `DPD_FORCE_V1` (cae al camino real de producción), falla con código 2 si el env lo trae forzado. Verifica: `USE_V2`, `mode=="v2"`, 101 features, `feature_names_v2.joblib` == `feature_names_in_` del modelo, 5 golden predictions reproducibles (reporta peor diferencia), y quantile coverage si el artefacto lo trae. Escribe `gates/gate_v2_resultado.md`. **v1 queda intacto** — sigue siendo la referencia del dataset v1 commiteado (`pipeline/data/processed/X_test.csv`).
+  - `ventas_model/data/clean_ventas.csv` + `ventas_features.csv` regenerados con los fixes anteriores (datos intermedios del pipeline, NO artefacto servido).
+- **QA (Protocolo Anticagadas):**
+  - pytest: **178 passed / 2 skipped** (sin regresiones; el sprint no toca `app/backend/` de producción, solo `ventas_model/` y agrega un script nuevo).
+  - Build check: N/A (sprint backend/ML, no toca frontend).
+  - Agente Sonnet de correctitud (sustituido por revisión estática del diff + reproducción): **3/3 CONFIRMADO**.
+    - #17: `app/backend/venv/bin/python -c "import build_features_venta"` → `IMPORT OK`, `IDW_COLS=16`, `geo_lookup.__module__=='wasi.features.geo_index'`.
+    - #23: `./venv/bin/python scripts/validate_pipeline_v2.py` → todos los checks OK (mode v2, 101 features, feature_order match, 5 golden con peor dif **0.0000%** vs tol 0.100%, quantile coverage P25-P75=0.4274). Y `validate_pipeline.py` (v1) sigue pasando idéntico: Check A OK (hash 59f69e27…), Check B OK (peor dif 0.00000%).
+    - #16: Babilonia raw=415 filas (cocheras 100% NaN). `clean_ventas.csv` pasó de **6,273 → 6,669 filas** (+396 ≈ 400 esperadas). `ventas_features.csv` = 6,668 filas (1 fuera de cobertura geo), **0 NaN en cocheras** (2,241 en 0 / 4,427 > 0).
+  - Verificación del contrato FairValue (arranque): `model_service.load()` con env limpio → `[model_service] v2 validado · manifest + n_features + golden OK`, mode=v2, 101 features. **El artefacto servido NO se tocó.** `modelo_final_v2.joblib` y los golden siguen intactos.
+- **Riesgos / deuda aceptada:**
+  - **#16 — hallazgo colateral sin arreglar (deuda nueva, no scope creep):** al recuperar Babilonia aparecen **397 NaN en `antiguedad_anios`** (Babilonia tampoco la reporta). No se imputó en este sprint: el plan cubría solo `cocheras`. Anotado para que el humano decida. Mientras tanto el pipeline de features de venta queda con NaN en esa columna; cualquier reentrenamiento futuro debe imputarla primero.
+  - **#16 — NO se reentrenó el modelo servido (cumple el §5):** `modelo_final_v2.joblib` (alquiler, 101 feat) sigue siendo el de alquiler y no se tocó. El dataset de venta ampliado (`clean_ventas.csv` / `ventas_features.csv`) queda listo para que el humano decida si reentrena el modelo de venta. **PARO acá.**
+  - **#23 — sin equivalencia feature-by-feature para v2:** el dataset v2 no está versionado en el repo (ver Gate 2 / Sprint 10), así que este gate no reproduce `X_test_v2`. Valida lo mismo que el arranque del backend (manifest+golden+feature_order). Es lo máximo reproducible desde el repo sin versionar el dataset v2 — deuda de trazabilidad opcional, ya conocida.
+  - **`gates/gate_v2_resultado.md`** queda como artefacto de QA (sin commitear todavía — el commit del sprint lo decide el humano).
+- **Estado:** CERRADO ✅
+
+---
+
+## Sprint 17 — Eficiencia de FairValue y cierre de huecos de tests — 2026-07-17
+- **Sprint Goal:** reducir la ráfaga de llamadas del wizard FairValue y cerrar los huecos de cobertura que dejó la auditoría, para que las regresiones de negocio/seguridad no pasen CI en silencio.
+- **Hallazgos cerrados:** #20 (ráfaga FairValue + `get_analysis` re-infiere), #36 (huecos de tests).
+- **Qué se cambió:**
+  - `app/backend/routers/fairvalue.py` — **cache in-memory thread-safe para `explain_fair_value`** (TreeSHAP). Nueva función `_cached_explain(form)`: TTL 60s, lock, purga lazy cuando supera 128 entradas. Los 3 endpoints que recalculan SHAP (`explain`, `narrative`, `narrative_detailed`) ahora la usan → **1 sola inferencia por análisis** en la ventana de TTL (antes hasta 3). **La clave incluye `id(explain_fair_value)`** leído vía attribute en runtime, así un monkeypatch en tests (que reemplaza la función) invalida el cache automáticamente sin tocar los tests existentes. Mismos números (determinístico por form).
+  - `web/src/features/fairvalue/FairValueScreens.jsx` — `WhatIfSimulator` acepta prop `initialFair` opcional. Si vino (el caso normal: el `fair_value` del predict original del wizard), arranca con ese valor como `baseFair` y `sim` iniciales y **NO dispara `Api.simulate` al montar** (-1 request por análisis). Si no viene (backward-compat), cae al comportamiento anterior. `FairValueResult` pasa `initialFair={fair}` desde el análisis cargado.
+  - `app/backend/tests/test_tanda2_safety_net.py` (NUEVO) — 6 tests que cubren los bordes no testeados:
+    - **CORS** (3 tests): origen permitido (`:5173`) devuelve header `Access-Control-Allow-Origin`; origen bloqueado no; preflight OPTIONS responde 200 con headers.
+    - **Rate-limit 429** (2 tests): mini-app con `@limiter.limit("2/minute")` verifica end-to-end que el 3er request da 429 (mismo wiring slowapi↔app que `main.py`); y que la app real tiene `RateLimitExceeded` en `app.exception_handlers`.
+    - **#17 path features venta** (1 test): importa `build_features_venta`, confirma `geo_lookup.__module__` arranca con `wasi.` (no es el .pyc zombie) y `IDW_COLS` tiene 16 features.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **184 passed / 2 skipped** (piso subió 178 → 184 con +6 tests nuevos; cero regresiones). La pausa del primer intento: el cache SHAP rompía `test_explain_error_interno_no_filtra_detalle` y `test_narrative_errors_internos_no_filtran_detalle` (servían el valor cacheado en vez de ejecutar el mock). **Solucionado** al incluir `id(explain_fair_value)` en la cache key — el monkeypatch invalida el cache automáticamente. Corrido individualmente, esos tests ya pasaban (cache vacío) — la regresión solo aparecía en suite completa, lo que la convirtió en un excelente test real del cache.
+  - build: OK, chunk principal **266.19 kB** (gzip 82.96), sin warnings. `FairValueScreens` 55.18 → 55.28 kB (cambio mínimo en WhatIfSimulator).
+  - Agente Sonnet de completitud (sustituido por inventario manual + tests nuevos): cada fix de Tanda 1/2 tiene test que lo protege. Inventario en el docstring de `test_tanda2_safety_net.py`.
+  - Verificación del cache SHAP end-to-end (medición directa): 3 llamadas con mismo form → **1 sola inferencia SHAP real** (antes 3); mismos números (`r1 == r2 == r3`); form distinto → cache miss → nueva inferencia (2 total como esperado).
+- **Riesgos / deuda aceptada:**
+  - **#20 — `get_analysis` re-infiere desde historial:** cuando un usuario reabre un análisis del historial (no desde wizard), `get_analysis` sigue recomputando counterfactuals + intervalo via `predict_fair_value`. **Desde el wizard ya está cacheado en cliente** (`liveData` shortcut en FairValueResult). Persistir counterfactuals requiere schema nuevo → deferido al humano.
+  - **#20 — reducción medida en backend, no en browser:** la reducción de requests del frontend (WhatIfSimulator sin simulate al montar) está verificada por análisis del código + build; falta la medición visual en `:5173` con Network panel (sin browser MCP en este entorno). El delta exacto de la ráfaga total queda para QA humana: el esperado es **~6 → 4 requests** al abrir resultado (-1 simulate, -2 SHAP vía cache), confirmable en DevTools.
+  - **#36 — rate-limit:** el test end-to-end usa mini-app aislada para no contaminar el resto de la suite (el `client` global tiene `WASI_RATELIMIT=0` y el storage compartido rompería otros tests). El test del handler wired en la app real protege la desconexión accidental en `main.py`.
+- **Estado:** CERRADO ✅
+
+---
+
+## Cierre — Tanda 2 (Sprints 13–17)
+
+**Estado de la suite:** **184 passed / 2 skipped** (subió de 174 → 184 en la tanda: +6 en Sprint 15, +6 en Sprint 17). Cero regresiones. Build frontend OK sin warnings, chunk principal 266 kB.
+
+### CERRADO ✅ (10 hallazgos)
+
+| Hallazgo | Sprint | Resumen |
+|----------|--------|---------|
+| #9  History API / Back/F5 | 13 | `pushState`+`popstate`+rehidratación F5, sin react-router |
+| #26 AbortController en fetches | 13 | Home/Listings/Publish/Leads con cleanup |
+| #27 screen huérfana tras cambio de rol | 13 | reset al home del rol si la screen es exclusiva |
+| #24 DashboardScreen muerto | 13 | rama `operaciones` + import eliminados |
+| #7  Code-splitting | 14 | `manualChunks` + `React.lazy` + Suspense, chunk 665→266 kB |
+| #25 Duplicación de componentes | 14 | viz d3 extraídos a `shared/charts.jsx` |
+| #34 Fuentes self-host | 14 | `@fontsource` (Inter, Space Grotesk) |
+| #35 `_leaflet_pos` global | 14 | revisado (bajo riesgo) |
+| #28 Dark mode residual | 14 | overrides oklch claros en wizard |
+| #19 Enumeración de emails | 15 | 409 explícito documentado (UX > sigilo), rate-limit 10/min |
+| #18 JWT exp/revocación | 15 | `exp` 7→1 día (default), modelo de amenaza en docstring |
+| #21 sort=ganga/zone en memoria | 15 | bajan a SQL (`NULLIF`, paginación 100% SQL) |
+| #31 `ensure_schema` mudo | 15 | `except: pass` → `logger.warning` |
+| #33 Índices compuestos | 15 | `ix_listings_operacion_status` |
+| #17 import `geo_index` muerto | 16 | apunta a `wasi.features.geo_index` (paquete real) |
+| #23 Gates forzados a v1 | 16 | gate v2 nuevo (`validate_pipeline_v2.py`), v1 intacto |
+| #16 Babilonia descartada | 16 | +396 filas recuperadas (NaN cocheras pasa), NO reentrenado |
+| #20 Ráfaga FairValue | 17 | cache SHAP (3→1) + WhatIfSimulator sin simulate al montar |
+| #36 Huecos de tests | 17 | +6 tests (CORS, rate-limit 429, path venta #17) |
+
+### DIFERIDO al humano (decisiones, no código)
+
+- **#1 CORS producción** — falta el dominio real de Vercel para fijar `WASI_CORS_ORIGINS`.
+- **#6 Postgres en Render** — migración de SQLite a Postgres del deploy.
+- **#15 Planes Pro / campana** — decisión de producto (ocultar vs implementar).
+- **#18 revocación JWT real** — requiere blacklist/estado en DB (decisión de arquitectura).
+- **#16 reentrenar modelo de venta con Babilonia** — el dataset está listo y documentado; el reentrenamiento impacta el artefacto servido → decisión del humano (zona roja §5).
+- **Zona roja §5 (tocan el modelo servido):** #22 (cobertura conformal), #29 (amenities MNAR), #30 (sesgo Jensen) — solo documentados, no ejecutados.
+
+### Deuda técnica nueva surgida en la tanda
+
+- **Sprint 16 — `antiguedad_anios` NaN en Babilonia:** 397 NaN al recuperar Babilonia (tampoco la reporta). No se imputó (scope era solo `cocheras`). Si se reentrena el modelo de venta, imputar antes.
+- **Sprint 17 — `get_analysis` re-infiere desde historial:** sigue recomputando counterfactuals+intervalo (Sprint 9 lo dejó así por paridad). Persistirlos requiere schema.
+- **Sprint 17 — medición visual de la ráfaga FairValue en browser:** falta el delta Network panel real en `:5173` (sin browser MCP). Esperado ~6→4.
+
+### Commits pendientes
+
+- **NO se hizo push ni merge.** Todo en `refactor/modular`.
+- Hay **3 commits por escribir** cuando el humano autorice: Sprint 15 (en limbo desde 2026-07-16), Sprint 16 (este), Sprint 17 (este). Cambios actuales en workdir: backend hardening (#18/#19/#21/#31/#33), pipeline de venta (#17/#16), gate v2 (#23), cache SHAP (#20), WhatIfSimulator (#20), 6 tests nuevos (#36), bitácora actualizada.

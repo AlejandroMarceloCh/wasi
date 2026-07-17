@@ -641,15 +641,18 @@ const SimBarsD3 = ({ base, sim }) => {
   return <div ref={ref} className="d3-simbars" style={{ width: '100%' }}/>;
 };
 
-export const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
+export const WhatIfSimulator = ({ baseForm, initialFair, onAuthExpired }) => {
   
   const [f, setF] = useS(() => ({
     area: Math.round(baseForm.area),
     dormitorios: baseForm.dormitorios, banos: baseForm.banos,
     cocheras: baseForm.cocheras || 0, antiguedad_anios: baseForm.antiguedad_anios || 0,
   }));
-  const [baseFair, setBaseFair] = useS(null);   
-  const [sim, setSim] = useS(null);             
+  // initialFair viene del predict original del wizard → lo usamos como base sin
+  // volver a llamar a /simulate al montar (-1 request por análisis). Con el form
+  // inicial idéntico al baseForm, sim y baseFair arrancan iguales.
+  const [baseFair, setBaseFair] = useS(initialFair != null ? initialFair : null);
+  const [sim, setSim] = useS(initialFair != null ? { fair_value: initialFair } : null);
   const [busy, setBusy] = useS(false);
   const [err, setErr] = useS('');
   const tRef = useR(null);
@@ -667,6 +670,7 @@ export const WhatIfSimulator = ({ baseForm, onAuthExpired }) => {
 
   
   useE(() => {
+    if (initialFair != null) return;  // ya tenemos la base del predict original
     let alive = true;
     Api.simulate(payload(f))
       .then(r => { if (alive) { setBaseFair(r.fair_value); setSim(r); } })
@@ -1177,7 +1181,7 @@ export const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role
 
           {
 }
-          {simForm && <WhatIfSimulator baseForm={simForm} onAuthExpired={onAuthExpired}/>}
+          {simForm && <WhatIfSimulator baseForm={simForm} initialFair={typeof fair === 'number' ? fair : null} onAuthExpired={onAuthExpired}/>}
         </div>
 
         <div className="stack-20">

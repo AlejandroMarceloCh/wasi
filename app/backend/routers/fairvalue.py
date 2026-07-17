@@ -1,5 +1,8 @@
 """Predicción de precio de referencia, lectura y guardado de análisis."""
 import logging
+import threading
+import time
+import json
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -28,6 +31,52 @@ from wasi.models.venta_service import (MAE_PCT as VENTA_MAE_PCT, MODEL_R2 as VEN
 router = APIRouter(prefix="/api", tags=["fairvalue"])
 
 _QUANTILE_COVERAGE_PCT: Optional[float] = None
+
+# Cache in-memory para explain_fair_value (TreeSHAP). La inferencia SHAP es
+# determinística por `form` — mismo input, mismo output exacto. Cuando el
+# frontend abre el resultado de un análisis dispara hasta 3 endpoints que la
+# recalculan (explain + narrative + narrative_detailed); con este cache queda
+# en 1 inferencia por análisis en la ventana de TTL. NO cambia los números.
+# Thread-safe (lock), TTL 60s, purga lazy cuando supera _MAX_ENTRIES.
+# La clave incluye `id(explain_fair_value)` para que un monkeypatch en tests
+# (que reemplaza la función) invalide el cache automáticamente.
+_EXPLAIN_CACHE: dict[tuple, tuple[float, dict]] = {}
+_EXPLAIN_CACHE_LOCK = threading.Lock()
+_EXPLAIN_CACHE_TTL = 60.0
+_EXPLAIN_CACHE_MAX = 128
+
+
+def _cached_explain(form: dict) -> dict:
+    """explain_fair_value con cache in-memory por form (determinístico).
+
+    Lee `explain_fair_value` vía attribute del módulo en runtime para que un
+    monkeypatch en tests (que reemplaza la función) invalidate el cache: al
+    cambiar la función, su `id()` cambia y la clave ya no pega.
+    """
+    import sys
+    me = sys.modules[__name__]
+    fn = me.explain_fair_value
+    fn_id = id(fn)
+    form_key = json.dumps(form, sort_keys=True, default=str)
+    key = (fn_id, form_key)
+    now = time.time()
+    with _EXPLAIN_CACHE_LOCK:
+        hit = _EXPLAIN_CACHE.get(key)
+        if hit and now - hit[0] < _EXPLAIN_CACHE_TTL:
+            return hit[1]
+    # La inferencia SHAP va FUERA del lock: puede tardar y no bloquea a otros
+    # requests con forms distintos.
+    res = fn(form)
+    with _EXPLAIN_CACHE_LOCK:
+        _EXPLAIN_CACHE[key] = (now, res)
+        # Purga lazy cuando el cache crece: botamos entradas expiradas.
+        if len(_EXPLAIN_CACHE) > _EXPLAIN_CACHE_MAX:
+            expired = [k for k, (ts, _) in _EXPLAIN_CACHE.items()
+                       if now - ts > _EXPLAIN_CACHE_TTL]
+            for k in expired:
+                _EXPLAIN_CACHE.pop(k, None)
+    return res
+
 
 def _quantile_coverage_pct() -> float:
     """% real de comparables que caen en el rango P25-P75 (~43%). Honesto:
@@ -353,7 +402,7 @@ def explain(
         "amenities": [c for c in (p.amenities or "").split(",") if c],
     }
     try:
-        res = explain_fair_value(form)
+        res = _cached_explain(form)
     except RuntimeError:
         raise HTTPException(
             status_code=503,
@@ -457,7 +506,7 @@ def narrative(
     is_seller = mode == "seller"
     form = _form_from_property(a.property)
     try:
-        res = explain_fair_value(form)
+        res = _cached_explain(form)
     except RuntimeError:
         raise HTTPException(
             status_code=503,
@@ -554,7 +603,7 @@ def narrative_detailed(
     p = a.property
     form = _form_from_property(p)
     try:
-        res = explain_fair_value(form)
+        res = _cached_explain(form)
     except RuntimeError:
         raise HTTPException(
             status_code=503,
