@@ -33,7 +33,10 @@ def main():
     df = df[df["precio_m2"].between(400, 6_000)]   # filtra alquiler colado y errores
     df = df[df["dormitorios"].between(0, 6)]
     df = df[df["banos"].between(1, 6)]
-    df = df[df["cocheras"].between(0, 6)]
+    # cocheras: NaN = "no reportado" (Babilonia no trae la columna en absoluto),
+    # lo dejamos pasar imputándolo luego en build_features. Solo botamos los
+    # valores presentes fuera de rango (ruido / categoría mal tipeada).
+    df = df[df["cocheras"].isna() | df["cocheras"].between(0, 6)]
     # bbox de Lima
     df = df[df["lat"].between(-12.5, -11.6) & df["lng"].between(-77.3, -76.7)]
     # dedup por inmueble (misma coord/area/precio)

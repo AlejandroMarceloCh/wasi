@@ -10,9 +10,15 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "app" / "backend"))
-from geo_index import IDW_COLS, geo_lookup  # noqa: E402
+# Resolver el paquete `wasi` (instalado editable desde src/wasi). Si el script
+# se corre desde fuera del venv del backend (donde wasi YA es importable),
+# caemos al fallback de sys.path para que el pipeline siga siendo runnable.
+try:
+    from wasi.features.geo_index import IDW_COLS, geo_lookup  # noqa: E402
+except ImportError:  # pragma: no cover
+    ROOT = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(ROOT / "src"))
+    from wasi.features.geo_index import IDW_COLS, geo_lookup  # noqa: E402
 
 D = Path(__file__).resolve().parent / "data"
 INMUEBLE_COLS = ["m2", "dormitorios", "banos", "cocheras", "antiguedad_anios"]
@@ -30,7 +36,14 @@ def main():
         feat = {c: geo[c] for c in IDW_COLS}
         feat["distrito"] = geo.get("distrito") or geo.get("distrito_oficial") or r.get("distrito", "")
         for c in INMUEBLE_COLS:
-            feat[c] = r[c]
+            # cocheras: Babilonia no reporta la columna (100% NaN tras clean).
+            # Imputamos 0 = "no informa cochera" para no alimentar NaN al modelo.
+            # Diferenciar "0 real" de "no reportado" requeriría una columna
+            # indicadora aparte — fuera de alcance de este pipeline.
+            val = r[c]
+            if c == "cocheras" and pd.isna(val):
+                val = 0
+            feat[c] = val
         feat["lat"], feat["lng"] = r["lat"], r["lng"]
         feat["price_usd"] = r["price_usd"]
         # clave de grupo espacial (~111 m) para GroupKFold sin leakage de edificio
