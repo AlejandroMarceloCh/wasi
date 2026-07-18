@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from plan import can_analyze, FREE_MONTHLY_LIMIT
 from ratelimit import limiter
 from wasi.models.comparables_service import get_comparables_service
 from database import get_db
@@ -140,6 +141,17 @@ def predict(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ):
+
+    # Límite del plan Free (5 análisis/mes). Pro es ilimitado. Se cobra antes de
+    # gastar cómputo. 402 Payment Required → el frontend abre el modal de planes.
+    if not can_analyze(db, current):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Alcanzaste tu límite de {FREE_MONTHLY_LIMIT} análisis este mes. "
+                "Pasa al plan Pro para análisis ilimitados."
+            ),
+        )
 
     try:
         res = predict_fair_value(payload.model_dump())

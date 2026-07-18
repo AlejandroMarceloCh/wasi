@@ -11,6 +11,7 @@ from schemas import (
     RegisterIn, LoginIn, AuthOut, RegisterOut, UserOut, MeOut, ReportItem, UpdateMeIn,
 )
 from auth import hash_password, verify_password, create_access_token, get_current_user
+from plan import analyses_limit, analyses_this_month, is_pro
 
 VALID_ROLES = {"Inquilino", "Propietario", "Agente inmobiliario"}
 
@@ -111,6 +112,10 @@ def _build_me(db: Session, current: User) -> MeOut:
         analyses_count=int(analyses_count),
         reports_count=int(reports_count),
         reports=reports,
+        is_pro=is_pro(current),
+        trial_ends_at=current.trial_ends_at,
+        analyses_this_month=analyses_this_month(db, current.id),
+        analyses_limit=analyses_limit(current),
     )
 
 @me_router.get("/me", response_model=MeOut)

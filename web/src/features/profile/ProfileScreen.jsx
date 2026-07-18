@@ -66,7 +66,26 @@ export const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings,
   const reports = (me && Array.isArray(me.reports)) ? me.reports : [];
   const analysesCount = (me && me.analyses_count) ?? 0;
   const reportsCount  = (me && me.reports_count) ?? 0;
-  const isPro = String(plan).toLowerCase() === 'pro';
+  // is_pro del backend es la fuente de verdad (considera trial vencido).
+  const isPro = me ? !!me.is_pro : String(plan).toLowerCase() === 'pro';
+  const analysesLimit = (me && me.analyses_limit) ?? null;   // null = ilimitado
+  const analysesUsed  = (me && me.analyses_this_month) ?? 0;
+  const trialEndsAt   = (me && me.trial_ends_at) || null;
+
+  const [planBusy, setPlanBusy] = useS(false);
+  const doPlan = async (fn) => {
+    setPlanBusy(true);
+    try {
+      await fn();
+      const r = await Api.me();
+      setMe(r);
+    } catch (ex) {
+      const msg = handleApiErr(ex, { setErr, onAuthExpired });
+      if (typeof onError === 'function') onError(msg);
+    } finally {
+      setPlanBusy(false);
+    }
+  };
 
   const openEdit = () => {
     setForm({ name, role });
@@ -185,16 +204,22 @@ export const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings,
                 <div style={{fontFamily:'Space Grotesk', fontSize:22, fontWeight:700, marginTop:10}}>Análisis ilimitados · Alertas geoespaciales</div>
                 <p className="small muted" style={{marginTop:6, maxWidth: 440}}>
                   {isPro
-                    ? 'Tu plan Pro está activo: análisis ilimitados y alertas cuando aparezcan gangas o cambien los precios en tus zonas.'
-                    : 'Recibe notificaciones cuando aparezcan gangas en tus zonas favoritas o cuando los precios cambien.'}
+                    ? (trialEndsAt
+                        ? `Trial Pro activo hasta el ${new Date(trialEndsAt).toLocaleDateString('es-PE', {day:'2-digit', month:'long'})}: análisis ilimitados.`
+                        : 'Tu plan Pro está activo: análisis ilimitados.')
+                    : `Llevas ${analysesUsed} de ${analysesLimit ?? 5} análisis este mes. Pasa a Pro para análisis ilimitados.`}
                 </p>
               </div>
               <Icon name="sparkle" size={32} stroke="var(--primary)"/>
             </div>
             <div className="row mt-16" style={{gap:10}}>
-              <Btn variant="primary" onClick={()=>setModal('plans')}>
-                {isPro ? 'Gestionar plan' : 'Probar 14 días gratis'}
-              </Btn>
+              {isPro ? (
+                <Btn variant="primary" onClick={()=>setModal('plans')}>Gestionar plan</Btn>
+              ) : (
+                <Btn variant="primary" disabled={planBusy} onClick={()=>doPlan(Api.startTrial)}>
+                  {planBusy ? 'Activando…' : 'Probar 14 días gratis'}
+                </Btn>
+              )}
               <Btn variant="outline" onClick={()=>setModal('plans')}>Ver planes</Btn>
             </div>
           </Card>
@@ -359,10 +384,29 @@ export const ProfileScreen = ({ onLogout, onError, onOpenAnalysis, onMyListings,
             </div>
           </div>
         </div>
-        {isPro && (
-          <div className="banner info" style={{marginTop:14}}>
-            <Icon name="check" size={14}/>
-            <span>Ya tienes el plan Pro activo. ¡Gracias por apoyar a Wasi!</span>
+        {isPro ? (
+          <>
+            <div className="banner info" style={{marginTop:14}}>
+              <Icon name="check" size={14}/>
+              <span>
+                {trialEndsAt
+                  ? `Tu trial Pro está activo hasta el ${new Date(trialEndsAt).toLocaleDateString('es-PE', {day:'2-digit', month:'long'})}.`
+                  : 'Ya tienes el plan Pro activo. ¡Gracias por apoyar a Wasi!'}
+              </span>
+            </div>
+            <div className="row mt-16" style={{justifyContent:'flex-end'}}>
+              <Btn variant="outline" disabled={planBusy}
+                   onClick={()=>doPlan(Api.cancelPro).then(()=>setModal(null))}>
+                {planBusy ? 'Procesando…' : 'Cancelar plan Pro'}
+              </Btn>
+            </div>
+          </>
+        ) : (
+          <div className="row mt-16" style={{justifyContent:'flex-end', gap:10}}>
+            <Btn variant="primary" disabled={planBusy}
+                 onClick={()=>doPlan(Api.subscribePro).then(()=>setModal(null))}>
+              {planBusy ? 'Procesando…' : 'Suscribirme a Pro'}
+            </Btn>
           </div>
         )}
       </Modal>

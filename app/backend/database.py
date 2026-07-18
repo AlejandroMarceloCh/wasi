@@ -98,6 +98,11 @@ def ensure_schema() -> None:
                 "ALTER TABLE users ADD COLUMN role VARCHAR(32) "
                 "NOT NULL DEFAULT 'Inquilino'"
             ))
+    # trial_ends_at: fin del trial Pro (nullable, sin default). TIMESTAMP es
+    # válido en SQLite y PostgreSQL.
+    if "trial_ends_at" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN trial_ends_at TIMESTAMP"))
 
     if "listings" in tables:
         lcols = {c["name"] for c in insp.get_columns("listings")}

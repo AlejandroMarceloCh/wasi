@@ -263,6 +263,11 @@ import { resolveApiBase } from './base.js';
     markNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
 
 
+    startTrial: () => request('/billing/trial', { method: 'POST' }),
+    subscribePro: () => request('/billing/subscribe', { method: 'POST' }),
+    cancelPro: () => request('/billing/cancel', { method: 'POST' }),
+
+
     entorno: ({ lat, lng }) => {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
       return request('/entorno?' + q.toString());

@@ -35,9 +35,16 @@ def client():
 
 @pytest.fixture(scope="session")
 def auth_headers(client):
-    """Registra un usuario de prueba y devuelve el header Authorization."""
+    """Registra un usuario de prueba y devuelve el header Authorization.
+
+    Es Pro (suscripción simulada) para que la batería de tests que hace muchos
+    análisis con este mismo usuario no choque con el tope mensual del plan Free
+    (5/mes). El límite Free en sí se prueba con usuarios frescos en
+    test_billing.py."""
     client.post("/api/auth/register", json={
         "email": "pytest@wasi.pe", "name": "Pytest", "password": "pytest123"})
     r = client.post("/api/auth/login", json={
         "email": "pytest@wasi.pe", "password": "pytest123"})
-    return {"Authorization": f"Bearer {r.json()['token']}"}
+    headers = {"Authorization": f"Bearer {r.json()['token']}"}
+    client.post("/api/billing/subscribe", headers=headers)  # Pro → análisis ilimitados
+    return headers

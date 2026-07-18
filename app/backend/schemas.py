@@ -90,6 +90,16 @@ class UpdateMeIn(BaseModel):
             raise ValueError("name debe tener al menos 2 caracteres")
         return name
 
+class PlanStateOut(BaseModel):
+    """Estado del plan de un usuario. `analyses_limit` None = ilimitado (Pro)."""
+    plan: str
+    is_pro: bool
+    trial_ends_at: Optional[datetime] = None
+
+    @field_serializer("trial_ends_at")
+    def _ser_trial(self, dt: Optional[datetime]) -> Optional[str]:
+        return _iso_utc(dt) if dt else None
+
 class MeOut(BaseModel):
     user: UserOut
     plan: str
@@ -97,10 +107,19 @@ class MeOut(BaseModel):
     analyses_count: int
     reports_count: int
     reports: List[ReportItem]
+    # Estado del plan y consumo mensual (para la UI de planes Pro).
+    is_pro: bool = False
+    trial_ends_at: Optional[datetime] = None
+    analyses_this_month: int = 0
+    analyses_limit: Optional[int] = None  # None = ilimitado (Pro)
 
     @field_serializer("last_activity_at")
     def _ser_last_activity(self, dt: datetime) -> str:
         return _iso_utc(dt)
+
+    @field_serializer("trial_ends_at")
+    def _ser_trial_me(self, dt: Optional[datetime]) -> Optional[str]:
+        return _iso_utc(dt) if dt else None
 
 class DashStats(BaseModel):
     analyses_count: int

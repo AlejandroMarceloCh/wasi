@@ -21,6 +21,10 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     plan: Mapped[str] = mapped_column(String(16), nullable=False, default="free")
+    # Fin del trial Pro (NULL = sin trial vigente). Con plan="pro" y trial_ends_at
+    # NULL = suscripción sin vencimiento; con fecha futura = trial activo; con
+    # fecha pasada = trial vencido (se trata como free). Ver plan.py:is_pro.
+    trial_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="Inquilino")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

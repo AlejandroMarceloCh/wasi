@@ -452,3 +452,29 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Datos de prueba limpiados de la BD local (9 usuarios).
 - **Riesgos / deuda aceptada:** el único disparador es "lead nuevo". Los otros avisos que prometía el copy viejo (gangas en zonas favoritas, cambios de precio) NO se implementan: requieren job/historial de precios y suscripción a zonas, fuera de alcance — por eso se ajustó el copy del estado vacío para no prometer lo que no existe. El badge se refresca por polling de 60s (no push/WS).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 20 — Planes Pro simulado + límite de análisis (#3/#15) — 2026-07-17
+- **Sprint Goal:** darle acción real a los botones de plan (hoy decorativos) sin pasarela de pago: activar/cancelar Pro de verdad, trial de 14 días con fecha real y tope de 5 análisis/mes para Free que Pro levanta. Se cierra cuando el flujo Free→trial/subscribe→cancel funciona y el límite se aplica, demostrado en vivo + tests.
+- **Hallazgos cerrados:** #3 (planes Pro sin acción) y el resto de #15.
+- **Qué se cambió:**
+  - `app/backend/models.py` — nuevo campo `User.trial_ends_at` (nullable). `plan` ya existía.
+  - `app/backend/database.py` — `ensure_schema` añade `trial_ends_at` a `users` existentes (ALTER idempotente, SQLite + PG).
+  - `app/backend/plan.py` (nuevo) — lógica de plan: `is_pro` (trial vencido = Free), `FREE_MONTHLY_LIMIT=5`, `TRIAL_DAYS=14`, `analyses_this_month`, `analyses_limit` (None=ilimitado), `can_analyze`.
+  - `app/backend/routers/fairvalue.py` — `predict` cobra el límite Free ANTES de gastar cómputo: 6º análisis del mes → **402** con mensaje que invita a Pro.
+  - `app/backend/routers/billing.py` (nuevo) — `POST /billing/trial` (14 días, 409 si ya es Pro), `/subscribe` (Pro sin vencimiento), `/cancel` (vuelve a Free). Rate-limited.
+  - `app/backend/schemas.py` — `PlanStateOut` + `MeOut` extendido (`is_pro`, `trial_ends_at`, `analyses_this_month`, `analyses_limit`).
+  - `app/backend/routers/auth.py` — `/me` puebla el estado de plan y consumo mensual.
+  - `app/backend/main.py` — registra el router de billing.
+  - `web/src/shared/api/client.js` — `startTrial`, `subscribePro`, `cancelPro`.
+  - `web/src/features/profile/ProfileScreen.jsx` — `isPro` desde `me.is_pro`; botón "Probar 14 días" activa el trial de verdad; el modal de planes tiene "Suscribirme a Pro" / "Cancelar plan Pro" reales; la card muestra "X de 5 análisis este mes" (Free) o la fecha de fin de trial (Pro).
+  - `app/backend/tests/conftest.py` — el usuario compartido `auth_headers` ahora es Pro (evita que la batería de tests choque con el tope Free).
+  - `app/backend/tests/test_billing.py` (nuevo, 4 tests): trial+estado en /me, subscribe/cancel, límite 5→402 + Pro ilimitado, auth requerida.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **191 passed / 2 skipped** (187 + 4). Ajustado el fixture compartido a Pro tras detectar que el nuevo límite tumbaba 15 tests que reusaban el mismo usuario (regresión atrapada y corregida en el sprint).
+  - build: OK (`built in 1.69s`).
+  - Verificación en vivo (`:8001`): ALTER `trial_ends_at` aplicado a la BD real; Free (limit 5) → trial (is_pro, limit null, vence +14d) → trial dup **409** → cancel (Free) → subscribe (Pro sin vencimiento). Límite 5→402 cubierto por test.
+  - Datos de prueba limpiados de la BD local.
+- **Riesgos / deuda aceptada:** Pro es **simulado, sin cobro real** (decisión del usuario). No hay pasarela de pago (Culqi/Mercado Pago), webhooks ni facturación — si algún día se cobra de verdad, `subscribe` es el punto de integración. El conteo de análisis es por mes calendario UTC.
+- **Estado:** CERRADO ✅

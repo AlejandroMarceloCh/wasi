@@ -21,6 +21,7 @@ from routers import fairvalue as fairvalue_router
 from routers import health as health_router
 from routers import listings as listings_router
 from routers import notifications as notifications_router
+from routers import billing as billing_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,6 +77,7 @@ app.include_router(entorno_router.router)
 app.include_router(health_router.router)
 app.include_router(listings_router.router)
 app.include_router(notifications_router.router)
+app.include_router(billing_router.router)
 
 @app.get("/")
 def root():
