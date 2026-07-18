@@ -59,6 +59,15 @@ class AuthOut(BaseModel):
     token: str
     user: UserOut
 
+class RegisterOut(BaseModel):
+    """Respuesta del registro: mensaje genérico, sin token ni datos de usuario.
+
+    #7/#19 — anti-enumeración: la respuesta es idéntica exista o no el correo,
+    de modo que no se puede distinguir 'creado' de 'ya registrado'. El cliente
+    hace login automático tras registrar para iniciar sesión.
+    """
+    message: str
+
 class ReportItem(BaseModel):
     id: int
     analysis_id: int

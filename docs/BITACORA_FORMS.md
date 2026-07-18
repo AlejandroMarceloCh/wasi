@@ -412,3 +412,21 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
 
 - **NO se hizo push ni merge.** Todo en `refactor/modular`.
 - Hay **3 commits por escribir** cuando el humano autorice: Sprint 15 (en limbo desde 2026-07-16), Sprint 16 (este), Sprint 17 (este). Cambios actuales en workdir: backend hardening (#18/#19/#21/#31/#33), pipeline de venta (#17/#16), gate v2 (#23), cache SHAP (#20), WhatIfSimulator (#20), 6 tests nuevos (#36), bitácora actualizada.
+
+---
+
+## Sprint 18 — Anti-enumeración de emails en registro (#7/#19) — 2026-07-17
+- **Sprint Goal:** que el endpoint de registro no permita descubrir si un correo ya tiene cuenta (enumeración de emails). Se cierra cuando la respuesta de un correo nuevo y la de uno ya registrado son indistinguibles, demostrado en vivo.
+- **Hallazgos cerrados:** #7 / #19.
+- **Qué se cambió:**
+  - `app/backend/routers/auth.py` — `register` ya no devuelve 409 "El correo ya está registrado" ni token. Responde **siempre** 201 con un mensaje genérico idéntico exista o no la cuenta (`REGISTER_GENERIC_MSG`). Si el correo existe no crea nada; si hay carrera (IntegrityError) hace rollback y responde igual. El rol inválido sigue devolviendo 422 (validación de input, no revela el correo).
+  - `app/backend/schemas.py` — nuevo `RegisterOut { message }` (antes `register` devolvía `AuthOut` con token+user).
+  - `web/src/shared/api/client.js` — `register()` ya no espera token; tras registrar hace **login automático** con las mismas credenciales. Correo nuevo → entra directo; correo existente con otra contraseña → login falla con el error genérico de credenciales (sin filtrar que la cuenta existe).
+  - `app/backend/tests/test_auth_contract.py` — actualizado `test_register_normaliza_email_y_login_case_insensitive` (registro ya no trae token/user) y reemplazado el viejo `test_register_enum_email_devuelve_409...` por `test_register_no_revela_email_existente` (verifica respuestas indistinguibles + cuenta original intacta).
+  - `app/backend/tests/test_tanda2_safety_net.py` — actualizada la referencia en el docstring.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **184 passed / 2 skipped** (suite completa, sin regresión).
+  - build: OK (`index` 266 kB, sin warnings).
+  - Verificación en vivo (`:8001`, backend reiniciado con el código nuevo): registro correo nuevo → `201 {message...}`; registro mismo correo con otra contraseña → **201 con body idéntico** (antes 409); login con la contraseña original → **200** (cuenta intacta); login con la contraseña del intruso → **401**.
+- **Riesgos / deuda aceptada:** el registro dejó de auto-loguear en el backend (lo hace el cliente vía login). El cierre total de la superficie (sin permitir siquiera medir por timing) requeriría verificación por email/SMTP, que no hay — fuera de alcance por decisión.
+- **Estado:** CERRADO ✅

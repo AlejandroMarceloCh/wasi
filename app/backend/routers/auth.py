@@ -8,52 +8,58 @@ from database import get_db
 from ratelimit import limiter
 from models import Analysis, Property, Report, User
 from schemas import (
-    RegisterIn, LoginIn, AuthOut, UserOut, MeOut, ReportItem, UpdateMeIn,
+    RegisterIn, LoginIn, AuthOut, RegisterOut, UserOut, MeOut, ReportItem, UpdateMeIn,
 )
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
 VALID_ROLES = {"Inquilino", "Propietario", "Agente inmobiliario"}
 
+# #7/#19 — mensaje idéntico exista o no la cuenta: es lo que cierra la
+# enumeración de emails. No cambiar por copies distintos según el caso.
+REGISTER_GENERIC_MSG = (
+    "Si el correo está disponible, tu cuenta fue creada. Inicia sesión para continuar."
+)
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-@router.post("/register", response_model=AuthOut, status_code=201)
+@router.post("/register", response_model=RegisterOut, status_code=201)
 @limiter.limit("10/minute")
 def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
-    """Crea un usuario nuevo. Devuelve 409 si el email ya existe.
+    """Registra un usuario SIN revelar si el correo ya existía (#7/#19).
 
-    #19 — enumeración de emails: el 409 explícito confirma que una cuenta
-    existe. Es un trade-off consciente UX > sigilo: en un registro público,
-    avisar "ya estás registrado, inicia sesión" es mejor experiencia que un
-    flujo genérico opaco, y no hay PII sensible expuesta por el hecho de que
-    un email exista. La mitigación es el rate-limit (10/min) que acota la
-    velocidad de enumeración. Un flujo verdaderamente opaco (mensaje genérico
-    + email de verificación) queda como decisión de producto si se quiere
-    cerrar del todo la superficie.
+    Antes devolvía 409 "El correo ya está registrado" → confirmaba la
+    existencia de una cuenta (enumeración de emails). Ahora la respuesta es
+    genérica e **idéntica** en ambos casos (correo nuevo o ya registrado):
+    no se emite token ni datos de usuario y no se puede distinguir "creado"
+    de "ya existe". El cliente hace login automático tras el registro; si el
+    correo ya existía con otra contraseña, el login falla con el error
+    genérico de credenciales, sin filtrar que la cuenta existe.
+
+    Nota: el rol inválido sí devuelve 422 — es validación de input, no revela
+    nada sobre el correo.
     """
     email = str(payload.email).strip().lower()
-    existing = db.execute(select(User).where(func.lower(User.email) == email)).scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
     role = payload.role or "Inquilino"
     if role not in VALID_ROLES:
         raise HTTPException(status_code=422, detail=f"Rol inválido. Opciones: {', '.join(sorted(VALID_ROLES))}")
-    user = User(
-        email=email,
-        name=payload.name,
-        password_hash=hash_password(payload.password),
-        plan="free",
-        role=role,
-    )
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
 
-        db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
-    db.refresh(user)
-    token = create_access_token(user.id, user.email)
-    return AuthOut(token=token, user=UserOut.model_validate(user))
+    existing = db.execute(select(User).where(func.lower(User.email) == email)).scalar_one_or_none()
+    if existing is None:
+        user = User(
+            email=email,
+            name=payload.name,
+            password_hash=hash_password(payload.password),
+            plan="free",
+            role=role,
+        )
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Carrera: otro request creó el correo entre el SELECT y el commit.
+            # Respuesta genérica igual → tampoco revela nada.
+            db.rollback()
+    return RegisterOut(message=REGISTER_GENERIC_MSG)
 
 @router.post("/login", response_model=AuthOut)
 @limiter.limit("5/minute")

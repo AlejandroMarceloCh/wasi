@@ -18,7 +18,7 @@ Confirmados ya cubiertos por otros archivos (no se duplican acá):
   - sort=ganga/zone bajan a SQL (#21) → test_sort_ganga_baja_a_sql_y_coincide_con_score_python,
     test_zone_filter_baja_a_sql_excluye_sucia_y_sin_ref
   - Índice compuesto (#33) → test_indice_compuesto_listings_creado_por_ensure_schema
-  - Enumeración emails (#19) → test_register_enum_email_devuelve_409_decision_documentada
+  - Enumeración emails (#7/#19) → test_register_no_revela_email_existente (test_auth_contract.py)
 """
 import sys
 from pathlib import Path

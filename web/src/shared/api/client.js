@@ -160,13 +160,16 @@ import { resolveApiBase } from './base.js';
 
 
     async register({ email, name, password, role }) {
-      const r = await request('/auth/register', {
+      // El registro devuelve un mensaje genérico sin token (anti-enumeración
+      // de emails, #7/#19). Para iniciar sesión hacemos login automático con
+      // las mismas credenciales: si el correo era nuevo entra directo; si ya
+      // existía con otra contraseña, login falla con el error genérico.
+      await request('/auth/register', {
         method: 'POST',
         body: { email, name, password, role },
         auth: false,
       });
-      setSession(r.token, r.user);
-      return r;
+      return this.login({ email, password });
     },
     async login({ email, password }) {
       const r = await request('/auth/login', {
