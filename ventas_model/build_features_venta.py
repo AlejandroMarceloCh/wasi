@@ -46,6 +46,11 @@ def main():
             feat[c] = val
         feat["lat"], feat["lng"] = r["lat"], r["lng"]
         feat["price_usd"] = r["price_usd"]
+        # Provenance (gate de auditoría): propagar fuente e id del aviso hasta las
+        # features, para poder analizar/filtrar por fuente sin un matching frágil
+        # por (lat,lng,precio). NO son features del modelo (train_venta las ignora).
+        feat["fuente"] = r.get("fuente")
+        feat["id_aviso"] = r.get("id")
         # clave de grupo espacial (~111 m) para GroupKFold sin leakage de edificio
         feat["coord_cell"] = f"{round(float(r['lat']), 3)}_{round(float(r['lng']), 3)}"
         rows.append(feat)

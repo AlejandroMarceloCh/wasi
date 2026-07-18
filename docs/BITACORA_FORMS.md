@@ -497,3 +497,21 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Datos de prueba limpiados.
 - **Riesgos / deuda aceptada:** #29 (amenities MNAR) diferido a reentrenamiento del central. Ensanche conformal de la banda P25–P75 (cobertura garantizada) diferido (requiere set de calibración). El artefacto `modelo_final_v2.joblib` y el golden NO se tocaron (respeta §5).
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 22 — Auditoría Babilonia: cuarentena + serving seguro de venta — 2026-07-17
+- **Sprint Goal (replanteado por la auditoría):** el objetivo original "reentrenar venta con Babilonia" fue **refutado** por un auditor independiente. Se cierra cuando (a) el modelo servido queda en un estado consistente y seguro y (b) se implementan los gates de código que la auditoría exige, en especial el fail-fast de venta que no existía.
+- **Qué pasó (resumen honesto):** propuse revertir Babilonia argumentando que "contaminaba" el modelo (15.8%→16.4%). **Error:** comparé poblaciones de test distintas. La prueba pareada correcta (mismas filas test InfoCasas, dos entrenamientos) da **+0.002 pp = nulo**, y Babilonia mejora al incluirla (29→24.6%). Veredicto del auditor: **C reformulada**. Detalle y correcciones en `docs/AUDITORIA_DECISION_BABILONIA.md §9-bis`.
+- **Qué se hizo:**
+  - **Rollback de cuarentena:** se descartó el reentrenamiento (working tree) → el modelo servido vuelve a InfoCasas **15.8%**, con serving/artefacto/RESULTADOS consistentes. Es cuarentena operativa, NO "Babilonia contamina".
+  - **Gate — serving seguro de venta (el fail-fast que NO existía):** `ventas_model/generate_venta_artefacts.py` (nuevo) genera `manifest_venta.json` (SHA-256 del .joblib + métrica) y `golden_venta.json` (5 forms con predicción esperada). `venta_service.load()` valida hash + golden al cargar y lee la métrica del manifest (ya no hardcodeada); si la integridad falla, venta se **deshabilita (503) sin tumbar el backend** (aislamiento de alquiler). `src/wasi/paths.py` expone las rutas nuevas.
+  - **Gate — provenance:** `build_features_venta.py` propaga `fuente` e `id` del aviso hasta las features (mata el matching frágil por lat/lng/precio). No son features del modelo.
+  - **Gate — benchmark pareado:** `scripts_experimento/paired_benchmark_venta.py` (nuevo) formaliza la prueba correcta para futuras fuentes. **Reproduce exactamente los números del auditor** (15.821%→15.823%, Δ +0.002 pp, fold por fold).
+  - `docs/AUDITORIA_DECISION_BABILONIA.md`: adenda §9-bis con el veredicto y mis correcciones reconocidas.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **194 passed / 2 skipped** (191 + 3 de `test_venta_integrity.py`).
+  - Verificación en vivo (`:8001`): backend arranca, `venta_model_loaded: True`, log de carga validada. Camino de fallo probado: hash corrupto → venta deshabilitada + ERROR, backend sigue; restaurado → carga.
+  - El artefacto de venta servido (15.8%) NO se tocó; el reentrenamiento no se commiteó.
+- **Riesgos / deuda aceptada (gates de DATOS, fase siguiente):** contrato de área (scraper Babilonia: techada + total), holdout geográfico bloqueado con métricas por fuente/distrito/área, y ablación de missingness (NaN nativo vs mediana+indicadores). Hasta cumplirlos, InfoCasas sigue como rollback. La decisión A vs B (servir combinado) queda **abierta**, pendiente de esos gates.
+- **Estado:** CERRADO ✅ (gates de código); gates de datos DIFERIDOS con plan.

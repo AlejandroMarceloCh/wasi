@@ -1,0 +1,10 @@
+{
+  "version": "914d6ea8233240e8",
+  "artefacto": "xgb_venta.joblib",
+  "sha256": "914d6ea8233240e85df599ac64e786867cdb70e0fe22c93a6d59f372d465818b",
+  "metrica": {
+    "mae_pct": 15.8,
+    "r2": 0.856,
+    "zone_band_pct": 8.0
+  }
+}

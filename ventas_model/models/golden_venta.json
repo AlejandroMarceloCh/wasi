@@ -1,0 +1,76 @@
+{
+  "tolerancia_relativa": 0.001,
+  "descripcion": "Forms reales de venta por distrito; expected = venta_service.predict (expm1 XGB).",
+  "casos": [
+    {
+      "nombre": "miraflores-3d",
+      "form": {
+        "nombre": "miraflores-3d",
+        "lat": -12.1211,
+        "lng": -77.03,
+        "area": 120,
+        "dormitorios": 3,
+        "banos": 2,
+        "cocheras": 1,
+        "antiguedad_anios": 5
+      },
+      "expected_fair_value": 270697.88
+    },
+    {
+      "nombre": "san-isidro-2d",
+      "form": {
+        "nombre": "san-isidro-2d",
+        "lat": -12.097,
+        "lng": -77.0365,
+        "area": 90,
+        "dormitorios": 2,
+        "banos": 2,
+        "cocheras": 1,
+        "antiguedad_anios": 3
+      },
+      "expected_fair_value": 217600.47
+    },
+    {
+      "nombre": "surco-4d",
+      "form": {
+        "nombre": "surco-4d",
+        "lat": -12.145,
+        "lng": -76.992,
+        "area": 160,
+        "dormitorios": 4,
+        "banos": 3,
+        "cocheras": 2,
+        "antiguedad_anios": 10
+      },
+      "expected_fair_value": 304800.69
+    },
+    {
+      "nombre": "jesus-maria-2d",
+      "form": {
+        "nombre": "jesus-maria-2d",
+        "lat": -12.074,
+        "lng": -77.048,
+        "area": 75,
+        "dormitorios": 2,
+        "banos": 1,
+        "cocheras": 0,
+        "antiguedad_anios": 15
+      },
+      "expected_fair_value": 122891.31
+    },
+    {
+      "nombre": "san-borja-3d",
+      "form": {
+        "nombre": "san-borja-3d",
+        "lat": -12.108,
+        "lng": -76.999,
+        "area": 110,
+        "dormitorios": 3,
+        "banos": 2,
+        "cocheras": 1,
+        "antiguedad_anios": 8
+      },
+      "expected_fair_value": 205290.53
+    }
+  ]
+}

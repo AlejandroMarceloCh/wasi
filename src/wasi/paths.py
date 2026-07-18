@@ -43,6 +43,10 @@ MODELS_DIR: Path = (
 )
 
 VENTAS_BUNDLE: Path = REPO_ROOT / "ventas_model" / "models" / "xgb_venta.joblib"
+# Fail-fast del modelo de venta (mismo rigor que alquiler): manifest con hash
+# SHA-256 + métrica, y golden de predicciones. Los genera generate_venta_artefacts.py.
+VENTAS_MANIFEST: Path = REPO_ROOT / "ventas_model" / "models" / "manifest_venta.json"
+VENTAS_GOLDEN: Path = REPO_ROOT / "ventas_model" / "models" / "golden_venta.json"
 CONFIDENCE_THRESHOLDS: Path = (
     MODELS_DIR / "v2" / "confidence_thresholds.json"
     if (MODELS_DIR / "v2" / "confidence_thresholds.json").exists()
