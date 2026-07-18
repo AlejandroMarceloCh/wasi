@@ -255,10 +255,15 @@ class ComparablesOut(BaseModel):
     total_dataset: int
 
 class PredictionInterval(BaseModel):
-    """Intervalo de predicción P25/P50/P75 (XGBoost quantile, Sprint 3.1)."""
+    """Intervalo de predicción P25/P50/P75 (XGBoost quantile, Sprint 3.1).
+
+    `coverage_pct` = % real de inmuebles que caen en la banda (medido en el
+    hold-out, ~43%). Es honesto: la banda intercuartil NO cubre "la mayoría";
+    el frontend usa este número en vez de exagerar (#22)."""
     p25: float
     p50: float
     p75: float
+    coverage_pct: Optional[int] = None
 
 class PredictOut(BaseModel):
 

@@ -478,3 +478,22 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Datos de prueba limpiados de la BD local.
 - **Riesgos / deuda aceptada:** Pro es **simulado, sin cobro real** (decisión del usuario). No hay pasarela de pago (Culqi/Mercado Pago), webhooks ni facturación — si algún día se cobra de verdad, `subscribe` es el punto de integración. El conteo de análisis es por mes calendario UTC.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 21 — Honestidad del rango + sesgo de Jensen medido (#22/#30/#29) — 2026-07-17
+- **Sprint Goal:** cerrar los issues de modelo de bajo riesgo en serving (sin reentrenar el central), con evidencia. Se cierra cuando el rango deja de exagerar su cobertura, el sesgo de Jensen está medido y decidido, y #29 queda documentado.
+- **Hallazgos cerrados:** #22 (corregido), #30 (medido → no se aplica), #29 (documentado como deuda).
+- **Qué se cambió:**
+  - **#22 (corregido):** la UI decía "ahí cae la mayoría de inmuebles similares" sobre la banda P25–P75, pero la cobertura real es **42.7%** (<50%). `schemas.py PredictionInterval` expone `coverage_pct`; `fairvalue.py predict` lo llena con `_quantile_coverage_pct()` (~43%); `FairValueScreens.jsx` muestra "~43% de inmuebles similares caen en esta banda" (data-driven, del número real). No se ensanchó la banda (requeriría calibrador conformal = más superficie); la honestidad del texto cierra el riesgo de credibilidad.
+  - **#30 (medido, NO aplicado):** `scripts_experimento/duan_smearing_alquiler.py` mide el factor de smearing de Duan con GroupKFold espacial (factor por fold, evaluado out-of-sample). Resultado: **factor 1.0001 (+0.01%)**, Δ MAPE +0.002 pts (nulo), sesgo mediano ya en +0.45%. XGBoost sobre log no sufre Jensen material. Decisión: NO tocar `model_service.predict` ni regenerar el golden por +0.01%. Documentado en `docs/EVIDENCIA_ISSUES_MODELO.md`.
+  - **#29 (documentado):** amenity ausente = 0 = "no tiene" (MNAR). Corregirlo exige reentrenar el central (train/serve skew si se toca solo serving) → fuera del alcance "no reentrenar". Queda como deuda del próximo ciclo de datos. Detalle en `docs/EVIDENCIA_ISSUES_MODELO.md`.
+  - `app/backend/tests/test_quantile.py` — el test del intervalo ahora verifica que `coverage_pct` llega al front y es <50% (honesto).
+- **QA (Protocolo Anticagadas):**
+  - pytest: **191 passed / 2 skipped** (sin regresión; el artefacto/golden NO se tocó).
+  - build: OK (`built in 1.66s`).
+  - Verificación en vivo (`:8001`): `POST /fairvalue/predict` → `prediction_interval` incluye `coverage_pct: 43`.
+  - Experimento reproducible corrido y guardado.
+  - Datos de prueba limpiados.
+- **Riesgos / deuda aceptada:** #29 (amenities MNAR) diferido a reentrenamiento del central. Ensanche conformal de la banda P25–P75 (cobertura garantizada) diferido (requiere set de calibración). El artefacto `modelo_final_v2.joblib` y el golden NO se tocaron (respeta §5).
+- **Estado:** CERRADO ✅

@@ -1128,7 +1128,7 @@ export const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role
                 announced={data.announced_price}
                 zone={zona}/>
               <div className="tiny muted" style={{textAlign:'center', marginTop:2}}>
-                Banda azul = rango intercuartil del modelo (${Math.round(data.prediction_interval.p25).toLocaleString('en-US')}–${Math.round(data.prediction_interval.p75).toLocaleString('en-US')}); ahí cae la mayoría de inmuebles similares.
+                Banda azul = rango intercuartil del modelo (${Math.round(data.prediction_interval.p25).toLocaleString('en-US')}–${Math.round(data.prediction_interval.p75).toLocaleString('en-US')}); {data.prediction_interval.coverage_pct ? `~${data.prediction_interval.coverage_pct}% de inmuebles similares caen en esta banda` : 'una referencia de dónde se concentran las predicciones, no un intervalo garantizado'}.
               </div>
             </div>
           )}

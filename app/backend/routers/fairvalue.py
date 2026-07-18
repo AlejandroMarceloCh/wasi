@@ -204,7 +204,9 @@ def predict(
     out.counterfactuals = [Counterfactual(**cf) for cf in res.get("counterfactuals", [])]
 
     pi = res.get("prediction_interval")
-    out.prediction_interval = PredictionInterval(**pi) if pi else None
+    out.prediction_interval = (
+        PredictionInterval(**pi, coverage_pct=_quantile_coverage_pct()) if pi else None
+    )
     return out
 
 @router.post("/fairvalue/simulate", response_model=SimulateOut)

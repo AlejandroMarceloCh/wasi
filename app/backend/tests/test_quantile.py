@@ -31,6 +31,10 @@ def test_prediction_interval_presente(client, auth_headers):
         for k in ("p25", "p50", "p75"):
             assert k in pi
             assert isinstance(pi[k], (int, float))
+        # #22: la cobertura real debe viajar al front (para no mentir "la mayoría").
+        # Es honesta: la banda intercuartil cubre <50% (empíricamente ~43%).
+        assert pi.get("coverage_pct") is not None
+        assert 0 < pi["coverage_pct"] < 50
 
 def test_prediction_interval_ordenado(client, auth_headers):
     """P25 <= P50 <= P75 (monotonía de los cuantiles)."""
