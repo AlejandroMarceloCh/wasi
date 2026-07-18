@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import * as d3 from 'd3';
 import { WASI_STATS } from '../lib/stats.js';
 import { onKeyActivate } from '../lib/helpers.js';
+import { Api } from '../api/client.js';
 
 const Icon = ({ name, size = 20, stroke = "currentColor", strokeWidth = 1.8, fill = "none", ...rest }) => {
   const paths = {
@@ -432,6 +433,28 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
     { key: 'profile', label: 'Perfil', short: 'Perfil', icon: 'user' },
   ];
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [unread, setUnread] = useState(0);
+
+  // Badge de no leídas: fetch al montar (usuario logueado) + refresco cada 60s
+  // para captar leads nuevos sin recargar. Silencioso ante errores de red.
+  useEffect(() => {
+    if (isPublic) return;
+    let vivo = true;
+    const refrescar = () => {
+      Api.unreadCount().then((r) => { if (vivo) setUnread(r.unread || 0); }).catch(() => {});
+    };
+    refrescar();
+    const id = setInterval(refrescar, 60000);
+    return () => { vivo = false; clearInterval(id); };
+  }, [isPublic]);
+
+  // Al abrir la campana: trae la lista y marca todo como leído (limpia el badge).
+  const abrirNotifs = () => {
+    setNotifOpen(true);
+    Api.notifications().then((rows) => setNotifs(rows || [])).catch(() => {});
+    Api.markNotificationsRead().then(() => setUnread(0)).catch(() => {});
+  };
 
   const getStoredTheme = () => {
     try { return localStorage.getItem('wasi.theme') || 'light'; } catch(e) { return 'light'; }
@@ -488,8 +511,16 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
               </>
             ) : (
               <>
-                <button className="icon-btn" aria-label="Notificaciones" onClick={() => setNotifOpen(true)}>
+                <button className="icon-btn" aria-label={unread > 0 ? `Notificaciones (${unread} sin leer)` : 'Notificaciones'} onClick={abrirNotifs} style={{position:'relative'}}>
                   <Icon name="bell" size={16}/>
+                  {unread > 0 && (
+                    <span aria-hidden="true" style={{
+                      position:'absolute', top:2, right:2, minWidth:16, height:16, padding:'0 4px',
+                      borderRadius:8, background:'#ef4444', color:'#fff', fontSize:10, fontWeight:700,
+                      lineHeight:'16px', textAlign:'center', boxShadow:'0 0 0 2px var(--bg, #fff)'}}>
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
                 </button>
                 <button className="icon-btn" aria-label="Configuración" onClick={() => onNavigate('profile')}>
                   <Icon name="settings" size={16}/>
@@ -526,16 +557,38 @@ const TopNav = ({ active, onNavigate, onLogo, user, isPublic }) => {
         subtitle="Centro de avisos de Wasi"
         footer={<Btn variant="outline" onClick={() => setNotifOpen(false)}>Cerrar</Btn>}
       >
-        <div className="text-center" style={{padding:'14px 0 6px'}}>
-          <div style={{width:56, height:56, borderRadius:16, margin:'0 auto 14px',
-                       background:'var(--line-2)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--ink-3)'}}>
-            <Icon name="bell" size={24}/>
+        {notifs.length === 0 ? (
+          <div className="text-center" style={{padding:'14px 0 6px'}}>
+            <div style={{width:56, height:56, borderRadius:16, margin:'0 auto 14px',
+                         background:'var(--line-2)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--ink-3)'}}>
+              <Icon name="bell" size={24}/>
+            </div>
+            <div style={{fontWeight:700, fontFamily:'Space Grotesk', fontSize:16}}>Sin notificaciones nuevas</div>
+            <p className="small muted" style={{maxWidth:340, margin:'6px auto 0', lineHeight:1.55}}>
+              Te avisaremos cuando alguien se interese en tus inmuebles publicados.
+            </p>
           </div>
-          <div style={{fontWeight:700, fontFamily:'Space Grotesk', fontSize:16}}>Sin notificaciones nuevas</div>
-          <p className="small muted" style={{maxWidth:340, margin:'6px auto 0', lineHeight:1.55}}>
-            Te avisaremos cuando aparezca una ganga en tus zonas favoritas o cambien los precios de los inmuebles que analizaste.
-          </p>
-        </div>
+        ) : (
+          <div style={{display:'flex', flexDirection:'column', gap:8, padding:'4px 0'}}>
+            {notifs.map((n) => (
+              <div key={n.id} style={{display:'flex', gap:10, padding:'10px 12px', borderRadius:12,
+                     background:'var(--line-2)', alignItems:'flex-start'}}>
+                <div style={{width:34, height:34, borderRadius:10, flexShrink:0,
+                       background:'var(--brand-weak, #ccfbf1)', color:'var(--brand, #0d9488)',
+                       display:'flex', alignItems:'center', justifyContent:'center'}}>
+                  <Icon name="mail" size={16}/>
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700, fontSize:13.5}}>{n.title}</div>
+                  <div className="small muted" style={{lineHeight:1.5, marginTop:2}}>{n.body}</div>
+                  <div className="small muted" style={{fontSize:11, marginTop:4}}>
+                    {new Date(n.created_at).toLocaleString('es-PE', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </>
   );

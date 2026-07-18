@@ -527,6 +527,24 @@ class InboxLeadOut(BaseModel):
     def _ser_created_at(self, dt: datetime) -> str:
         return _iso_utc(dt)
 
+class NotificationOut(BaseModel):
+    """Notificación in-app. `read` deriva de read_at (NULL = no leída); el
+    router lo construye explícitamente (mismo patrón que InboxLeadOut)."""
+    id: int
+    type: str
+    title: str
+    body: str
+    listing_id: Optional[int] = None
+    read: bool
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
+
+class UnreadCountOut(BaseModel):
+    unread: int
+
 class ExplainDriver(BaseModel):
     label: str
     value: str

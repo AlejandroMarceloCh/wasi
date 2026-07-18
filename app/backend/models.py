@@ -30,6 +30,9 @@ class User(Base):
     listings = relationship("Listing", back_populates="owner")
     favorites = relationship(
         "Favorite", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship(
+        "Notification", back_populates="user", cascade="all, delete-orphan",
+        order_by="Notification.created_at.desc()")
 
 class District(Base):
     """Distrito de Lima. Solo para el widget de cobertura del dashboard;
@@ -181,3 +184,27 @@ class Favorite(Base):
 
     user = relationship("User", back_populates="favorites")
     listing = relationship("Listing", back_populates="favorites")
+
+class Notification(Base):
+    """Aviso in-app para un usuario, generado por eventos del negocio (hoy: un
+    lead nuevo sobre tu inmueble). Tabla NUEVA/aditiva: `create_all` la crea sin
+    tocar tablas existentes. `read_at` NULL = no leída (el badge la cuenta)."""
+    __tablename__ = "notifications"
+    __table_args__ = (
+        # El filtro real es "mis notificaciones no leídas, más recientes primero".
+        Index("ix_notifications_user_created", "user_id", "created_at"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(32), nullable=False, default="lead")
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    body: Mapped[str] = mapped_column(String(400), nullable=False, default="")
+    # Listing relacionado (si aplica). SET NULL: si se borra el inmueble, la
+    # notificación sobrevive sin FK colgante.
+    listing_id: Mapped[int] = mapped_column(
+        ForeignKey("listings.id", ondelete="SET NULL"), nullable=True, index=True)
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="notifications")

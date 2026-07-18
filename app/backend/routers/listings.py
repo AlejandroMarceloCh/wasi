@@ -14,7 +14,7 @@ from ratelimit import limiter
 from wasi.features.geo_index import OutOfBoundsError, geo_lookup
 from wasi.models.ml import ZONE_BAND_PCT, predict_fair_value
 from wasi.models.venta_service import venta_service
-from models import Favorite, Lead, Listing, User
+from models import Favorite, Lead, Listing, Notification, User
 from schemas import (PRICE_MAX_ALQUILER, PRICE_MAX_VENTA, FavoriteIn, InboxLeadOut,
                      LeadIn, LeadOut, ListingIn, ListingOut, ListingUpdateIn)
 
@@ -426,6 +426,15 @@ def create_lead(request: Request, listing_id: int, payload: LeadIn,
             detail="No puedes enviarte una consulta a tu propio inmueble.")
     lead = Lead(listing_id=l.id, **payload.model_dump())
     db.add(lead)
+    # Notifica al dueño del inmueble (mismo commit atómico que el lead). Es el
+    # único disparador de notificaciones por ahora.
+    db.add(Notification(
+        user_id=l.owner_id,
+        type="lead",
+        title="Nuevo contacto por tu inmueble",
+        body=f"{payload.name} está interesado en tu inmueble en {l.district}.",
+        listing_id=l.id,
+    ))
     current.last_activity_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(lead)

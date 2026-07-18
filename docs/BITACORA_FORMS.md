@@ -430,3 +430,25 @@ por sprint. Nada commiteado a `main` — todo en `refactor/modular`.
   - Verificación en vivo (`:8001`, backend reiniciado con el código nuevo): registro correo nuevo → `201 {message...}`; registro mismo correo con otra contraseña → **201 con body idéntico** (antes 409); login con la contraseña original → **200** (cuenta intacta); login con la contraseña del intruso → **401**.
 - **Riesgos / deuda aceptada:** el registro dejó de auto-loguear en el backend (lo hace el cliente vía login). El cierre total de la superficie (sin permitir siquiera medir por timing) requeriría verificación por email/SMTP, que no hay — fuera de alcance por decisión.
 - **Estado:** CERRADO ✅
+
+---
+
+## Sprint 19 — Notificaciones in-app reales (#2/#15) — 2026-07-17
+- **Sprint Goal:** convertir la campana (hoy mock con copy que promete avisos inexistentes) en notificaciones reales con persistencia. Se cierra cuando un lead nuevo genera una notificación real al dueño, visible con badge de no leídas, demostrado en vivo.
+- **Hallazgos cerrados:** #2 (campana mock) y parte de #15 (UX que promete lo que no existe).
+- **Qué se cambió:**
+  - `app/backend/models.py` — nueva tabla `Notification` (user_id CASCADE, type, title, body, listing_id SET NULL, read_at, created_at) + índice `(user_id, created_at)` + relación en `User`. Tabla aditiva: `create_all` la crea, sin ALTER.
+  - `app/backend/schemas.py` — `NotificationOut` (con `read` derivado de read_at, construido explícito en el router) + `UnreadCountOut`.
+  - `app/backend/routers/notifications.py` (nuevo) — `GET /notifications` (bandeja, máx 50, desc), `GET /notifications/unread-count` (badge), `POST /notifications/read-all` (UPDATE en bloque idempotente). Todos exigen auth.
+  - `app/backend/routers/listings.py` — `create_lead` ahora crea una `Notification` para el dueño en el mismo commit atómico que el lead.
+  - `app/backend/main.py` — registra el router de notificaciones.
+  - `web/src/shared/api/client.js` — `notifications`, `unreadCount`, `markNotificationsRead`.
+  - `web/src/shared/ui/components.jsx` — la campana del TopNav: badge rojo de no leídas (fetch al montar + polling 60s), al abrir trae la lista real y marca todo como leído; el modal muestra la lista (o el estado vacío con copy honesto). Import de `Api`.
+  - `app/backend/tests/test_notifications.py` (nuevo, 3 tests): lead→notif al dueño (no al inquilino), unread-count + read-all, auth requerida.
+- **QA (Protocolo Anticagadas):**
+  - pytest: **187 passed / 2 skipped** (184 + 3).
+  - build: OK (`built in 1.88s`, sin warnings).
+  - Verificación en vivo (`:8001`): owner unread 0 → tras lead de un inquilino → **1**; notificación con título/body correctos y `read=false`; el inquilino que envió el lead NO recibe notificación (bandeja vacía); `read-all` → unread **0**.
+  - Datos de prueba limpiados de la BD local (9 usuarios).
+- **Riesgos / deuda aceptada:** el único disparador es "lead nuevo". Los otros avisos que prometía el copy viejo (gangas en zonas favoritas, cambios de precio) NO se implementan: requieren job/historial de precios y suscripción a zonas, fuera de alcance — por eso se ajustó el copy del estado vacío para no prometer lo que no existe. El badge se refresca por polling de 60s (no push/WS).
+- **Estado:** CERRADO ✅

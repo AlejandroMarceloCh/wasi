@@ -258,6 +258,11 @@ import { resolveApiBase } from './base.js';
     removeFavorite: (listingId) => request('/favorites/' + listingId, { method: 'DELETE' }),
 
 
+    notifications: (opts) => request('/notifications', opts),
+    unreadCount: (opts) => request('/notifications/unread-count', opts),
+    markNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
+
+
     entorno: ({ lat, lng }) => {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
       return request('/entorno?' + q.toString());
