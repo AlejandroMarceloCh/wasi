@@ -4,7 +4,7 @@ import { Api } from '../../shared/api/client.js';
 import { AMENIDADES } from '../../shared/lib/amenities.js';
 import { LIMA_ALIASES } from '../../shared/lib/aliases_lima.js';
 import { enLima, handleApiErr, onKeyActivate } from '../../shared/lib/helpers.js';
-import { WASI_STATS } from '../../shared/lib/stats.js';
+import { formatSoles, NOTA_TIPO_CAMBIO } from '../../shared/lib/moneda.js';
 import { AddressSearch, MapPicker } from '../../shared/map/map-components.jsx';
 import { PoiImportanceD3 } from '../../shared/charts.jsx';
 import {
@@ -826,11 +826,13 @@ const PoiInsightCard = () => {
   return (
     <Card>
       <div className="section-h">Qué tipo de entorno pesa más en el precio</div>
+      {}
+      {}
       <p className="tiny muted" style={{ marginTop: -4, marginBottom: 8 }}>
-        De todo el peso que el modelo da al entorno, así se reparte entre categorías
-        (el número grande es el peso relativo dentro del entorno; entre paréntesis, el
-        % sobre el modelo completo de {WASI_STATS.VARIABLES} variables, que el entorno
-        aporta ~{totalPct.toFixed(1)}% en total).
+        Entre todo lo que rodea al inmueble, esto es lo que más mueve el precio.
+        El entorno explica alrededor del {totalPct.toFixed(1)}% de la estimación;
+        el resto lo definen el tamaño, la ubicación y las características del
+        departamento.
       </p>
       <PoiImportanceD3 data={data}/>
       <p className="tiny muted" style={{ marginTop: 8 }}>
@@ -1100,12 +1102,16 @@ export const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role
                 <div>
                   <div className="small muted">Precio anunciado</div>
                   <div className="numeric" style={{fontSize:28, fontWeight:700}}>{usd0(anuncio)}</div>
-                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
+                  <div className="tiny muted" style={{marginTop:2}}>
+                    USD / mes · <span className="numeric">{formatSoles(anuncio)}</span>
+                  </div>
                 </div>
                 <div>
                   <div className="small muted">Precio de referencia</div>
                   <div className="numeric" style={{fontSize:28, fontWeight:700, color:'var(--primary)'}}>{usd0(fair)}</div>
-                  <div className="tiny muted" style={{marginTop:2}}>USD / mes</div>
+                  <div className="tiny muted" style={{marginTop:2}} title={NOTA_TIPO_CAMBIO}>
+                    USD / mes · <span className="numeric">{formatSoles(fair)}</span>
+                  </div>
                 </div>
               </div>
             </>
@@ -1318,9 +1324,17 @@ export const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role
                               )}
                               <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{g.label}</span>
                             </span>
-                            <b className="numeric" style={{color:col, fontSize:13, flexShrink:0}}>
-                              {g.positive ? '+' : '−'}{Math.abs(g.pct_effect).toFixed(1)}%
-                            </b>
+                            {}
+                            {}
+                            {}
+                            <span className="row" style={{gap:6, flexShrink:0, alignItems:'baseline'}}>
+                              <b className="numeric" style={{color:col, fontSize:13}}>
+                                {g.positive ? '+' : '−'}${Math.abs(Math.round(explain.base_price * g.pct_effect / 100)).toLocaleString('en-US')}
+                              </b>
+                              <span className="numeric muted" style={{fontSize:11}}>
+                                ({Math.abs(g.pct_effect).toFixed(1)}%)
+                              </span>
+                            </span>
                           </div>
                           {}
                           <div style={{display:'flex', alignItems:'center', height:8}}>
@@ -1347,7 +1361,8 @@ export const FairValueResult = ({ analysisId, ventaData, liveData, simForm, role
                                       {d.label} <span style={{color:'var(--ink-3)'}}>· {d.value}</span>
                                     </span>
                                     <b className="numeric tiny" style={{color:dcol, flexShrink:0}}>
-                                      {d.positive ? '+' : '−'}{Math.abs(d.pct_effect).toFixed(1)}%
+                                      {d.positive ? '+' : '−'}${Math.abs(Math.round(explain.base_price * d.pct_effect / 100)).toLocaleString('en-US')}
+                                      <span className="muted" style={{fontWeight:400}}> ({Math.abs(d.pct_effect).toFixed(1)}%)</span>
                                     </b>
                                   </div>
                                 );
