@@ -59,12 +59,24 @@ def test_scripts_criticos_importan_sin_rutas_muertas():
             root / "pipeline" / "scripts" / "train_quantile_v2.py",
         ),
     ]
+    revisados = 0
     for name, path in modules:
+        # Los scripts de `pipeline/` no existen en un checkout limpio (la carpeta
+        # está en .gitignore): se saltan en vez de romper la corrida.
+        if not path.exists():
+            continue
         module = _import_from_path(name, path)
+        revisados += 1
         if hasattr(module, "MODELS"):
             assert module.MODELS in (MODELS_DIR, MODELS_V2_DIR)
         if hasattr(module, "MODELS_V2"):
             assert module.MODELS_V2 == MODELS_V2_DIR
+
+    # Los scripts que sí están versionados deben revisarse siempre: si el filtro
+    # de arriba los dejara pasar a todos, el test no probaría nada.
+    assert revisados >= 6, (
+        f"solo se revisaron {revisados} scripts; se esperaban al menos los "
+        "versionados en app/backend/scripts/")
 
 
 def test_no_quedan_imports_o_rutas_obsoletas_en_scripts_ejecutables():

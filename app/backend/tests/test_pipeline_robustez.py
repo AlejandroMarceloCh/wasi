@@ -12,6 +12,16 @@ import pytest
 PIPELINE_DIR = Path(__file__).resolve().parents[3] / "pipeline"
 sys.path.insert(0, str(PIPELINE_DIR))
 
+# `pipeline/` está en .gitignore (pesa ~300 MB y es histórico), así que en un
+# checkout limpio —CI incluido— no existe. Sin este skip, el ImportError aborta
+# la COLECCIÓN COMPLETA de pytest y no corre ni un solo test: el CI queda en
+# rojo permanente y deja de proteger nada.
+pytest.importorskip(
+    "validation",
+    reason="pipeline/ no está versionado (ver .gitignore); estos tests solo "
+           "corren en un entorno que tenga el pipeline histórico local",
+)
+
 from validation import (validate_training_dataset, validate_scraped,
                         DataQualityReport)
 

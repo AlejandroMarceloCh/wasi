@@ -2,6 +2,11 @@
 
 Usa una BD SQLite temporal (no toca wasi.db). El DATABASE_URL se setea
 ANTES de importar la app para que el engine apunte a la BD de prueba.
+
+Producción corre PostgreSQL: para validar la suite contra el motor real
+(diferencias de DDL, tipos y transacciones que SQLite no reproduce) se
+exporta WASI_TEST_DATABASE_URL apuntando a una BD de prueba desechable.
+Sin esa variable el comportamiento no cambia: SQLite temporal.
 """
 import os
 import sys
@@ -13,8 +18,12 @@ import pytest
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-_TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDB.name}"
+_TEST_DB_URL = os.environ.get("WASI_TEST_DATABASE_URL", "").strip()
+if _TEST_DB_URL:
+    os.environ["DATABASE_URL"] = _TEST_DB_URL
+else:
+    _TMPDB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDB.name}"
 
 os.environ["JWT_SECRET"] = "pytest-secret-not-real-min-32-chars-padding-xyz"
 
