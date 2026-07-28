@@ -36,6 +36,21 @@ MODELO_PRINCIPAL_V2 = "modelo_final_v2.joblib"
 import os
 USE_V2 = (MODELS_V2 / MODELO_PRINCIPAL_V2).exists() and not os.environ.get("DPD_FORCE_V1")
 
+def _metricas_validadas() -> str:
+    """Texto de métricas para el log de arranque.
+
+    Fuente: el reporte de `scripts/train_model_v2.py` (GroupKFold espacial).
+    Si no está generado, lo dice en vez de imprimir interrogantes.
+    """
+    reporte = MODELS_V2_DIR.parent.parent / "data" / "processed" / "v2" / "metricas_v2.json"
+    try:
+        esp = json.loads(reporte.read_text())["validacion_espacial"]
+        return (f"MAPE {esp['mape_pct']:.2f}% · R² {esp['r2_pooled']:.3f} "
+                f"(GroupKFold espacial)")
+    except Exception:
+        return "métricas: correr scripts/train_model_v2.py para medirlas"
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -95,9 +110,12 @@ class ModelService:
         self._log_features = list(joblib.load(MODELS_V2 / "features_log_transformed_v2.joblib"))
         self._mode = "v2"
         self._check_n_features()
-        metrics = bundle.get("metricas_test", {})
+        # El bundle v2 no trae `metricas_test` (solo modelo + nombre), así que
+        # el log mostraba "R²=? MAPE=?%". Las métricas válidas son las medidas
+        # con GroupKFold espacial por scripts/train_model_v2.py; se leen de su
+        # reporte si está, y si no se dice de dónde salen en vez de imprimir "?".
         print(f"[model_service] modelo v2 cargado · {self._model_name} · "
-              f"R²={metrics.get('r2', '?')} MAPE={metrics.get('mape', '?')}%")
+              f"{_metricas_validadas()}")
 
         self._quantile_models: dict[str, object] = {}
         for q in ("q25", "q50", "q75"):
