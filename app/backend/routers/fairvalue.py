@@ -302,7 +302,9 @@ def counterfactual(
         )
 
 @router.get("/fairvalue/comparables", response_model=ComparablesOut)
+@limiter.limit("60/minute")
 def comparables(
+    request: Request,
     lat: float,
     lng: float,
     area: Optional[float] = None,
@@ -777,10 +779,15 @@ def narrative_detailed(
     )
 
 @router.get("/fairvalue/poi-importance")
-def poi_importance():
+@limiter.limit("30/minute")
+def poi_importance(request: Request):
     """Importancia de POIs agrupada por categoría (sin auth — dato estático).
 
     Solo disponible en modelo v2. Devuelve lista ordenada de mayor a menor.
+
+    Sin auth por ser un dato agregado del modelo, pero con límite: es el único
+    endpoint público que toca el modelo cargado, así que sin tope queda expuesto
+    a que lo llamen en bucle.
     """
     from wasi.models.model_service import model_service
     data = model_service.poi_importance()
