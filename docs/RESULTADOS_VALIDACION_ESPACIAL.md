@@ -73,3 +73,51 @@ PYTHONPATH=app/backend app/backend/venv/bin/python scripts_experimento/groupkfol
   y regenerar el artefacto con GroupKFold espacial + refit de encoders por fold.
   No es necesario para la honestidad del número reportado, que este experimento
   ya respalda.
+
+---
+
+## Adenda 2026-07-27 — el esquema v2 real, medido
+
+Lo de arriba se escribió cuando el dataset v2 no estaba versionado y había que
+usar proxies. Eso ya no aplica: el dataset se reconstruyó desde fuentes
+commiteadas y el esquema v2 completo se midió de punta a punta.
+
+**Qué faltaba (y por qué el proxy era necesario entonces):** ningún script del
+repo generaba `modelo_final_v2.joblib` — los notebooks 04/05 son v1 (split
+plano, producen `modelo_final.joblib`) y el dataset de 101 features nunca se
+commiteó. Los dos experimentos previos corrían sobre subconjuntos: `B-lite` con
+las 74 features v1, `B-full` con 65 reconstruidas. Ninguno con las 101 servidas.
+
+**Qué se hizo:** `scripts/build_dataset_v2.py` reconstruye las 101 features
+desde `data/inmuebles_alquiler_clean.csv` + `data/external/*` (OSM vía
+`osm_lookup`, NSE/comisarías/denuncias vía `distrito_features`), y
+`scripts/train_model_v2.py` las valida con los hiperparámetros leídos del propio
+artefacto servido. Encoding e imputación se ajustan **por fold**.
+
+| Métrica | Se reportaba | Medido (GroupKFold espacial) | Veredicto |
+|---|---|---|---|
+| MAPE | 16.4 % | **16.16 % ± 0.41** | fiel — se reportaba conservador |
+| R² | 0.847 | **0.816** | estaba optimista (−0.031) |
+| MAE | $159 | **$168** | estaba optimista (−$9) |
+| RMSE | $298 | **$317** | estaba optimista |
+| KFold aleatorio | 15.7 % | **15.50 %** | consistente |
+| Gap espacial | +0.7 pts | **+0.66 pts** | consistente |
+
+**Conclusión.** La sospecha de que el 16.4 % podía ser un número de split
+aleatorio reetiquetado queda **descartada con evidencia**: el MAPE espacial real
+del esquema v2 es 16.16 %, mejor que lo publicado. En cambio R², MAE y RMSE sí
+estaban optimistas — nunca habían pasado por validación espacial, solo el MAPE.
+Los cuatro se corrigieron en `ml.py`, `README.md` y `web/src/shared/lib/stats.js`.
+
+**Lo que sigue abierto.** El artefacto servido concreto no es reevaluable
+out-of-sample (se entrenó con todo el dataset y su split original se perdió), así
+que lo medido es el **esquema**, no esa instancia. Para cerrarlo del todo hay que
+promover un artefacto entrenado por este script — disponible con
+`--fit-final`, que escribe en `models/v2/candidato/` sin tocar el servido. Esa
+promoción cambia las golden predictions y es decisión del humano.
+
+Reproducir:
+```bash
+PYTHONPATH=app/backend app/backend/venv/bin/python scripts/build_dataset_v2.py
+app/backend/venv/bin/python scripts/train_model_v2.py
+```

@@ -1,0 +1,98 @@
+{
+  "dataset": "data/processed/v2/dataset_v2.csv",
+  "n_avisos": 3348,
+  "n_features": 101,
+  "hiperparametros": {
+    "n_estimators": 489,
+    "max_depth": 11,
+    "learning_rate": 0.05,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "objective": "reg:squarederror"
+  },
+  "validacion_espacial": {
+    "esquema": "GroupKFold espacial",
+    "mape_pct": 16.156764737054953,
+    "mape_std": 0.4096089125089187,
+    "mae_usd": 167.56871038791945,
+    "rmse_usd": 317.19480227912015,
+    "r2_pooled": 0.8158173384828303,
+    "por_fold": [
+      {
+        "mape_pct": 16.724629504899095,
+        "mae_usd": 184.10021163985977,
+        "rmse_usd": 382.52645366645584,
+        "r2": 0.7856395114171983
+      },
+      {
+        "mape_pct": 15.630512326578906,
+        "mae_usd": 151.86470333361274,
+        "rmse_usd": 289.99458915033233,
+        "r2": 0.8157923288733588
+      },
+      {
+        "mape_pct": 16.499738196436358,
+        "mae_usd": 185.21226028761225,
+        "rmse_usd": 372.0949608215005,
+        "r2": 0.8113209493416133
+      },
+      {
+        "mape_pct": 16.119231954165873,
+        "mae_usd": 160.6723429790776,
+        "rmse_usd": 281.003245379444,
+        "r2": 0.8483649401558468
+      },
+      {
+        "mape_pct": 15.809711703194541,
+        "mae_usd": 155.9940336994348,
+        "rmse_usd": 260.354762377868,
+        "r2": 0.8296699707879697
+      }
+    ]
+  },
+  "validacion_aleatoria": {
+    "esquema": "KFold aleatorio",
+    "mape_pct": 15.499790639095483,
+    "mape_std": 0.44623917042494593,
+    "mae_usd": 160.0792677333267,
+    "rmse_usd": 320.233758495022,
+    "r2_pooled": 0.8154315580451741,
+    "por_fold": [
+      {
+        "mape_pct": 15.724926151699755,
+        "mae_usd": 162.47037302045683,
+        "rmse_usd": 344.3903962582534,
+        "r2": 0.8124872908873546
+      },
+      {
+        "mape_pct": 16.219770513001038,
+        "mae_usd": 171.53541755243558,
+        "rmse_usd": 358.1997642265197,
+        "r2": 0.7381275190854812
+      },
+      {
+        "mape_pct": 15.397833615483329,
+        "mae_usd": 150.6451435246254,
+        "rmse_usd": 320.7371930043919,
+        "r2": 0.7992662210481037
+      },
+      {
+        "mape_pct": 14.903946255846229,
+        "mae_usd": 158.91836883225605,
+        "rmse_usd": 289.4725363690683,
+        "r2": 0.8730295427792321
+      },
+      {
+        "mape_pct": 15.252476659447062,
+        "mae_usd": 156.8270357368595,
+        "rmse_usd": 288.36890261687705,
+        "r2": 0.8342010098520612
+      }
+    ]
+  },
+  "gap_espacial_pts": 0.6569740979594698,
+  "nota": "Encoding y toda imputación se ajustan por fold, solo con el train de cada uno. Sin fuga del target ni de estadísticos."
+}

@@ -32,11 +32,18 @@ El sistema se construyó en tres grandes fases, documentadas en este reporte:
 
 | Métrica (modelo de alquiler) | Valor | Conjunto |
 |---|---|---|
-| MAPE | 16.4 % | GroupKFold espacial (n=503) |
-| R² | 0.847 | Test |
-| MAE | $159 | Test |
-| RMSE | $298 | Test |
+| MAPE | 16.2 % ± 0.41 | GroupKFold espacial, 5 folds (3,348 avisos) |
+| R² | 0.816 | GroupKFold espacial |
+| MAE | $168 | GroupKFold espacial |
+| RMSE | $317 | GroupKFold espacial |
 | Coverage P25–P75 | 41.75 % | Test (objetivo teórico 50 %) |
+
+Las cuatro primeras se reproducen de punta a punta con
+`scripts/build_dataset_v2.py` + `scripts/train_model_v2.py`; el detalle fold por
+fold queda en `data/processed/v2/metricas_v2.json`. El target encoding del
+distrito y todas las imputaciones se ajustan **dentro de cada fold**, solo con
+su train, de modo que ni el precio ni los estadísticos del conjunto completo
+filtran hacia la evaluación.
  
 ---
  
@@ -172,13 +179,19 @@ El efecto es cuantificable y se reporta con transparencia:
  
 | Esquema de validación | MAPE | Comentario |
 |---|---|---|
-| Split aleatorio | 15.7 % | Optimista — inflado por fuga espacial |
-| **GroupKFold espacial** | **16.4 %** | El número honesto que se reporta |
+| KFold aleatorio | 15.5 % | Optimista — inflado por fuga espacial |
+| **GroupKFold espacial** | **16.2 %** | El número honesto que se reporta |
+ 
+El gap es de **+0.66 puntos**: el modelo generaliza a zonas geográficas no
+vistas casi tan bien como a un split aleatorio, lo que confirma que no vive de
+memorizar vecinos. Ambas cifras salen de `scripts/train_model_v2.py`.
  
 ### 4.2 Tournament de modelos (`notebooks/04` y `05`)
  
-Se entrenaron cinco candidatos bajo el mismo esquema de validación, cada uno con
-una hipótesis explícita:
+Se entrenaron cinco candidatos, cada uno con una hipótesis explícita. Este
+tournament usó el split train/val/test plano de los notebooks; la validación
+espacial de §4.1 se aplicó después al esquema ganador, que es de donde salen las
+métricas reportadas arriba:
  
 | Modelo | Rol | Resultado |
 |---|---|---|

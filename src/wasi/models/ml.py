@@ -57,7 +57,17 @@ _AMENITY_LABELS: dict[str, str] = {
 
 ZONE_BAND_PCT = 8.0
 
-_METRICS_V2 = {"r2": 0.847, "mae_usd": 159.0, "mae_pct": 16.4}
+# Métricas del esquema v2 medidas con GroupKFold espacial (5 folds, celda de
+# ~111 m), con target encoding e imputación ajustados por fold. Reproducibles:
+#   python scripts/build_dataset_v2.py && python scripts/train_model_v2.py
+# El detalle fold por fold queda en data/processed/v2/metricas_v2.json.
+#
+# Antes acá había {r2: 0.847, mae_usd: 159.0, mae_pct: 16.4}: constantes
+# heredadas del pipeline v2 original, cuyo dataset y script no estaban
+# versionados. Al reconstruirlos y medir, el MAPE resultó fiel (16.4 → 16.16,
+# se reportaba conservador) pero R² y MAE estaban optimistas: ningún
+# experimento espacial los había verificado nunca.
+_METRICS_V2 = {"r2": 0.816, "mae_usd": 168.0, "mae_pct": 16.2}
 _METRICS_V1 = {"r2": 0.785, "mae_usd": 173.0, "mae_pct": 15.9}
 
 def _model_metrics() -> dict:
